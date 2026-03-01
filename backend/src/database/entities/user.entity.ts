@@ -3,16 +3,17 @@ import {
   Column,
   PrimaryGeneratedColumn,
   CreateDateColumn,
-  UpdateDateColumn,
 } from 'typeorm';
+
+export enum PlanType {
+  FREE = 'FREE',
+  PRO = 'PRO',
+}
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Column({ length: 100 })
-  name: string;
 
   @Column({ unique: true, length: 255 })
   email: string;
@@ -20,9 +21,29 @@ export class User {
   @Column({ length: 255 })
   password: string;
 
+  @Column({ length: 50 })
+  username: string;
+
+  @Column({ type: 'text', nullable: true, name: 'avatar_url' })
+  avatarUrl: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: PlanType,
+    default: PlanType.FREE,
+    name: 'plan_type',
+  })
+  planType: PlanType;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'expired_at' })
+  expiredAt: Date | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'stripe_customer_id' })
+  stripeCustomerId: string | null;
+
+  @Column({ type: 'boolean', default: false, name: 'is_verified' })
+  isVerified: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
 }

@@ -19,7 +19,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto): Promise<{ user: Partial<User>; accessToken: string }> {
-    const { name, email, password } = registerDto;
+    const { username, email, password } = registerDto;
 
     const existingUser = await this.userRepository.findOne({
       where: { email },
@@ -32,7 +32,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = this.userRepository.create({
-      name,
+      username,
       email,
       password: hashedPassword,
     });
