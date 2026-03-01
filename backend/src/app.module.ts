@@ -3,16 +3,17 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { databaseConfig } from './config';
+import { databaseConfig, jwtConfig } from './config';
 import { User } from './database/entities';
 import { UsersModule } from './modules/users';
+import { AuthModule } from './modules/auth';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig],
-      envFilePath: '.env',
+      load: [databaseConfig, jwtConfig],
+      envFilePath: ['.env', 'backend/.env'],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -30,6 +31,7 @@ import { UsersModule } from './modules/users';
       inject: [ConfigService],
     }),
     UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
