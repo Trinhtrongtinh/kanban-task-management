@@ -25,6 +25,7 @@ export enum ErrorCode {
   // Board (for future use)
   BOARD_NOT_FOUND = 'BOARD_NOT_FOUND',
   BOARD_ACCESS_DENIED = 'BOARD_ACCESS_DENIED',
+  BOARD_SLUG_EXISTS = 'BOARD_SLUG_EXISTS',
 
   // List (for future use)
   LIST_NOT_FOUND = 'LIST_NOT_FOUND',
@@ -62,6 +63,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   // Board
   [ErrorCode.BOARD_NOT_FOUND]: 'Board not found',
   [ErrorCode.BOARD_ACCESS_DENIED]: 'You do not have access to this board',
+  [ErrorCode.BOARD_SLUG_EXISTS]: 'Board slug is already taken',
 
   // List
   [ErrorCode.LIST_NOT_FOUND]: 'List not found',

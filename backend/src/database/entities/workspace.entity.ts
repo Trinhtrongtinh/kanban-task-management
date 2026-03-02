@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { User } from './user.entity';
+import { Board } from './board.entity';
 
 export enum WorkspaceType {
   BUSINESS = 'Business',
@@ -42,6 +44,9 @@ export class Workspace {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_id' })
   owner: User;
+
+  @OneToMany(() => Board, (board) => board.workspace)
+  boards: Board[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
