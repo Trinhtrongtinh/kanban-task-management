@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Workspace } from './workspace.entity';
+import { List } from './list.entity';
 
 export enum BoardVisibility {
   PRIVATE = 'Private',
@@ -44,6 +46,9 @@ export class Board {
 
   @Column({ length: 100, unique: true })
   slug: string;
+
+  @OneToMany(() => List, (list) => list.board)
+  lists: List[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

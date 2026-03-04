@@ -4,11 +4,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { databaseConfig, jwtConfig } from './config';
-import { User, Workspace, Board } from './database/entities';
+import { User, Workspace, Board, List } from './database/entities';
 import { UsersModule } from './modules/users';
 import { AuthModule } from './modules/auth';
 import { WorkspacesModule } from './modules/workspaces';
 import { BoardsModule } from './modules/boards';
+import { ListsModule } from './modules/lists';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { BoardsModule } from './modules/boards';
         username: configService.get<string>('database.username'),
         password: configService.get<string>('database.password'),
         database: configService.get<string>('database.database'),
-        entities: [User, Workspace, Board],
+        entities: [User, Workspace, Board, List],
         synchronize: configService.get<boolean>('database.synchronize'),
         logging: configService.get<boolean>('database.logging'),
       }),
@@ -36,6 +37,7 @@ import { BoardsModule } from './modules/boards';
     AuthModule,
     WorkspacesModule,
     BoardsModule,
+    ListsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
