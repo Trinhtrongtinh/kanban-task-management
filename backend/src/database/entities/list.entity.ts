@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Board } from './board.entity';
+import { Card } from './card.entity';
 
 @Entity('lists')
 export class List {
@@ -28,6 +30,9 @@ export class List {
 
   @Column({ type: 'double' })
   position: number;
+
+  @OneToMany(() => Card, (card) => card.list)
+  cards: Card[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
