@@ -48,6 +48,9 @@ export enum ErrorCode {
   ATTACHMENT_FILE_TOO_LARGE = 'ATTACHMENT_FILE_TOO_LARGE',
   ATTACHMENT_INVALID_TYPE = 'ATTACHMENT_INVALID_TYPE',
 
+  // Comment
+  COMMENT_NOT_FOUND = 'COMMENT_NOT_FOUND',
+
   // General
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -100,6 +103,9 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.ATTACHMENT_UPLOAD_FAILED]: 'Failed to upload file',
   [ErrorCode.ATTACHMENT_FILE_TOO_LARGE]: 'File size exceeds the limit (5MB)',
   [ErrorCode.ATTACHMENT_INVALID_TYPE]: 'Invalid file type',
+
+  // Comment
+  [ErrorCode.COMMENT_NOT_FOUND]: 'Comment not found',
 
   // General
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',
