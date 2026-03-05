@@ -5,9 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  ManyToMany,
   JoinColumn,
+  JoinTable,
 } from 'typeorm';
 import { List } from './list.entity';
+import { Label } from './label.entity';
 
 @Entity('cards')
 export class Card {
@@ -40,6 +43,14 @@ export class Card {
 
   @Column({ type: 'boolean', default: false, name: 'is_archived' })
   isArchived: boolean;
+
+  @ManyToMany(() => Label, (label) => label.cards)
+  @JoinTable({
+    name: 'card_labels',
+    joinColumn: { name: 'card_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'label_id', referencedColumnName: 'id' },
+  })
+  labels: Label[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

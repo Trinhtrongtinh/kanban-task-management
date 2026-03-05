@@ -74,6 +74,7 @@ export class CardsService {
 
     return this.cardRepository.find({
       where: { listId, isArchived: false },
+      relations: ['labels'],
       order: { position: 'ASC' },
     });
   }
@@ -81,7 +82,7 @@ export class CardsService {
   async findOne(id: string): Promise<Card> {
     const card = await this.cardRepository.findOne({
       where: { id },
-      relations: ['list'],
+      relations: ['list', 'labels'],
     });
 
     if (!card) {

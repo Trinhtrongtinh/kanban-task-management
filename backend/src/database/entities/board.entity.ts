@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Workspace } from './workspace.entity';
 import { List } from './list.entity';
+import { Label } from './label.entity';
 
 export enum BoardVisibility {
   PRIVATE = 'Private',
@@ -49,6 +50,9 @@ export class Board {
 
   @OneToMany(() => List, (list) => list.board)
   lists: List[];
+
+  @OneToMany(() => Label, (label) => label.board)
+  labels: Label[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

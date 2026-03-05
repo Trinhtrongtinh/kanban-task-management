@@ -33,6 +33,11 @@ export enum ErrorCode {
   // Card (for future use)
   CARD_NOT_FOUND = 'CARD_NOT_FOUND',
 
+  // Label
+  LABEL_NOT_FOUND = 'LABEL_NOT_FOUND',
+  LABEL_ALREADY_ASSIGNED = 'LABEL_ALREADY_ASSIGNED',
+  LABEL_NOT_ASSIGNED = 'LABEL_NOT_ASSIGNED',
+
   // General
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -70,6 +75,11 @@ export const ErrorMessages: Record<ErrorCode, string> = {
 
   // Card
   [ErrorCode.CARD_NOT_FOUND]: 'Card not found',
+
+  // Label
+  [ErrorCode.LABEL_NOT_FOUND]: 'Label not found',
+  [ErrorCode.LABEL_ALREADY_ASSIGNED]: 'Label is already assigned to this card',
+  [ErrorCode.LABEL_NOT_ASSIGNED]: 'Label is not assigned to this card',
 
   // General
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',

@@ -12,10 +12,14 @@ import { CardsService } from './cards.service';
 import { CreateCardDto, UpdateCardDto } from './dto';
 import { Card } from '../../database/entities';
 import { ResponseMessage } from '../../common/decorators';
+import { LabelsService } from '../labels/labels.service';
 
 @Controller('cards')
 export class CardsController {
-  constructor(private readonly cardsService: CardsService) {}
+  constructor(
+    private readonly cardsService: CardsService,
+    private readonly labelsService: LabelsService,
+  ) {}
 
   @Post()
   @ResponseMessage('Card created successfully')
@@ -50,5 +54,24 @@ export class CardsController {
   @ResponseMessage('Card deleted successfully')
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.cardsService.remove(id);
+  }
+
+  // Card-Label assignment endpoints
+  @Post(':cardId/labels/:labelId')
+  @ResponseMessage('Label assigned to card successfully')
+  async addLabelToCard(
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Param('labelId', ParseUUIDPipe) labelId: string,
+  ): Promise<Card> {
+    return this.labelsService.addLabelToCard(cardId, labelId);
+  }
+
+  @Delete(':cardId/labels/:labelId')
+  @ResponseMessage('Label removed from card successfully')
+  async removeLabelFromCard(
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Param('labelId', ParseUUIDPipe) labelId: string,
+  ): Promise<Card> {
+    return this.labelsService.removeLabelFromCard(cardId, labelId);
   }
 }
