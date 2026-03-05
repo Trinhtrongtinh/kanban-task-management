@@ -6,11 +6,13 @@ import {
   UpdateDateColumn,
   ManyToOne,
   ManyToMany,
+  OneToMany,
   JoinColumn,
   JoinTable,
 } from 'typeorm';
 import { List } from './list.entity';
 import { Label } from './label.entity';
+import { Checklist } from './checklist.entity';
 
 @Entity('cards')
 export class Card {
@@ -51,6 +53,11 @@ export class Card {
     inverseJoinColumn: { name: 'label_id', referencedColumnName: 'id' },
   })
   labels: Label[];
+
+  @OneToMany(() => Checklist, (checklist) => checklist.card, {
+    cascade: true,
+  })
+  checklists: Checklist[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

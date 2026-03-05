@@ -38,6 +38,10 @@ export enum ErrorCode {
   LABEL_ALREADY_ASSIGNED = 'LABEL_ALREADY_ASSIGNED',
   LABEL_NOT_ASSIGNED = 'LABEL_NOT_ASSIGNED',
 
+  // Checklist
+  CHECKLIST_NOT_FOUND = 'CHECKLIST_NOT_FOUND',
+  CHECKLIST_ITEM_NOT_FOUND = 'CHECKLIST_ITEM_NOT_FOUND',
+
   // General
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -80,6 +84,10 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.LABEL_NOT_FOUND]: 'Label not found',
   [ErrorCode.LABEL_ALREADY_ASSIGNED]: 'Label is already assigned to this card',
   [ErrorCode.LABEL_NOT_ASSIGNED]: 'Label is not assigned to this card',
+
+  // Checklist
+  [ErrorCode.CHECKLIST_NOT_FOUND]: 'Checklist not found',
+  [ErrorCode.CHECKLIST_ITEM_NOT_FOUND]: 'Checklist item not found',
 
   // General
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',

@@ -4,3 +4,5 @@ export * from './board.entity';
 export * from './list.entity';
 export * from './card.entity';
 export * from './label.entity';
+export * from './checklist.entity';
+export * from './checklist-item.entity';

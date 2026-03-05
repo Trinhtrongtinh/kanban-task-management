@@ -10,15 +10,18 @@ import {
 } from '@nestjs/common';
 import { CardsService } from './cards.service';
 import { CreateCardDto, UpdateCardDto } from './dto';
-import { Card } from '../../database/entities';
+import { Card, Checklist } from '../../database/entities';
 import { ResponseMessage } from '../../common/decorators';
 import { LabelsService } from '../labels/labels.service';
+import { ChecklistsService } from '../checklists/checklists.service';
+import { CreateChecklistDto } from '../checklists/dto';
 
 @Controller('cards')
 export class CardsController {
   constructor(
     private readonly cardsService: CardsService,
     private readonly labelsService: LabelsService,
+    private readonly checklistsService: ChecklistsService,
   ) {}
 
   @Post()
@@ -73,5 +76,23 @@ export class CardsController {
     @Param('labelId', ParseUUIDPipe) labelId: string,
   ): Promise<Card> {
     return this.labelsService.removeLabelFromCard(cardId, labelId);
+  }
+
+  // Card-Checklist endpoints
+  @Post(':cardId/checklists')
+  @ResponseMessage('Checklist created successfully')
+  async createChecklist(
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Body() createChecklistDto: CreateChecklistDto,
+  ): Promise<Checklist> {
+    return this.checklistsService.createChecklist(cardId, createChecklistDto);
+  }
+
+  @Get(':cardId/checklists')
+  @ResponseMessage('Checklists retrieved successfully')
+  async findChecklistsByCard(
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+  ): Promise<Checklist[]> {
+    return this.checklistsService.findAllByCard(cardId);
   }
 }
