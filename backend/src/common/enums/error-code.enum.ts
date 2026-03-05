@@ -42,6 +42,12 @@ export enum ErrorCode {
   CHECKLIST_NOT_FOUND = 'CHECKLIST_NOT_FOUND',
   CHECKLIST_ITEM_NOT_FOUND = 'CHECKLIST_ITEM_NOT_FOUND',
 
+  // Attachment
+  ATTACHMENT_NOT_FOUND = 'ATTACHMENT_NOT_FOUND',
+  ATTACHMENT_UPLOAD_FAILED = 'ATTACHMENT_UPLOAD_FAILED',
+  ATTACHMENT_FILE_TOO_LARGE = 'ATTACHMENT_FILE_TOO_LARGE',
+  ATTACHMENT_INVALID_TYPE = 'ATTACHMENT_INVALID_TYPE',
+
   // General
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -88,6 +94,12 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   // Checklist
   [ErrorCode.CHECKLIST_NOT_FOUND]: 'Checklist not found',
   [ErrorCode.CHECKLIST_ITEM_NOT_FOUND]: 'Checklist item not found',
+
+  // Attachment
+  [ErrorCode.ATTACHMENT_NOT_FOUND]: 'Attachment not found',
+  [ErrorCode.ATTACHMENT_UPLOAD_FAILED]: 'Failed to upload file',
+  [ErrorCode.ATTACHMENT_FILE_TOO_LARGE]: 'File size exceeds the limit (5MB)',
+  [ErrorCode.ATTACHMENT_INVALID_TYPE]: 'Invalid file type',
 
   // General
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',

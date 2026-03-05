@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { databaseConfig, jwtConfig } from './config';
-import { User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem } from './database/entities';
+import { User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem, Attachment } from './database/entities';
 import { UsersModule } from './modules/users';
 import { AuthModule } from './modules/auth';
 import { WorkspacesModule } from './modules/workspaces';
@@ -13,6 +13,7 @@ import { ListsModule } from './modules/lists';
 import { CardsModule } from './modules/cards';
 import { LabelsModule } from './modules/labels';
 import { ChecklistsModule } from './modules/checklists';
+import { AttachmentsModule } from './modules/attachments';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { ChecklistsModule } from './modules/checklists';
         username: configService.get<string>('database.username'),
         password: configService.get<string>('database.password'),
         database: configService.get<string>('database.database'),
-        entities: [User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem],
+        entities: [User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem, Attachment],
         synchronize: configService.get<boolean>('database.synchronize'),
         logging: configService.get<boolean>('database.logging'),
       }),
@@ -44,6 +45,7 @@ import { ChecklistsModule } from './modules/checklists';
     CardsModule,
     LabelsModule,
     ChecklistsModule,
+    AttachmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -6,3 +6,4 @@ export * from './card.entity';
 export * from './label.entity';
 export * from './checklist.entity';
 export * from './checklist-item.entity';
+export * from './attachment.entity';

@@ -13,6 +13,7 @@ import {
 import { List } from './list.entity';
 import { Label } from './label.entity';
 import { Checklist } from './checklist.entity';
+import { Attachment } from './attachment.entity';
 
 @Entity('cards')
 export class Card {
@@ -58,6 +59,11 @@ export class Card {
     cascade: true,
   })
   checklists: Checklist[];
+
+  @OneToMany(() => Attachment, (attachment) => attachment.card, {
+    cascade: true,
+  })
+  attachments: Attachment[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
