@@ -16,6 +16,7 @@ import { ChecklistsModule } from './modules/checklists';
 import { AttachmentsModule } from './modules/attachments';
 import { CommentsModule } from './modules/comments';
 import { ActivitiesModule } from './modules/activities';
+import { SearchModule } from './modules/search';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { ActivitiesModule } from './modules/activities';
     AttachmentsModule,
     CommentsModule,
     ActivitiesModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
