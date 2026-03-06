@@ -9,12 +9,13 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { CardsService } from './cards.service';
-import { CreateCardDto, UpdateCardDto } from './dto';
+import { CreateCardDto, UpdateCardDto, MoveCardDto } from './dto';
 import { Card, Checklist } from '../../database/entities';
 import { ResponseMessage } from '../../common/decorators';
 import { LabelsService } from '../labels/labels.service';
 import { ChecklistsService } from '../checklists/checklists.service';
 import { CreateChecklistDto } from '../checklists/dto';
+import { CurrentUser } from '../../common/decorators';
 
 @Controller('cards')
 export class CardsController {
@@ -57,6 +58,15 @@ export class CardsController {
   @ResponseMessage('Card deleted successfully')
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.cardsService.remove(id);
+  }
+
+  @Patch(':id/move')
+  @ResponseMessage('Card moved successfully')
+  async moveCard(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() moveCardDto: MoveCardDto,
+  ): Promise<Card> {
+    return this.cardsService.moveCard(id, moveCardDto, moveCardDto.userId);
   }
 
   // Card-Label assignment endpoints

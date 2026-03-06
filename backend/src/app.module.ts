@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { databaseConfig, jwtConfig } from './config';
-import { User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem, Attachment, Comment } from './database/entities';
+import { User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem, Attachment, Comment, ActivityLog } from './database/entities';
 import { UsersModule } from './modules/users';
 import { AuthModule } from './modules/auth';
 import { WorkspacesModule } from './modules/workspaces';
@@ -15,6 +15,7 @@ import { LabelsModule } from './modules/labels';
 import { ChecklistsModule } from './modules/checklists';
 import { AttachmentsModule } from './modules/attachments';
 import { CommentsModule } from './modules/comments';
+import { ActivitiesModule } from './modules/activities';
 
 @Module({
   imports: [
@@ -32,7 +33,7 @@ import { CommentsModule } from './modules/comments';
         username: configService.get<string>('database.username'),
         password: configService.get<string>('database.password'),
         database: configService.get<string>('database.database'),
-        entities: [User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem, Attachment, Comment],
+        entities: [User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem, Attachment, Comment, ActivityLog],
         synchronize: configService.get<boolean>('database.synchronize'),
         logging: configService.get<boolean>('database.logging'),
       }),
@@ -48,6 +49,7 @@ import { CommentsModule } from './modules/comments';
     ChecklistsModule,
     AttachmentsModule,
     CommentsModule,
+    ActivitiesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

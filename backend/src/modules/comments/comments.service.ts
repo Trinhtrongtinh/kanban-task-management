@@ -6,6 +6,7 @@ import { CreateCommentDto, UpdateCommentDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode } from '../../common/enums';
 import { CommentsGateway } from './comments.gateway';
+import { ActivitiesService } from '../activities/activities.service';
 
 @Injectable()
 export class CommentsService {
@@ -15,7 +16,24 @@ export class CommentsService {
     @InjectRepository(Card)
     private readonly cardRepository: Repository<Card>,
     private readonly commentsGateway: CommentsGateway,
+    private readonly activitiesService: ActivitiesService,
   ) {}
+
+  /**
+   * Validate card exists and return it
+   */
+  private async getCardWithList(cardId: string): Promise<Card> {
+    const card = await this.cardRepository.findOne({
+      where: { id: cardId },
+      relations: ['list'],
+    });
+
+    if (!card) {
+      throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+    }
+
+    return card;
+  }
 
   /**
    * Validate card exists
@@ -34,8 +52,8 @@ export class CommentsService {
    * Create a new comment
    */
   async create(cardId: string, createCommentDto: CreateCommentDto): Promise<Comment> {
-    // Validate card exists
-    await this.validateCardExists(cardId);
+    // Get card with list for boardId
+    const card = await this.getCardWithList(cardId);
 
     const comment = this.commentRepository.create({
       cardId,
@@ -50,6 +68,15 @@ export class CommentsService {
 
     // Emit real-time event
     this.commentsGateway.emitCommentCreated(cardId, commentWithUser);
+
+    // Log activity
+    await this.activitiesService.createLog({
+      userId: createCommentDto.userId,
+      boardId: card.list.boardId,
+      cardId: card.id,
+      action: 'ADD_COMMENT',
+      content: `Đã thêm một bình luận vào Card "${card.title}"`,
+    });
 
     return commentWithUser;
   }
