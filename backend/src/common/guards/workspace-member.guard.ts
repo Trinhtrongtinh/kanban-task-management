@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WorkspaceMember, Workspace } from '../../database/entities';
-import { WorkspaceRole } from '../enums';
+import { WorkspaceRole, MemberStatus } from '../enums';
 import { WORKSPACE_ROLES_KEY } from '../decorators';
 
 @Injectable()
@@ -56,14 +56,14 @@ export class WorkspaceMemberGuard implements CanActivate {
       return true;
     }
 
-    // Find user's membership in the workspace
+    // Find user's membership in the workspace (only ACTIVE members)
     const membership = await this.workspaceMemberRepository.findOne({
-      where: { workspaceId, userId },
+      where: { workspaceId, userId, status: MemberStatus.ACTIVE },
     });
 
     if (!membership) {
       throw new ForbiddenException(
-        'You are not a member of this workspace',
+        'You are not an active member of this workspace',
       );
     }
 

@@ -15,6 +15,7 @@ import { Label } from './label.entity';
 import { Checklist } from './checklist.entity';
 import { Attachment } from './attachment.entity';
 import { Comment } from './comment.entity';
+import { User } from './user.entity';
 
 @Entity('cards')
 export class Card {
@@ -29,6 +30,16 @@ export class Card {
   })
   @JoinColumn({ name: 'list_id' })
   list: List;
+
+  @Column({ name: 'assignee_id', nullable: true })
+  assigneeId: string | null;
+
+  @ManyToOne(() => User, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'assignee_id' })
+  assignee: User;
 
   @Column({ length: 255 })
   title: string;

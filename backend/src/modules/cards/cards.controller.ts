@@ -29,8 +29,16 @@ export class CardsController {
   ) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @ResponseMessage('Card created successfully')
-  async create(@Body() createCardDto: CreateCardDto): Promise<Card> {
+  async create(
+    @Body() createCardDto: CreateCardDto,
+    @CurrentUser('userId') userId: string,
+  ): Promise<Card> {
+    // If assigneeId not provided, auto-assign to current user
+    if (!createCardDto.assigneeId) {
+      createCardDto.assigneeId = userId;
+    }
     return this.cardsService.create(createCardDto);
   }
 

@@ -10,10 +10,11 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
-import { CreateWorkspaceDto, UpdateWorkspaceDto } from './dto';
-import { Workspace } from '../../database/entities';
+import { CreateWorkspaceDto, UpdateWorkspaceDto, InviteMemberDto } from './dto';
+import { Workspace, WorkspaceMember } from '../../database/entities';
 import { ResponseMessage, CurrentUser, RequireWorkspaceRole } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { WorkspaceMemberGuard } from '../../common/guards';
@@ -64,5 +65,47 @@ export class WorkspacesController {
   @ResponseMessage('Workspace deleted successfully')
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.workspacesService.remove(id);
+  }
+
+  /**
+   * Invite a member to workspace
+   * Only OWNER or ADMIN can invite
+   */
+  @Post(':id/invite')
+  @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
+  @RequireWorkspaceRole(WorkspaceRole.OWNER, WorkspaceRole.ADMIN)
+  @ResponseMessage('Lời mời đã được gửi thành công')
+  async inviteMember(
+    @Param('id', ParseUUIDPipe) workspaceId: string,
+    @Body() inviteMemberDto: InviteMemberDto,
+    @CurrentUser('userId') userId: string,
+  ): Promise<WorkspaceMember> {
+    return this.workspacesService.inviteMember(workspaceId, inviteMemberDto, userId);
+  }
+
+  /**
+   * Accept invitation and join workspace
+   */
+  @Post(':id/accept-invite')
+  @UseGuards(JwtAuthGuard)
+  @ResponseMessage('Bạn đã tham gia workspace thành công')
+  async acceptInvitation(
+    @Param('id', ParseUUIDPipe) workspaceId: string,
+    @Query('token') token: string,
+    @CurrentUser('userId') userId: string,
+  ): Promise<WorkspaceMember> {
+    return this.workspacesService.acceptInvitation(workspaceId, token, userId);
+  }
+
+  /**
+   * Get workspace members
+   */
+  @Get(':id/members')
+  @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
+  @ResponseMessage('Members retrieved successfully')
+  async getMembers(
+    @Param('id', ParseUUIDPipe) workspaceId: string,
+  ): Promise<WorkspaceMember[]> {
+    return this.workspacesService.getMembers(workspaceId);
   }
 }

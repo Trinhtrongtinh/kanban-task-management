@@ -51,6 +51,14 @@ export enum ErrorCode {
   // Comment
   COMMENT_NOT_FOUND = 'COMMENT_NOT_FOUND',
 
+  // Invitation
+  EMAIL_SEND_FAILED = 'EMAIL_SEND_FAILED',
+  INVALID_TOKEN = 'INVALID_TOKEN',
+  INVITATION_EXPIRED = 'INVITATION_EXPIRED',
+
+  // Authorization
+  FORBIDDEN = 'FORBIDDEN',
+
   // General
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -106,6 +114,14 @@ export const ErrorMessages: Record<ErrorCode, string> = {
 
   // Comment
   [ErrorCode.COMMENT_NOT_FOUND]: 'Comment not found',
+
+  // Invitation
+  [ErrorCode.EMAIL_SEND_FAILED]: 'Failed to send email',
+  [ErrorCode.INVALID_TOKEN]: 'Invalid or expired token',
+  [ErrorCode.INVITATION_EXPIRED]: 'Invitation has expired',
+
+  // Authorization
+  [ErrorCode.FORBIDDEN]: 'You do not have permission to perform this action',
 
   // General
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',

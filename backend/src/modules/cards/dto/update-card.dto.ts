@@ -37,4 +37,8 @@ export class UpdateCardDto {
   @IsUUID()
   @IsOptional()
   listId?: string; // For moving card to another list
+
+  @IsUUID()
+  @IsOptional()
+  assigneeId?: string | null; // Assign user to card
 }

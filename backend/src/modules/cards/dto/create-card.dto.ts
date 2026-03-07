@@ -24,4 +24,8 @@ export class CreateCardDto {
   @IsUUID()
   @IsNotEmpty()
   listId: string;
+
+  @IsUUID()
+  @IsOptional()
+  assigneeId?: string;
 }

@@ -11,3 +11,4 @@ export * from './checklist-item.entity';
 export * from './attachment.entity';
 export * from './comment.entity';
 export * from './activity-log.entity';
+export * from './notification.entity';

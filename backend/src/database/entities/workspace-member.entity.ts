@@ -3,13 +3,14 @@ import {
   Column,
   PrimaryGeneratedColumn,
   CreateDateColumn,
+  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   Unique,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
-import { WorkspaceRole } from '../../common/enums';
+import { WorkspaceRole, MemberStatus } from '../../common/enums';
 
 @Entity('workspace_members')
 @Unique(['workspaceId', 'userId'])
@@ -38,6 +39,19 @@ export class WorkspaceMember {
   })
   role: WorkspaceRole;
 
-  @CreateDateColumn({ name: 'joined_at' })
-  joinedAt: Date;
+  @Column({
+    type: 'enum',
+    enum: MemberStatus,
+    default: MemberStatus.ACTIVE,
+  })
+  status: MemberStatus;
+
+  @Column({ name: 'invite_token', type: 'varchar', length: 255, nullable: true })
+  inviteToken: string | null;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 }
