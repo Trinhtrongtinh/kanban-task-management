@@ -51,13 +51,13 @@ export class CommentsService {
   /**
    * Create a new comment
    */
-  async create(cardId: string, createCommentDto: CreateCommentDto): Promise<Comment> {
+  async create(cardId: string, createCommentDto: CreateCommentDto, userId: string): Promise<Comment> {
     // Get card with list for boardId
     const card = await this.getCardWithList(cardId);
 
     const comment = this.commentRepository.create({
       cardId,
-      userId: createCommentDto.userId,
+      userId,
       content: createCommentDto.content,
     });
 
@@ -71,7 +71,7 @@ export class CommentsService {
 
     // Log activity
     await this.activitiesService.createLog({
-      userId: createCommentDto.userId,
+      userId,
       boardId: card.list.boardId,
       cardId: card.id,
       action: 'ADD_COMMENT',

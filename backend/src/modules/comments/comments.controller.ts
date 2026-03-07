@@ -7,23 +7,27 @@ import {
   Param,
   Delete,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto, UpdateCommentDto } from './dto';
 import { Comment } from '../../database/entities';
-import { ResponseMessage } from '../../common/decorators';
+import { ResponseMessage, CurrentUser } from '../../common/decorators';
+import { JwtAuthGuard } from '../auth/guards';
 
 @Controller()
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
   @Post('cards/:cardId/comments')
+  @UseGuards(JwtAuthGuard)
   @ResponseMessage('Comment created successfully')
   async create(
     @Param('cardId', ParseUUIDPipe) cardId: string,
     @Body() createCommentDto: CreateCommentDto,
+    @CurrentUser('userId') userId: string,
   ): Promise<Comment> {
-    return this.commentsService.create(cardId, createCommentDto);
+    return this.commentsService.create(cardId, createCommentDto, userId);
   }
 
   @Get('cards/:cardId/comments')

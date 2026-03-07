@@ -11,7 +11,4 @@ export class MoveCardDto {
   @IsUUID()
   @IsOptional()
   nextCardId?: string;
-
-  @IsUUID()
-  userId: string;
 }

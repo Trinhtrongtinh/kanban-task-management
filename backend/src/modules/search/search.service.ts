@@ -6,9 +6,6 @@ import { GlobalSearchDto, AdvancedSearchDto, DueDateFilter } from './dto';
 
 @Injectable()
 export class SearchService {
-  // Hardcoded userId for now (skip JWT)
-  private readonly currentUserId = '191c2e6a-7cbf-4c15-a016-37233433f1ac';
-
   constructor(
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
@@ -24,13 +21,13 @@ export class SearchService {
    * Global search across workspaces, boards, and cards
    * Only returns results the user has access to
    */
-  async globalSearch(dto: GlobalSearchDto) {
+  async globalSearch(dto: GlobalSearchDto, userId: string) {
     const keyword = `%${dto.q}%`;
 
     // Search Workspaces (user is owner)
     const workspaces = await this.workspaceRepository
       .createQueryBuilder('workspace')
-      .where('workspace.ownerId = :userId', { userId: this.currentUserId })
+      .where('workspace.ownerId = :userId', { userId })
       .andWhere('workspace.name LIKE :keyword', { keyword })
       .select([
         'workspace.id',
@@ -44,7 +41,7 @@ export class SearchService {
     const boards = await this.boardRepository
       .createQueryBuilder('board')
       .innerJoin('board.workspace', 'workspace')
-      .where('workspace.ownerId = :userId', { userId: this.currentUserId })
+      .where('workspace.ownerId = :userId', { userId })
       .andWhere('board.title LIKE :keyword', { keyword })
       .select([
         'board.id',
@@ -61,7 +58,7 @@ export class SearchService {
       .innerJoin('card.list', 'list')
       .innerJoin('list.board', 'board')
       .innerJoin('board.workspace', 'workspace')
-      .where('workspace.ownerId = :userId', { userId: this.currentUserId })
+      .where('workspace.ownerId = :userId', { userId })
       .andWhere(
         new Brackets((qb) => {
           qb.where('card.title LIKE :keyword', { keyword }).orWhere(
@@ -98,13 +95,13 @@ export class SearchService {
    * Advanced search with filters
    * Supports: boardId, labelIds, dueDate
    */
-  async advancedSearch(dto: AdvancedSearchDto) {
+  async advancedSearch(dto: AdvancedSearchDto, userId: string) {
     const queryBuilder = this.cardRepository
       .createQueryBuilder('card')
       .innerJoin('card.list', 'list')
       .innerJoin('list.board', 'board')
       .innerJoin('board.workspace', 'workspace')
-      .where('workspace.ownerId = :userId', { userId: this.currentUserId })
+      .where('workspace.ownerId = :userId', { userId })
       .andWhere('card.isArchived = :isArchived', { isArchived: false });
 
     // Filter by boardId

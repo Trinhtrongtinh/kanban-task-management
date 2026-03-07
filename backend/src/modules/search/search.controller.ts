@@ -1,9 +1,11 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { SearchService } from './search.service';
 import { GlobalSearchDto, AdvancedSearchDto } from './dto';
-import { ResponseMessage } from '../../common/decorators';
+import { ResponseMessage, CurrentUser } from '../../common/decorators';
+import { JwtAuthGuard } from '../auth/guards';
 
 @Controller('search')
+@UseGuards(JwtAuthGuard)
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
@@ -13,8 +15,11 @@ export class SearchController {
    */
   @Get('global')
   @ResponseMessage('Tìm kiếm thành công')
-  async globalSearch(@Query() dto: GlobalSearchDto) {
-    return this.searchService.globalSearch(dto);
+  async globalSearch(
+    @Query() dto: GlobalSearchDto,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.searchService.globalSearch(dto, userId);
   }
 
 /* *
@@ -23,7 +28,10 @@ export class SearchController {
 */
   @Get('advanced')
   @ResponseMessage('Tìm kiếm nâng cao thành công')
-  async advancedSearch(@Query() dto: AdvancedSearchDto) {
-    return this.searchService.advancedSearch(dto);
+  async advancedSearch(
+    @Query() dto: AdvancedSearchDto,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.searchService.advancedSearch(dto, userId);
   }
 }

@@ -7,15 +7,16 @@ import {
   Param,
   Delete,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { CardsService } from './cards.service';
 import { CreateCardDto, UpdateCardDto, MoveCardDto } from './dto';
 import { Card, Checklist } from '../../database/entities';
-import { ResponseMessage } from '../../common/decorators';
+import { ResponseMessage, CurrentUser } from '../../common/decorators';
 import { LabelsService } from '../labels/labels.service';
 import { ChecklistsService } from '../checklists/checklists.service';
 import { CreateChecklistDto } from '../checklists/dto';
-import { CurrentUser } from '../../common/decorators';
+import { JwtAuthGuard } from '../auth/guards';
 
 @Controller('cards')
 export class CardsController {
@@ -61,12 +62,14 @@ export class CardsController {
   }
 
   @Patch(':id/move')
+  @UseGuards(JwtAuthGuard)
   @ResponseMessage('Card moved successfully')
   async moveCard(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() moveCardDto: MoveCardDto,
+    @CurrentUser('userId') userId: string,
   ): Promise<Card> {
-    return this.cardsService.moveCard(id, moveCardDto, moveCardDto.userId);
+    return this.cardsService.moveCard(id, moveCardDto, userId);
   }
 
   // Card-Label assignment endpoints
