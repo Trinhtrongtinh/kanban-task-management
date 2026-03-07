@@ -1,6 +1,6 @@
 import { Injectable, HttpStatus, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Not } from 'typeorm';
 import { Card, List } from '../../database/entities';
 import { CreateCardDto, UpdateCardDto, MoveCardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
@@ -184,8 +184,12 @@ export class CardsService {
       let newPosition: number;
 
       if (!prevCardId && !nextCardId) {
-        // Only card or moving to empty list
-        newPosition = POSITION_GAP;
+        // No position hints - place at end of target list
+        const lastCard = await queryRunner.manager.findOne(Card, {
+          where: { listId: targetListId, id: Not(id) }, // Exclude current card
+          order: { position: 'DESC' },
+        });
+        newPosition = lastCard ? lastCard.position + POSITION_GAP : POSITION_GAP;
       } else if (!prevCardId && nextCardId) {
         // Moving to the beginning of the list
         const nextCard = await queryRunner.manager.findOne(Card, {

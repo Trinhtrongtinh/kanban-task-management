@@ -1,10 +1,10 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpStatus, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Comment, Card } from '../../database/entities';
+import { Comment, Card, BoardMember } from '../../database/entities';
 import { CreateCommentDto, UpdateCommentDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode } from '../../common/enums';
+import { ErrorCode, BoardRole } from '../../common/enums';
 import { CommentsGateway } from './comments.gateway';
 import { ActivitiesService } from '../activities/activities.service';
 
@@ -15,6 +15,8 @@ export class CommentsService {
     private readonly commentRepository: Repository<Comment>,
     @InjectRepository(Card)
     private readonly cardRepository: Repository<Card>,
+    @InjectRepository(BoardMember)
+    private readonly boardMemberRepository: Repository<BoardMember>,
     private readonly commentsGateway: CommentsGateway,
     private readonly activitiesService: ActivitiesService,
   ) {}
@@ -138,10 +140,38 @@ export class CommentsService {
   }
 
   /**
+   * Check if user can modify the comment (owner or board admin)
+   */
+  private async validateCommentPermission(comment: Comment, userId: string): Promise<void> {
+    // Owner can always modify their own comment
+    if (comment.userId === userId) {
+      return;
+    }
+
+    // Get card to find boardId
+    const card = await this.getCardWithList(comment.cardId);
+    const boardId = card.list.boardId;
+
+    // Check if user is board admin
+    const membership = await this.boardMemberRepository.findOne({
+      where: { boardId, userId },
+    });
+
+    if (membership?.role === BoardRole.ADMIN) {
+      return;
+    }
+
+    throw new ForbiddenException('You can only modify your own comments');
+  }
+
+  /**
    * Update comment content
    */
-  async update(id: string, updateCommentDto: UpdateCommentDto): Promise<Comment> {
+  async update(id: string, updateCommentDto: UpdateCommentDto, userId: string): Promise<Comment> {
     const comment = await this.findOne(id);
+
+    // Check permission
+    await this.validateCommentPermission(comment, userId);
 
     comment.content = updateCommentDto.content;
 
@@ -158,8 +188,12 @@ export class CommentsService {
   /**
    * Soft delete a comment
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId: string): Promise<void> {
     const comment = await this.findOne(id);
+
+    // Check permission
+    await this.validateCommentPermission(comment, userId);
+
     await this.commentRepository.softDelete(id);
 
     // Emit real-time event

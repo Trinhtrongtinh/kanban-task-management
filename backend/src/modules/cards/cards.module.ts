@@ -7,6 +7,7 @@ import { Card, List } from '../../database/entities';
 import { LabelsModule } from '../labels/labels.module';
 import { ChecklistsModule } from '../checklists/checklists.module';
 import { ActivitiesModule } from '../activities/activities.module';
+import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ActivitiesModule } from '../activities/activities.module';
     LabelsModule,
     ChecklistsModule,
     ActivitiesModule,
+    CommonModule,
   ],
   controllers: [CardsController],
   providers: [CardsService, CardsGateway],

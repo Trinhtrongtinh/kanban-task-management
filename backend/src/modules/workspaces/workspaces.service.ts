@@ -1,16 +1,18 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Workspace } from '../../database/entities';
+import { Workspace, WorkspaceMember } from '../../database/entities';
 import { CreateWorkspaceDto, UpdateWorkspaceDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode } from '../../common/enums';
+import { ErrorCode, WorkspaceRole } from '../../common/enums';
 
 @Injectable()
 export class WorkspacesService {
   constructor(
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
+    @InjectRepository(WorkspaceMember)
+    private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
   ) {}
 
   /**
@@ -72,8 +74,8 @@ export class WorkspacesService {
     return uniqueSlug;
   }
 
-  async create(createWorkspaceDto: CreateWorkspaceDto): Promise<Workspace> {
-    const { name, slug, ownerId, ...rest } = createWorkspaceDto;
+  async create(createWorkspaceDto: CreateWorkspaceDto, userId: string): Promise<Workspace> {
+    const { name, slug, ...rest } = createWorkspaceDto;
 
     // Generate slug from name if not provided
     let workspaceSlug = slug || this.generateSlug(name);
@@ -84,11 +86,31 @@ export class WorkspacesService {
     const workspace = this.workspaceRepository.create({
       name,
       slug: workspaceSlug,
-      ownerId,
+      ownerId: userId,
       ...rest,
     });
 
-    return this.workspaceRepository.save(workspace);
+    const savedWorkspace = await this.workspaceRepository.save(workspace);
+
+    // Create workspace member for owner
+    const workspaceMember = this.workspaceMemberRepository.create({
+      workspaceId: savedWorkspace.id,
+      userId,
+      role: WorkspaceRole.OWNER,
+    });
+    await this.workspaceMemberRepository.save(workspaceMember);
+
+    return savedWorkspace;
+  }
+
+  async findAllByUser(userId: string): Promise<Workspace[]> {
+    // Find workspaces where user is a member
+    const memberships = await this.workspaceMemberRepository.find({
+      where: { userId },
+      relations: ['workspace', 'workspace.owner'],
+    });
+
+    return memberships.map(m => m.workspace);
   }
 
   async findAll(): Promise<Workspace[]> {

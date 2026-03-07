@@ -3,7 +3,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsEnum,
-  IsUUID,
   MaxLength,
 } from 'class-validator';
 import { WorkspaceType } from '../../../database/entities/workspace.entity';
@@ -26,8 +25,4 @@ export class CreateWorkspaceDto {
   @IsEnum(WorkspaceType)
   @IsOptional()
   type?: WorkspaceType;
-
-  @IsUUID()
-  @IsNotEmpty()
-  ownerId: string;
 }

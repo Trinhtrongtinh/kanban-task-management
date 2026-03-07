@@ -12,11 +12,13 @@ import {
 import { CardsService } from './cards.service';
 import { CreateCardDto, UpdateCardDto, MoveCardDto } from './dto';
 import { Card, Checklist } from '../../database/entities';
-import { ResponseMessage, CurrentUser } from '../../common/decorators';
+import { ResponseMessage, CurrentUser, RequireBoardRole } from '../../common/decorators';
 import { LabelsService } from '../labels/labels.service';
 import { ChecklistsService } from '../checklists/checklists.service';
 import { CreateChecklistDto } from '../checklists/dto';
 import { JwtAuthGuard } from '../auth/guards';
+import { CardBoardGuard } from '../../common/guards';
+import { BoardRole } from '../../common/enums';
 
 @Controller('cards')
 export class CardsController {
@@ -47,6 +49,8 @@ export class CardsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Card updated successfully')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -56,13 +60,16 @@ export class CardsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN)
   @ResponseMessage('Card deleted successfully')
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.cardsService.remove(id);
   }
 
   @Patch(':id/move')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Card moved successfully')
   async moveCard(
     @Param('id', ParseUUIDPipe) id: string,

@@ -1,10 +1,10 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Board, Workspace } from '../../database/entities';
+import { Board, Workspace, BoardMember } from '../../database/entities';
 import { CreateBoardDto, UpdateBoardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode } from '../../common/enums';
+import { ErrorCode, BoardRole } from '../../common/enums';
 
 @Injectable()
 export class BoardsService {
@@ -13,6 +13,8 @@ export class BoardsService {
     private readonly boardRepository: Repository<Board>,
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
+    @InjectRepository(BoardMember)
+    private readonly boardMemberRepository: Repository<BoardMember>,
   ) {}
 
   /**
@@ -89,7 +91,7 @@ export class BoardsService {
     }
   }
 
-  async create(createBoardDto: CreateBoardDto): Promise<Board> {
+  async create(createBoardDto: CreateBoardDto, userId: string): Promise<Board> {
     const { title, slug, workspaceId, ...rest } = createBoardDto;
 
     // Validate workspace exists
@@ -108,7 +110,17 @@ export class BoardsService {
       ...rest,
     });
 
-    return this.boardRepository.save(board);
+    const savedBoard = await this.boardRepository.save(board);
+
+    // Create board member for creator as ADMIN
+    const boardMember = this.boardMemberRepository.create({
+      boardId: savedBoard.id,
+      userId,
+      role: BoardRole.ADMIN,
+    });
+    await this.boardMemberRepository.save(boardMember);
+
+    return savedBoard;
   }
 
   async findAllByWorkspace(workspaceId: string): Promise<Board[]> {

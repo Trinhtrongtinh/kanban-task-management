@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { databaseConfig, jwtConfig } from './config';
-import { User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem, Attachment, Comment, ActivityLog } from './database/entities';
+import { User, Workspace, WorkspaceMember, Board, BoardMember, List, Card, Label, Checklist, ChecklistItem, Attachment, Comment, ActivityLog } from './database/entities';
 import { UsersModule } from './modules/users';
 import { AuthModule } from './modules/auth';
 import { WorkspacesModule } from './modules/workspaces';
@@ -17,6 +17,7 @@ import { AttachmentsModule } from './modules/attachments';
 import { CommentsModule } from './modules/comments';
 import { ActivitiesModule } from './modules/activities';
 import { SearchModule } from './modules/search';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -34,7 +35,7 @@ import { SearchModule } from './modules/search';
         username: configService.get<string>('database.username'),
         password: configService.get<string>('database.password'),
         database: configService.get<string>('database.database'),
-        entities: [User, Workspace, Board, List, Card, Label, Checklist, ChecklistItem, Attachment, Comment, ActivityLog],
+        entities: [User, Workspace, WorkspaceMember, Board, BoardMember, List, Card, Label, Checklist, ChecklistItem, Attachment, Comment, ActivityLog],
         synchronize: configService.get<boolean>('database.synchronize'),
         logging: configService.get<boolean>('database.logging'),
       }),
@@ -52,6 +53,7 @@ import { SearchModule } from './modules/search';
     CommentsModule,
     ActivitiesModule,
     SearchModule,
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -39,17 +39,23 @@ export class CommentsController {
   }
 
   @Patch('comments/:id')
+  @UseGuards(JwtAuthGuard)
   @ResponseMessage('Comment updated successfully')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCommentDto: UpdateCommentDto,
+    @CurrentUser('userId') userId: string,
   ): Promise<Comment> {
-    return this.commentsService.update(id, updateCommentDto);
+    return this.commentsService.update(id, updateCommentDto, userId);
   }
 
   @Delete('comments/:id')
+  @UseGuards(JwtAuthGuard)
   @ResponseMessage('Comment deleted successfully')
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.commentsService.remove(id);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') userId: string,
+  ): Promise<void> {
+    return this.commentsService.remove(id, userId);
   }
 }
