@@ -7,7 +7,10 @@ import { TransformInterceptor } from './common/interceptors';
 import { AllExceptionsFilter } from './common/filters';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // Enable raw body for Stripe webhook signature verification
+    rawBody: true,
+  });
 
   // Serve static files from uploads directory
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {

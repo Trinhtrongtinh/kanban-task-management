@@ -18,6 +18,7 @@ import { CommentsModule } from './modules/comments';
 import { ActivitiesModule } from './modules/activities';
 import { SearchModule } from './modules/search';
 import { NotificationsModule } from './modules/notifications';
+import { PaymentsModule } from './modules/payments';
 import { CommonModule } from './common/common.module';
 
 @Module({
@@ -55,6 +56,7 @@ import { CommonModule } from './common/common.module';
     ActivitiesModule,
     SearchModule,
     NotificationsModule,
+    PaymentsModule,
     CommonModule,
   ],
   controllers: [AppController],

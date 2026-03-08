@@ -85,8 +85,9 @@ export class WorkspacesController {
 
   /**
    * Accept invitation and join workspace
+   * Using GET so user can click link from email
    */
-  @Post(':id/accept-invite')
+  @Get(':id/accept-invite')
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Bạn đã tham gia workspace thành công')
   async acceptInvitation(

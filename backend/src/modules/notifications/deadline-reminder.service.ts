@@ -166,7 +166,10 @@ export class DeadlineReminderService {
         `Reminder processed for card "${card.title}" (${card.id}), user: ${user.email}`,
       );
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      // Only rollback if transaction is still active
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
       await queryRunner.release();

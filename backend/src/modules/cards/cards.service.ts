@@ -240,8 +240,10 @@ export class CardsService {
       // Commit transaction
       await queryRunner.commitTransaction();
     } catch (error) {
-      // Rollback on any error
-      await queryRunner.rollbackTransaction();
+      // Only rollback if transaction is still active
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
       // Release queryRunner

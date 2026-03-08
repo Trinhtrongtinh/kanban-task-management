@@ -258,7 +258,10 @@ export class WorkspacesService {
 
       return workspaceMember;
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      // Only rollback if transaction is still active (might have been rolled back already)
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
       await queryRunner.release();
@@ -306,14 +309,48 @@ export class WorkspacesService {
   }
 
   /**
-   * Get workspace members
+   * Get workspace members (including owner)
    */
   async getMembers(workspaceId: string): Promise<WorkspaceMember[]> {
-    return this.workspaceMemberRepository.find({
+    // Get workspace to find owner
+    const workspace = await this.findOne(workspaceId);
+
+    // Get all members from workspace_members table
+    const members = await this.workspaceMemberRepository.find({
       where: { workspaceId },
       relations: ['user'],
       order: { createdAt: 'ASC' },
     });
+
+    // Check if owner is already in members list
+    const ownerInList = members.some(m => m.userId === workspace.ownerId);
+
+    // If owner not in list, add them
+    if (!ownerInList) {
+      const owner = await this.userRepository.findOne({
+        where: { id: workspace.ownerId },
+      });
+
+      if (owner) {
+        // Create a virtual member object for owner (not saved to DB)
+        const ownerMember = {
+          id: 'owner-' + workspace.ownerId,
+          workspaceId,
+          userId: workspace.ownerId,
+          role: WorkspaceRole.OWNER,
+          status: MemberStatus.ACTIVE,
+          inviteToken: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          user: owner,
+        } as WorkspaceMember;
+
+        // Put owner at the beginning
+        return [ownerMember, ...members];
+      }
+    }
+
+    return members;
   }
 
   // ============ PRIVATE HELPER METHODS ============

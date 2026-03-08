@@ -248,4 +248,101 @@ export class MailerService {
       text,
     });
   }
+
+  /**
+   * Send upgrade success email
+   */
+  async sendUpgradeSuccessEmail(
+    to: string,
+    username: string,
+    expiredAt: Date,
+  ): Promise<boolean> {
+    const formattedDate = expiredAt.toLocaleDateString('vi-VN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; text-align: center; }
+          .content { background: #f9f9f9; padding: 30px; border: 1px solid #e0e0e0; }
+          .success-icon { font-size: 48px; margin-bottom: 15px; }
+          .plan-badge { display: inline-block; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 18px; }
+          .features { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+          .feature-item { padding: 10px 0; border-bottom: 1px solid #eee; }
+          .feature-item:last-child { border-bottom: none; }
+          .feature-icon { color: #28a745; margin-right: 10px; }
+          .expiry { background: #e3f2fd; padding: 15px; border-radius: 4px; text-align: center; margin: 20px 0; }
+          .footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="success-icon">🎉</div>
+            <h2>Nâng cấp thành công!</h2>
+          </div>
+          <div class="content">
+            <p>Xin chào <strong>${username}</strong>,</p>
+            <p>Cảm ơn bạn đã nâng cấp lên gói:</p>
+            
+            <p style="text-align: center; margin: 20px 0;">
+              <span class="plan-badge">✨ PRO</span>
+            </p>
+            
+            <div class="features">
+              <h3>Các tính năng bạn đã mở khóa:</h3>
+              <div class="feature-item"><span class="feature-icon">✅</span> Không giới hạn Workspaces</div>
+              <div class="feature-item"><span class="feature-icon">✅</span> Không giới hạn Boards</div>
+              <div class="feature-item"><span class="feature-icon">✅</span> Tải lên file không giới hạn dung lượng</div>
+              <div class="feature-item"><span class="feature-icon">✅</span> Báo cáo và thống kê nâng cao</div>
+              <div class="feature-item"><span class="feature-icon">✅</span> Hỗ trợ ưu tiên 24/7</div>
+            </div>
+            
+            <div class="expiry">
+              <strong>📅 Hết hạn:</strong> ${formattedDate}
+            </div>
+            
+            <p>Nếu bạn có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng tôi.</p>
+          </div>
+          <div class="footer">
+            <p>Email này được gửi tự động từ Kanban App</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+      🎉 Nâng cấp thành công!
+      
+      Xin chào ${username},
+      
+      Cảm ơn bạn đã nâng cấp lên gói PRO!
+      
+      Hết hạn: ${formattedDate}
+      
+      Các tính năng bạn đã mở khóa:
+      - Không giới hạn Workspaces
+      - Không giới hạn Boards
+      - Tải lên file không giới hạn dung lượng
+      - Báo cáo và thống kê nâng cao
+      - Hỗ trợ ưu tiên 24/7
+    `;
+
+    return this.sendMail({
+      to,
+      subject: '🎉 Chúc mừng! Bạn đã nâng cấp lên gói PRO',
+      html,
+      text,
+    });
+  }
 }
