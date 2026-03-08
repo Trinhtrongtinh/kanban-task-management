@@ -36,7 +36,7 @@ export class BoardMemberGuard implements CanActivate {
     // Get boardId from params (could be :boardId, :id for board routes)
     // or from body for POST requests like creating lists/cards
     const boardId = request.params.boardId || request.params.id || request.body?.boardId;
-    console.log('BoardId:', boardId);
+    // console.log('BoardId:', boardId);
     if (!boardId) {
       // If no boardId found anywhere, skip board check
       return true;

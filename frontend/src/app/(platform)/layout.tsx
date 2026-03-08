@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Header, Sidebar } from '@/components/layout';
+import { ModalProvider } from '@/components/providers/modal-provider';
 
 interface PlatformLayoutProps {
   children: React.ReactNode;
@@ -30,6 +31,7 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
       <main className="pt-14 md:pl-64">
         <div className="container mx-auto p-6">{children}</div>
       </main>
+      <ModalProvider />
     </div>
   );
 }

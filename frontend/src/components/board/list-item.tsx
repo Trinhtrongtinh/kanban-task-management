@@ -1,0 +1,81 @@
+'use client';
+
+import { useDroppable } from '@dnd-kit/core';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useMemo } from 'react';
+import type { BoardList } from './types';
+import { CardItem } from './card-item';
+import { cn } from '@/lib/utils';
+
+interface ListItemProps {
+  list: BoardList;
+}
+
+export function ListItem({ list }: ListItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: list.id,
+    data: {
+      type: 'List',
+      listId: list.id,
+    },
+  });
+
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `drop-${list.id}`,
+    data: {
+      type: 'List',
+      listId: list.id,
+    },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const cardIds = useMemo(() => list.cards.map((card) => card.id), [list.cards]);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'flex h-fit max-h-full w-[272px] shrink-0 flex-col rounded-xl bg-[#f1f2f4] p-3',
+        isDragging && 'opacity-50'
+      )}
+    >
+      {/* Header */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="mb-3 cursor-grab font-semibold text-foreground active:cursor-grabbing"
+      >
+        {list.title}
+      </div>
+
+      {/* Cards - scrollable, droppable area (cho cột rỗng) */}
+      <div
+        ref={setDropRef}
+        className={cn(
+          'flex min-h-[60px] flex-1 flex-col space-y-2 overflow-y-auto rounded-lg transition-colors',
+          isOver && 'bg-black/5'
+        )}
+      >
+        <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
+          {list.cards.map((card) => (
+            <CardItem key={card.id} card={card} listId={list.id} />
+          ))}
+        </SortableContext>
+      </div>
+    </div>
+  );
+}
