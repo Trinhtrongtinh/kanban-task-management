@@ -7,6 +7,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useMemo } from 'react';
 import type { BoardList } from './types';
 import { CardItem } from './card-item';
+import { CardForm } from './card-form';
 import { cn } from '@/lib/utils';
 
 interface ListItemProps {
@@ -62,7 +63,7 @@ export function ListItem({ list }: ListItemProps) {
         {list.title}
       </div>
 
-      {/* Cards - scrollable, droppable area (cho cột rỗng) */}
+      {/* Cards - scrollable, droppable area */}
       <div
         ref={setDropRef}
         className={cn(
@@ -76,6 +77,10 @@ export function ListItem({ list }: ListItemProps) {
           ))}
         </SortableContext>
       </div>
+
+      {/* Quick-add card form */}
+      <CardForm listId={list.id} />
     </div>
   );
 }
+

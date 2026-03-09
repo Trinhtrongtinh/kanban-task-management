@@ -43,24 +43,46 @@ const MOCK_LISTS: BoardList[] = [
     id: 'list-1',
     title: 'To Do',
     cards: [
-      { id: 'card-1', title: 'Task 1' },
-      { id: 'card-2', title: 'Task 2' },
-      { id: 'card-3', title: 'Task 3' },
+      { 
+        id: 'card-1', 
+        title: 'Task 1', 
+        boardId: '', 
+        members: [], 
+        dueDate: '2026-03-08T10:00:00Z',
+        attachments: [
+          {
+            id: 'att-1',
+            url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop',
+            fileName: 'design-mockup.png',
+            type: 'image/png',
+            createdAt: '2026-03-09T10:00:00Z'
+          },
+          {
+            id: 'att-2',
+            url: '#',
+            fileName: 'requirements.pdf',
+            type: 'application/pdf',
+            createdAt: '2026-03-09T11:30:00Z'
+          }
+        ]
+      },
+      { id: 'card-2', title: 'Task 2', boardId: '', members: [], dueDate: '2026-03-10T08:00:00Z' },
+      { id: 'card-3', title: 'Task 3', boardId: '', members: [] },
     ],
   },
   {
     id: 'list-2',
     title: 'In Progress',
     cards: [
-      { id: 'card-4', title: 'Task 4' },
-      { id: 'card-5', title: 'Task 5' },
+      { id: 'card-4', title: 'Task 4', boardId: '', members: [], dueDate: '2026-03-15T14:00:00Z' },
+      { id: 'card-5', title: 'Task 5', boardId: '', members: [] },
     ],
   },
   {
     id: 'list-3',
     title: 'Done',
     cards: [
-      { id: 'card-6', title: 'Task 6' },
+      { id: 'card-6', title: 'Task 6', boardId: '', members: [], dueDate: '2026-03-07T12:00:00Z', isCompleted: true },
     ],
   },
 ];
@@ -244,4 +266,9 @@ export function useBoard() {
     throw new Error('useBoard must be used within BoardProvider');
   }
   return ctx;
+}
+
+/** Safe version — returns null when outside BoardProvider (e.g. in global modals) */
+export function useBoardSafe(): BoardContextValue | null {
+  return useContext(BoardContext);
 }

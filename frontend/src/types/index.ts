@@ -1,8 +1,11 @@
 export interface User {
   id: string;
-  email: string;
   name: string;
-  avatar?: string;
+  email: string;
+  avatarUrl?: string;
+}
+
+export interface AppUser extends User {
   plan: 'free' | 'pro';
   createdAt: Date;
   updatedAt: Date;
@@ -43,10 +46,12 @@ export interface Card {
   title: string;
   description?: string;
   position: number;
+  boardId: string;
   listId: string;
   dueDate?: Date;
   labels?: Label[];
   checklists?: Checklist[];
+  members: User[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -77,7 +82,7 @@ export interface Activity {
   entityType: 'board' | 'list' | 'card' | 'checklist';
   entityId: string;
   userId: string;
-  user?: User;
+  user?: AppUser;
   metadata?: Record<string, unknown>;
   createdAt: Date;
 }

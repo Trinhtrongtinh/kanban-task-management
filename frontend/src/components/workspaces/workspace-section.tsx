@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Board {
@@ -46,7 +45,7 @@ function BoardCard({ board, index }: BoardCardProps) {
     <Link href={`/b/${board.id}`}>
       <div
         className={cn(
-          'group relative aspect-video cursor-pointer overflow-hidden rounded-lg transition-transform duration-200 hover:scale-105',
+          'group relative aspect-video cursor-pointer overflow-hidden rounded-lg transition-all duration-200 hover:scale-[1.03] hover:shadow-lg',
           !hasImage && `bg-gradient-to-br ${gradient}`
         )}
         style={
@@ -63,31 +62,13 @@ function BoardCard({ board, index }: BoardCardProps) {
         <div className="absolute inset-0 bg-black/20 transition-colors group-hover:bg-black/30" />
 
         {/* Board title */}
-        <div className="absolute inset-0 p-3">
-          <h3 className="font-semibold text-white drop-shadow-md">{board.title}</h3>
+        <div className="absolute inset-0 flex items-end p-3">
+          <h3 className="text-sm font-semibold text-white drop-shadow-md sm:text-base">
+            {board.title}
+          </h3>
         </div>
       </div>
     </Link>
-  );
-}
-
-interface CreateBoardCardProps {
-  workspaceId: string;
-  onClick?: () => void;
-}
-
-function CreateBoardCard({ onClick }: CreateBoardCardProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex aspect-video w-full cursor-pointer items-center justify-center rounded-lg bg-muted transition-colors hover:bg-muted/80"
-    >
-      <div className="flex flex-col items-center gap-1 text-muted-foreground">
-        <Plus className="h-6 w-6" />
-        <span className="text-sm font-medium">Tạo bảng mới</span>
-      </div>
-    </button>
   );
 }
 
@@ -97,28 +78,35 @@ interface WorkspaceSectionProps {
 }
 
 export function WorkspaceSection({ workspace, icon }: WorkspaceSectionProps) {
-  const handleCreateBoard = () => {
-    // TODO: Open create board dialog
-    console.log('Create board in workspace:', workspace.id);
-  };
-
   return (
     <div className="space-y-4">
-      {/* Workspace Header */}
-      <div className="flex items-center gap-3">
+      {/* Workspace Header — clickable to go to workspace dashboard */}
+      <Link
+        href={`/workspaces/${workspace.id}`}
+        className="group flex items-center gap-3"
+      >
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
-          {icon || <span className="text-lg font-bold">{workspace.name[0]?.toUpperCase()}</span>}
+          {icon || (
+            <span className="text-lg font-bold">
+              {workspace.name[0]?.toUpperCase()}
+            </span>
+          )}
         </div>
-        <h2 className="text-xl font-semibold">{workspace.name}</h2>
-      </div>
+        <h2 className="text-xl font-semibold group-hover:underline">
+          {workspace.name}
+        </h2>
+        <span className="text-sm text-muted-foreground">
+          ({workspace.boards.length} boards)
+        </span>
+      </Link>
 
       {/* Boards Grid */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {workspace.boards.map((board, index) => (
           <BoardCard key={board.id} board={board} index={index} />
         ))}
-        <CreateBoardCard workspaceId={workspace.id} onClick={handleCreateBoard} />
       </div>
     </div>
   );
 }
+
