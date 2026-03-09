@@ -98,7 +98,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/settings/profile" className="flex items-center">
+                <Link href="/profile" className="flex items-center">
                   <User className="mr-2 h-4 w-4" />
                   <span>Hồ sơ</span>
                 </Link>

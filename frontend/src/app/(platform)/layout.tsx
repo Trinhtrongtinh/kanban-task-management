@@ -35,7 +35,7 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
         <Sidebar isOpen={sidebarOpen} onClose={handleSidebarClose} />
 
         {/* Main Content */}
-        <main className="pt-14 md:pl-64">
+        <main className="pt-14 md:pl-60">
           <div className="container mx-auto p-6">{children}</div>
         </main>
       </div>
