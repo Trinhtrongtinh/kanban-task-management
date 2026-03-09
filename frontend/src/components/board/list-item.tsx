@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import type { BoardList } from './types';
 import { CardItem } from './card-item';
 import { CardForm } from './card-form';
+import { ListHeader } from './list-header';
 import { cn } from '@/lib/utils';
 
 interface ListItemProps {
@@ -56,11 +57,13 @@ export function ListItem({ list }: ListItemProps) {
     >
       {/* Header */}
       <div
-        {...attributes}
-        {...listeners}
-        className="mb-3 cursor-grab font-semibold text-foreground active:cursor-grabbing"
+        className="mb-1"
       >
-        {list.title}
+        <ListHeader 
+          list={list} 
+          dragHandleProps={attributes} 
+          dragHandleListeners={listeners} 
+        />
       </div>
 
       {/* Cards - scrollable, droppable area */}

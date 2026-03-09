@@ -42,6 +42,8 @@ const MOCK_LISTS: BoardList[] = [
   {
     id: 'list-1',
     title: 'To Do',
+    boardId: 'board-1',
+    order: 0,
     cards: [
       { 
         id: 'card-1', 
@@ -73,6 +75,8 @@ const MOCK_LISTS: BoardList[] = [
   {
     id: 'list-2',
     title: 'In Progress',
+    boardId: 'board-1',
+    order: 1,
     cards: [
       { id: 'card-4', title: 'Task 4', boardId: '', members: [], dueDate: '2026-03-15T14:00:00Z' },
       { id: 'card-5', title: 'Task 5', boardId: '', members: [] },
@@ -81,6 +85,8 @@ const MOCK_LISTS: BoardList[] = [
   {
     id: 'list-3',
     title: 'Done',
+    boardId: 'board-1',
+    order: 2,
     cards: [
       { id: 'card-6', title: 'Task 6', boardId: '', members: [], dueDate: '2026-03-07T12:00:00Z', isCompleted: true },
     ],

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Check, UserPlus } from 'lucide-react';
+import { Check, UserPlus, ChevronLeft } from 'lucide-react';
+import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,6 +67,13 @@ export function BoardNavbar({ boardId }: BoardNavbarProps) {
   return (
     <div className="mb-2 flex w-full items-center justify-between rounded-lg border bg-white/60 px-4 py-2 shadow-sm backdrop-blur-sm">
       <div className="flex items-center gap-x-4">
+        <Button variant="ghost" size="sm" asChild className="text-neutral-600 hover:bg-neutral-200">
+          <Link href="/workspaces">
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            <span className="font-semibold">Workspaces</span>
+          </Link>
+        </Button>
+        <div className="h-6 w-px bg-neutral-300" />
         <h2 className="text-lg font-bold text-neutral-700">Board</h2>
         <div className="h-6 w-px bg-neutral-300" />
 
