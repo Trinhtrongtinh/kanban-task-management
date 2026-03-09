@@ -35,6 +35,7 @@ import { useBoardSafe } from '@/components/board/board-context';
 import { useAddChecklistMutation } from '@/api/checklists';
 import { ChecklistsContainer } from './checklists-container';
 import { CardMemberPicker } from './card-member-picker';
+import { LabelPicker } from './label-picker';
 import {
   Users,
   Calendar as CalendarIcon,
@@ -212,36 +213,59 @@ export function CardModal() {
               <DialogDescription>In list: To Do</DialogDescription>
             </DialogHeader>
 
-            {/* Assigned members avatars */}
-            {assignedMembers.length > 0 && (
-              <div className="space-y-1.5">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Members
-                </h3>
-                <TooltipProvider delayDuration={200}>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {assignedMembers.map((member) => (
-                      <Tooltip key={member.id}>
-                        <TooltipTrigger asChild>
-                          <Avatar className="h-8 w-8 ring-2 ring-background transition-transform hover:scale-110">
-                            <AvatarImage
-                              src={member.avatarUrl}
-                              alt={member.name}
-                            />
-                            <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
-                              {member.name.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">
-                          {member.name}
-                        </TooltipContent>
-                      </Tooltip>
+            {/* Labels and Members Wrapper */}
+            <div className="flex flex-wrap gap-5">
+              {/* Assigned members avatars */}
+              {assignedMembers.length > 0 && (
+                <div className="space-y-1.5 min-w-0">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Members
+                  </h3>
+                  <TooltipProvider delayDuration={200}>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {assignedMembers.map((member) => (
+                        <Tooltip key={member.id}>
+                          <TooltipTrigger asChild>
+                            <Avatar className="h-8 w-8 ring-2 ring-background transition-transform hover:scale-110">
+                              <AvatarImage
+                                src={member.avatarUrl}
+                                alt={member.name}
+                              />
+                              <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+                                {member.name.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">
+                            {member.name}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </TooltipProvider>
+                </div>
+              )}
+
+              {/* Labels Display */}
+              {currentCard?.labels && currentCard.labels.length > 0 && (
+                <div className="space-y-1.5 min-w-0">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Labels
+                  </h3>
+                  <div className="flex flex-wrap gap-1">
+                    {currentCard.labels.map((label) => (
+                      <Badge 
+                        key={label.id}
+                        className="rounded-sm font-semibold shrink-0 text-white hover:opacity-80 transition"
+                        style={{ backgroundColor: label.color }}
+                      >
+                        {label.title}
+                      </Badge>
                     ))}
                   </div>
-                </TooltipProvider>
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
             {/* Due Date display */}
             {currentCard?.dueDate && (
@@ -373,11 +397,13 @@ export function CardModal() {
               assignedMembers={assignedMembers}
               onToggleMember={toggleMember}
             >
-              <Button variant="secondary" className="w-full justify-start">
+              <Button variant="secondary" className="w-full justify-start mt-4">
                 <Users className="mr-2 h-4 w-4" />
                 Members
               </Button>
             </CardMemberPicker>
+
+            <LabelPicker />
 
             {/* Checklist — Popover to name & create */}
             <Popover

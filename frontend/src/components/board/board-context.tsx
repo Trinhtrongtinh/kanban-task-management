@@ -51,6 +51,10 @@ const MOCK_LISTS: BoardList[] = [
         boardId: '', 
         members: [], 
         dueDate: '2026-03-08T10:00:00Z',
+        labels: [
+          { id: 'label-1', boardId: 'board-1', title: 'Feature', color: '#16a34a' },
+          { id: 'label-3', boardId: 'board-1', title: 'Design', color: '#8b5cf6' },
+        ],
         attachments: [
           {
             id: 'att-1',
