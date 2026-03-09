@@ -3,15 +3,25 @@
 import { useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Briefcase } from 'lucide-react';
+import { Plus, Briefcase, Settings, Users, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -89,9 +99,9 @@ function CreateBoardPopover({ onCreateBoard }: CreateBoardPopoverProps) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex aspect-video w-full cursor-pointer items-center justify-center rounded-lg bg-muted/60 transition-colors hover:bg-muted"
+          className="flex aspect-video w-full cursor-pointer items-center justify-center rounded-lg bg-muted/60 transition-colors hover:bg-muted font-medium text-muted-foreground border-dashed border-2 hover:border-solid hover:border-primary/50 hover:text-primary transition-all"
         >
-          <div className="flex flex-col items-center gap-1 text-muted-foreground">
+          <div className="flex flex-col items-center gap-1">
             <Plus className="h-6 w-6" />
             <span className="text-sm font-medium">Tạo bảng mới</span>
           </div>
@@ -137,6 +147,15 @@ export default function WorkspaceDashboardPage() {
 
   const [boards, setBoards] = useState<MockBoard[]>(INITIAL_BOARDS);
 
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('member');
+  const [members, setMembers] = useState([
+    { id: '1', email: 'admin@example.com', role: 'admin' },
+    { id: '2', email: 'user@example.com', role: 'member' }
+  ]);
+
   const handleCreateBoard = useCallback(
     (title: string) => {
       const newBoard: MockBoard = {
@@ -149,27 +168,112 @@ export default function WorkspaceDashboardPage() {
     [boards.length]
   );
 
+  const handleInvite = () => {
+    if (!email) return;
+    setMembers(prev => [...prev, { id: Date.now().toString(), email, role }]);
+    setEmail('');
+    setIsInviteOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────── */}
-      <div className="flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-sm">
-          <Briefcase className="h-6 w-6" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-sm">
+            <Briefcase className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {WORKSPACE_NAME}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Workspace ID: {workspaceId} · {boards.length} boards
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            {WORKSPACE_NAME}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Workspace ID: {workspaceId} · {boards.length} boards
-          </p>
-        </div>
+
+        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <Settings className="w-4 h-4" />
+              Cài đặt Workspace
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Workspace Settings</DialogTitle>
+              <DialogDescription>
+                Quản lý thành viên và chi tiết cho {WORKSPACE_NAME}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-6">
+              
+              {/* MEMBERS SECTION */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <Users className="w-4 h-4" /> Thành viên
+                    </h4>
+                    <p className="text-xs text-muted-foreground">Admin có thể mời người dùng mới.</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setIsInviteOpen(!isInviteOpen)}>
+                    {isInviteOpen ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                    {isInviteOpen ? 'Hủy' : 'Mời thành viên'}
+                  </Button>
+                </div>
+                
+                {isInviteOpen && (
+                  <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-muted/30 rounded-lg border shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <div className="w-full sm:flex-1">
+                      <Input 
+                        placeholder="Địa chỉ email" 
+                        value={email} 
+                        onChange={e => setEmail(e.target.value)} 
+                        className="h-9 w-full bg-background"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 w-full sm:w-auto mt-3 sm:mt-0">
+                      <Select value={role} onValueChange={setRole}>
+                        <SelectTrigger className="w-[110px] h-9 bg-background">
+                          <SelectValue placeholder="Vai trò" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="member">Member</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button size="sm" className="h-9 shrink-0" onClick={handleInvite} disabled={!email}>Gửi lời mời</Button>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="space-y-2 max-h-[250px] overflow-y-auto border rounded-xl overflow-hidden bg-card divide-y">
+                  {members.map(m => (
+                    <div key={m.id} className="flex items-center justify-between p-3 text-sm hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold uppercase">
+                          {m.email[0]}
+                        </div>
+                        <span className="font-medium">{m.email}</span>
+                      </div>
+                      <Badge variant={m.role === 'admin' ? 'default' : 'secondary'} className="capitalize">
+                        {m.role}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* ── Boards section label ────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Boards của bạn</h2>
-      </div>
+      <h2 className="text-lg font-semibold pt-4">Boards của bạn</h2>
 
       {/* ── Board grid ──────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">

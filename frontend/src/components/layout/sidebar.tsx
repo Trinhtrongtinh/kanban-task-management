@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Settings, ChevronLeft, Layers } from 'lucide-react';
+import { LayoutDashboard, Settings, ChevronLeft, Layers, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { useProModal } from '@/hooks/use-pro-modal';
 
 interface NavItem {
   title: string;
@@ -25,13 +26,8 @@ const navItems: NavItem[] = [
     icon: LayoutDashboard,
   },
   {
-    title: 'Workspaces',
-    href: '/workspaces',
-    icon: Layers,
-  },
-  {
-    title: 'Cài đặt Workspace',
-    href: '/settings/workspace',
+    title: 'Cài đặt Toàn cục',
+    href: '/settings',
     icon: Settings,
   },
 ];
@@ -65,6 +61,8 @@ function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
 
 // Desktop Sidebar
 function DesktopSidebar() {
+  const onOpen = useProModal((state) => state.onOpen);
+
   return (
     <aside className="fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-64 border-r bg-background md:block">
       <div className="flex h-full flex-col">
@@ -74,6 +72,17 @@ function DesktopSidebar() {
             <NavLink key={item.href} item={item} />
           ))}
         </nav>
+
+        {/* Upgrade Addon */}
+        <div className="px-4 pb-4">
+          <Button 
+            onClick={onOpen}
+            className="w-full justify-start gap-2 bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white shadow-md border-0"
+          >
+            <Zap className="h-4 w-4 fill-white" />
+            Upgrade to Pro
+          </Button>
+        </div>
 
         {/* Footer */}
         <div className="border-t p-4">
@@ -88,6 +97,8 @@ function DesktopSidebar() {
 
 // Mobile Sidebar (Sheet)
 function MobileSidebar({ isOpen, onClose }: SidebarProps) {
+  const onOpen = useProModal((state) => state.onOpen);
+
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="left" className="w-64 p-0">
@@ -110,6 +121,20 @@ function MobileSidebar({ isOpen, onClose }: SidebarProps) {
             <NavLink key={item.href} item={item} onClick={onClose} />
           ))}
         </nav>
+
+        {/* Upgrade Addon */}
+        <div className="px-4 pb-4 mt-auto">
+          <Button 
+            onClick={() => {
+              onClose();
+              onOpen();
+            }}
+            className="w-full justify-start gap-2 bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white shadow-md border-0"
+          >
+            <Zap className="h-4 w-4 fill-white" />
+            Upgrade to Pro
+          </Button>
+        </div>
       </SheetContent>
     </Sheet>
   );

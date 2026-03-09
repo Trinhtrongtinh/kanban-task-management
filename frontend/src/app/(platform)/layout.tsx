@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Header, Sidebar } from '@/components/layout';
 
 
+import { GlobalModalProvider } from '@/components/providers/global-modal-provider';
+
 const queryClient = new QueryClient();
 
 interface PlatformLayoutProps {
@@ -24,18 +26,19 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <Header onMenuClick={handleMenuClick} />
+      <GlobalModalProvider />
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <Header onMenuClick={handleMenuClick} />
 
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={handleSidebarClose} />
+        {/* Sidebar */}
+        <Sidebar isOpen={sidebarOpen} onClose={handleSidebarClose} />
 
-      {/* Main Content */}
-      <main className="pt-14 md:pl-64">
-        <div className="container mx-auto p-6">{children}</div>
-      </main>
-    </div>
+        {/* Main Content */}
+        <main className="pt-14 md:pl-64">
+          <div className="container mx-auto p-6">{children}</div>
+        </main>
+      </div>
     </QueryClientProvider>
   );
 }

@@ -3,6 +3,7 @@
 import { Search, Menu, LogOut, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
+import { WorkspaceSwitcher } from '@/components/workspaces/workspace-switcher';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -56,6 +57,9 @@ export function Header({ onMenuClick }: HeaderProps) {
             </div>
             <span className="hidden font-semibold sm:inline-block">Kanban</span>
           </Link>
+          <div className="hidden md:block ml-4">
+            <WorkspaceSwitcher />
+          </div>
         </div>
 
         {/* Center: Search */}
