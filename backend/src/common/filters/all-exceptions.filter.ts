@@ -53,7 +53,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           message = exception.message;
         }
       } else {
-        message = exceptionResponse as string;
+        message = exceptionResponse;
       }
     } else {
       // Unknown errors - log for debugging, return generic message

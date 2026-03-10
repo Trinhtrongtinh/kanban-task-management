@@ -5,7 +5,6 @@ import {
   IsEnum,
   IsUUID,
   MaxLength,
-  IsUrl,
 } from 'class-validator';
 import { BoardVisibility } from '../../../database/entities/board.entity';
 
@@ -20,7 +19,7 @@ export class CreateBoardDto {
   @MaxLength(100)
   slug?: string;
 
-  @IsUrl()
+  @IsString()
   @IsOptional()
   backgroundUrl?: string;
 

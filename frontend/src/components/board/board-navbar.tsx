@@ -46,9 +46,11 @@ const INITIAL_MEMBERS: User[] = [
 
 interface BoardNavbarProps {
   boardId: string;
+  title: string;
+  workspaceId: string;
 }
 
-export function BoardNavbar({ boardId }: BoardNavbarProps) {
+export function BoardNavbar({ boardId, title, workspaceId }: BoardNavbarProps) {
   const [boardMembers, setBoardMembers] = useState<User[]>(INITIAL_MEMBERS);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -68,13 +70,13 @@ export function BoardNavbar({ boardId }: BoardNavbarProps) {
     <div className="mb-2 flex w-full items-center justify-between rounded-lg border bg-white/60 px-4 py-2 shadow-sm backdrop-blur-sm">
       <div className="flex items-center gap-x-4">
         <Button variant="ghost" size="sm" asChild className="text-neutral-600 hover:bg-neutral-200">
-          <Link href="/workspaces">
+          <Link href={workspaceId ? `/workspaces/${workspaceId}` : '/workspaces'}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             <span className="font-semibold">Workspaces</span>
           </Link>
         </Button>
         <div className="h-6 w-px bg-neutral-300" />
-        <h2 className="text-lg font-bold text-neutral-700">Board</h2>
+        <h2 className="text-lg font-bold text-neutral-700">{title}</h2>
         <div className="h-6 w-px bg-neutral-300" />
 
         {/* ── Facepile: overlapping avatars ────────────── */}

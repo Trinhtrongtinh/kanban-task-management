@@ -5,15 +5,33 @@ import { BoardProvider } from '@/components/board/board-context';
 import { ListContainer } from '@/components/board/list-container';
 import { BoardNavbar } from '@/components/board/board-navbar';
 import { ModalProvider } from '@/components/providers/modal-provider';
+import { useBoardById } from '@/hooks/use-boards';
+import { Loader2 } from 'lucide-react';
 
 export default function BoardDetailPage() {
   const params = useParams();
   const boardId = params.boardId as string;
+  const { data: board, isLoading } = useBoardById(boardId);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[calc(100vh-64px)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const bgClass = board?.backgroundUrl || 'from-blue-500 to-blue-600';
+  const isUrl = bgClass.startsWith('http');
+  const bgStyle = isUrl ? { backgroundImage: `url(${bgClass})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
 
   return (
     <BoardProvider boardId={boardId}>
-      <div className="-m-6 flex h-[calc(100vh-64px)] flex-col overflow-x-auto overflow-y-hidden rounded-xl bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 p-4">
-        <BoardNavbar boardId={boardId} />
+      <div
+        className={`-m-6 flex h-[calc(100vh-64px)] flex-col overflow-x-auto overflow-y-hidden rounded-xl p-4 ${isUrl ? '' : `bg-gradient-to-br ${bgClass}`}`}
+        style={bgStyle}
+      >
+        <BoardNavbar boardId={boardId} title={board?.title || 'Board'} workspaceId={board?.workspaceId || ''} />
         <ListContainer />
       </div>
       <ModalProvider />

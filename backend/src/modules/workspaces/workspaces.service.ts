@@ -23,7 +23,7 @@ export class WorkspacesService {
     private readonly usersService: UsersService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   /**
    * Generate slug from name
@@ -138,10 +138,19 @@ export class WorkspacesService {
     return uniqueSlug;
   }
 
-  async create(createWorkspaceDto: CreateWorkspaceDto, userId: string): Promise<Workspace> {
-    const existing = await this.workspaceRepository.findOne({ where: { ownerId: userId } });
+  async create(
+    createWorkspaceDto: CreateWorkspaceDto,
+    userId: string,
+  ): Promise<Workspace> {
+    const existing = await this.workspaceRepository.findOne({
+      where: { ownerId: userId },
+    });
     if (existing) {
-      throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, 'Mỗi tài khoản chỉ được tạo tối đa 1 Workspace cá nhân');
+      throw new BusinessException(
+        ErrorCode.FORBIDDEN,
+        HttpStatus.FORBIDDEN,
+        'Mỗi tài khoản chỉ được tạo tối đa 1 Workspace cá nhân',
+      );
     }
 
     const { name, slug, ...rest } = createWorkspaceDto;

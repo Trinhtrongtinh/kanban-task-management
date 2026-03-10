@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  MaxLength,
-  IsUrl,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum, MaxLength } from 'class-validator';
 import { BoardVisibility } from '../../../database/entities/board.entity';
 
 export class UpdateBoardDto {
@@ -18,7 +12,7 @@ export class UpdateBoardDto {
   @MaxLength(100)
   slug?: string;
 
-  @IsUrl()
+  @IsString()
   @IsOptional()
   backgroundUrl?: string;
 

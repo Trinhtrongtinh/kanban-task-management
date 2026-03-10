@@ -26,7 +26,7 @@ import { WorkspaceRole } from '../../common/enums';
 
 @Controller('workspaces')
 export class WorkspacesController {
-  constructor(private readonly workspacesService: WorkspacesService) { }
+  constructor(private readonly workspacesService: WorkspacesService) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)

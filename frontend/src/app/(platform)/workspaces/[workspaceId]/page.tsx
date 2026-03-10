@@ -4,28 +4,16 @@ import { use, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, Briefcase, Settings, Loader2 } from 'lucide-react';
+import { useBoardsByWorkspace, useCreateBoard } from '@/hooks/use-boards';
 import { useWorkspace } from '@/hooks/use-workspaces';
+import { Board } from '@/api/boards';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
-
-// ── Types ────────────────────────────────────────────────────────────
-
-interface MockBoard {
-  id: string;
-  title: string;
-  gradient: string;
-}
-
-// ── Mock data ────────────────────────────────────────────────────────
+// ── Shared Constants ──────────────────────────────────────────────────
 
 const GRADIENT_PRESETS = [
   'from-blue-500 to-blue-600',
@@ -38,25 +26,27 @@ const GRADIENT_PRESETS = [
   'from-amber-500 to-orange-500',
 ];
 
-const INITIAL_BOARDS: MockBoard[] = [
-  { id: 'board-1', title: 'Dự án Website Redesign', gradient: GRADIENT_PRESETS[0] },
-  { id: 'board-2', title: 'Marketing Q1 2026', gradient: GRADIENT_PRESETS[1] },
-  { id: 'board-3', title: 'Product Roadmap', gradient: GRADIENT_PRESETS[2] },
-  { id: 'board-4', title: 'Bug Tracking', gradient: GRADIENT_PRESETS[3] },
-];
+const DEFAULT_GRADIENT = GRADIENT_PRESETS[0];
 
 
 
 // ── Sub-components ───────────────────────────────────────────────────
 
-function BoardCard({ board }: { board: MockBoard }) {
+function BoardCard({ board }: { board: Board }) {
+  // If backgroundUrl isn't set, use a random preset based on the title length
+  const bgClass =
+    board.backgroundUrl ||
+    GRADIENT_PRESETS[(board.title.length || 0) % GRADIENT_PRESETS.length];
+  const isUrl = bgClass.startsWith('http');
+
   return (
     <Link href={`/b/${board.id}`}>
       <div
         className={cn(
           'group relative aspect-video cursor-pointer overflow-hidden rounded-lg transition-all duration-200 hover:scale-[1.03] hover:shadow-lg',
-          `bg-gradient-to-br ${board.gradient}`
+          isUrl ? '' : `bg-gradient-to-br ${bgClass}`
         )}
+        style={isUrl ? { backgroundImage: `url(${bgClass})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
       >
         {/* Overlay */}
         <div className="absolute inset-0 bg-black/20 transition-colors group-hover:bg-black/30" />
@@ -72,20 +62,32 @@ function BoardCard({ board }: { board: MockBoard }) {
 }
 
 interface CreateBoardPopoverProps {
-  onCreateBoard: (title: string) => void;
+  workspaceId: string;
 }
 
-function CreateBoardPopover({ onCreateBoard }: CreateBoardPopoverProps) {
+function CreateBoardPopover({ workspaceId }: CreateBoardPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState('');
+  const [gradient, setGradient] = useState(GRADIENT_PRESETS[0]);
+
+  const createBoardMutation = useCreateBoard();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
-    onCreateBoard(trimmed);
-    setTitle('');
-    setIsOpen(false);
+
+    createBoardMutation.mutate({
+      title: trimmed,
+      workspaceId,
+      backgroundUrl: gradient, // We repurpose backgroundUrl to temporarily store gradient strings too!
+      visibility: 'Workspace',
+    }, {
+      onSuccess: () => {
+        setTitle('');
+        setIsOpen(false);
+      }
+    });
   };
 
   return (
@@ -110,9 +112,11 @@ function CreateBoardPopover({ onCreateBoard }: CreateBoardPopoverProps) {
             {GRADIENT_PRESETS.map((g, i) => (
               <div
                 key={i}
+                onClick={() => setGradient(g)}
                 className={cn(
-                  'h-6 cursor-pointer rounded-md bg-gradient-to-br transition-transform hover:scale-110',
-                  g
+                  'h-6 cursor-pointer rounded-md bg-gradient-to-br transition-all hover:scale-110',
+                  g,
+                  gradient === g ? 'ring-2 ring-primary ring-offset-1' : ''
                 )}
               />
             ))}
@@ -122,10 +126,11 @@ function CreateBoardPopover({ onCreateBoard }: CreateBoardPopoverProps) {
             placeholder="Tên bảng..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            disabled={createBoardMutation.isPending}
             autoFocus
           />
-          <Button type="submit" size="sm" className="w-full" disabled={!title.trim()}>
-            Tạo
+          <Button type="submit" size="sm" className="w-full" disabled={!title.trim() || createBoardMutation.isPending}>
+            {createBoardMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Tạo'}
           </Button>
         </form>
       </PopoverContent>
@@ -141,25 +146,11 @@ export default function WorkspaceDashboardPage({
   params: Promise<{ workspaceId: string }>
 }) {
   const { workspaceId } = use(params);
-  const { data: workspace, isLoading } = useWorkspace(workspaceId);
+  const { data: workspace, isLoading: isWorkspaceLoading } = useWorkspace(workspaceId);
+  const { data: boardsData, isLoading: isBoardsLoading } = useBoardsByWorkspace(workspaceId);
+  const boards = Array.isArray(boardsData) ? boardsData : [];
 
-  const [boards, setBoards] = useState<MockBoard[]>(INITIAL_BOARDS);
-
-
-
-  const handleCreateBoard = useCallback(
-    (title: string) => {
-      const newBoard: MockBoard = {
-        id: `board-${Date.now()}`,
-        title,
-        gradient: GRADIENT_PRESETS[boards.length % GRADIENT_PRESETS.length],
-      };
-      setBoards((prev) => [...prev, newBoard]);
-    },
-    [boards.length]
-  );
-
-
+  const isLoading = isWorkspaceLoading || isBoardsLoading;
 
   return (
     <div className="space-y-6">
@@ -168,42 +159,42 @@ export default function WorkspaceDashboardPage({
           <Loader2 className="animate-spin text-muted-foreground w-8 h-8" />
         </div>
       ) : (
-      <>
-      {/* ── Header ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-sm">
-            <Briefcase className="h-6 w-6" />
+        <>
+          {/* ── Header ─────────────────────────────────────── */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-sm">
+                <Briefcase className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                  {workspace?.name}
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Workspace ID: {workspaceId} · {boards.length} boards
+                </p>
+              </div>
+            </div>
+
+            <Link href={`/workspaces/${workspaceId}/settings`}>
+              <Button variant="outline" className="gap-2">
+                <Settings className="w-4 h-4" />
+                Cài đặt Workspace
+              </Button>
+            </Link>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {workspace?.name}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Workspace ID: {workspaceId} · {boards.length} boards
-            </p>
+
+          {/* ── Boards section label ────────────────────────── */}
+          <h2 className="text-lg font-semibold pt-4">Boards của bạn</h2>
+
+          {/* ── Board grid ──────────────────────────────────── */}
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {boards.map((board) => (
+              <BoardCard key={board.id} board={board} />
+            ))}
+            <CreateBoardPopover workspaceId={workspaceId} />
           </div>
-        </div>
-
-        <Link href={`/workspaces/${workspaceId}/settings`}>
-          <Button variant="outline" className="gap-2">
-            <Settings className="w-4 h-4" />
-            Cài đặt Workspace
-          </Button>
-        </Link>
-      </div>
-
-      {/* ── Boards section label ────────────────────────── */}
-      <h2 className="text-lg font-semibold pt-4">Boards của bạn</h2>
-
-      {/* ── Board grid ──────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {boards.map((board) => (
-          <BoardCard key={board.id} board={board} />
-        ))}
-        <CreateBoardPopover onCreateBoard={handleCreateBoard} />
-      </div>
-      </>
+        </>
       )}
     </div>
   );
