@@ -6,7 +6,7 @@ import { MoreHorizontal } from 'lucide-react';
 import type { BoardList } from './types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useUpdateList, useDeleteList } from '@/api/lists';
+import { useUpdateList, useDeleteList } from '@/hooks/use-lists';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +25,7 @@ export function ListHeader({ list, dragHandleProps, dragHandleListeners }: ListH
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(list.title);
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   const updateList = useUpdateList();
   const deleteList = useDeleteList();
 
@@ -49,7 +49,7 @@ export function ListHeader({ list, dragHandleProps, dragHandleListeners }: ListH
     if (title.trim() === '') {
       setTitle(list.title);
     } else if (title !== list.title) {
-      updateList.mutate({ id: list.id, title });
+      updateList.mutate({ id: list.id, payload: { title, boardId: list.boardId } });
     }
     onDisableEditing();
   };
@@ -64,15 +64,15 @@ export function ListHeader({ list, dragHandleProps, dragHandleListeners }: ListH
   };
 
   const onDelete = () => {
-    deleteList.mutate(list.id);
+    deleteList.mutate({ id: list.id, boardId: list.boardId });
   };
 
   return (
     <div className="flex items-center justify-between pb-2 px-1 gap-x-2">
-      <div 
-        {...dragHandleProps} 
+      <div
+        {...dragHandleProps}
         {...dragHandleListeners}
-        className="flex-1 min-w-0" 
+        className="flex-1 min-w-0"
       >
         {isEditing ? (
           <Input

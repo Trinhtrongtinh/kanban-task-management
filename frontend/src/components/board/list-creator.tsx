@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useCreateList } from '@/api/lists';
+import { useCreateList } from '@/hooks/use-lists';
 
 interface ListCreatorProps {
   boardId: string;

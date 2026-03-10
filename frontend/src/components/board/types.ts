@@ -28,6 +28,6 @@ export interface BoardList {
   id: string;
   title: string;
   boardId: string;
-  order: number;
+  position: number;
   cards: BoardCard[];
 }

@@ -13,6 +13,8 @@ import {
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { BoardCard, BoardList } from './types';
 import { BoardStatic } from './board-static';
+import { useListsByBoard, useUpdateList } from '@/hooks/use-lists';
+import { Loader2 } from 'lucide-react';
 
 interface BoardContextValue {
   boardId: string;
@@ -38,77 +40,30 @@ function getTargetListId(over: { data?: { current?: unknown } } | null): string 
 
 const BoardContext = createContext<BoardContextValue | null>(null);
 
-const MOCK_LISTS: BoardList[] = [
-  {
-    id: 'list-1',
-    title: 'To Do',
-    boardId: 'board-1',
-    order: 0,
-    cards: [
-      { 
-        id: 'card-1', 
-        title: 'Task 1', 
-        boardId: '', 
-        members: [], 
-        dueDate: '2026-03-08T10:00:00Z',
-        labels: [
-          { id: 'label-1', boardId: 'board-1', title: 'Feature', color: '#16a34a' },
-          { id: 'label-3', boardId: 'board-1', title: 'Design', color: '#8b5cf6' },
-        ],
-        attachments: [
-          {
-            id: 'att-1',
-            url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop',
-            fileName: 'design-mockup.png',
-            type: 'image/png',
-            createdAt: '2026-03-09T10:00:00Z'
-          },
-          {
-            id: 'att-2',
-            url: '#',
-            fileName: 'requirements.pdf',
-            type: 'application/pdf',
-            createdAt: '2026-03-09T11:30:00Z'
-          }
-        ]
-      },
-      { id: 'card-2', title: 'Task 2', boardId: '', members: [], dueDate: '2026-03-10T08:00:00Z' },
-      { id: 'card-3', title: 'Task 3', boardId: '', members: [] },
-    ],
-  },
-  {
-    id: 'list-2',
-    title: 'In Progress',
-    boardId: 'board-1',
-    order: 1,
-    cards: [
-      { id: 'card-4', title: 'Task 4', boardId: '', members: [], dueDate: '2026-03-15T14:00:00Z' },
-      { id: 'card-5', title: 'Task 5', boardId: '', members: [] },
-    ],
-  },
-  {
-    id: 'list-3',
-    title: 'Done',
-    boardId: 'board-1',
-    order: 2,
-    cards: [
-      { id: 'card-6', title: 'Task 6', boardId: '', members: [], dueDate: '2026-03-07T12:00:00Z', isCompleted: true },
-    ],
-  },
-];
-
 interface BoardProviderProps {
   boardId: string;
   children: React.ReactNode;
 }
 
 export function BoardProvider({ boardId, children }: BoardProviderProps) {
-  const [lists, setLists] = useState<BoardList[]>(MOCK_LISTS);
+  const { data: fetchedLists, isLoading } = useListsByBoard(boardId);
+  const [lists, setLists] = useState<BoardList[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const updateList = useUpdateList();
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (fetchedLists) {
+      const mappedLists = fetchedLists.map(list => ({
+        ...list,
+        cards: list.cards || [],
+      }));
+      setLists(mappedLists as BoardList[]);
+    }
+  }, [fetchedLists]);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
@@ -175,8 +130,33 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
     if (activeData?.type === 'List') {
       const oldIndex = lists.findIndex((l) => l.id === active.id);
       const newIndex = lists.findIndex((l) => l.id === over.id);
+
       if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
-        setLists((prev) => arrayMove(prev, oldIndex, newIndex));
+        const reordered = arrayMove(lists, oldIndex, newIndex);
+
+        // Compute new position
+        let newPosition = 65535; // Default POSITION_GAP
+        if (reordered.length <= 1) {
+          newPosition = 65535;
+        } else if (newIndex === 0) {
+          newPosition = reordered[1].position / 2;
+        } else if (newIndex === reordered.length - 1) {
+          newPosition = reordered[reordered.length - 2].position + 65535;
+        } else {
+          newPosition = (reordered[newIndex - 1].position + reordered[newIndex + 1].position) / 2;
+        }
+
+        newPosition = Math.round(newPosition);
+
+        // Call API to persist new ordering
+        updateList.mutate({
+          id: active.id as string,
+          payload: { boardId, position: newPosition }
+        });
+
+        // Optimistically update the list's local position
+        reordered[newIndex] = { ...reordered[newIndex], position: newPosition };
+        setLists(reordered);
       }
       return;
     }
@@ -250,7 +230,7 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
 
   return (
     <BoardContext.Provider value={value}>
-      {!isMounted ? (
+      {!isMounted || isLoading ? (
         React.isValidElement(children) ? (
           React.cloneElement(children, {}, <BoardStatic lists={lists} />)
         ) : (
