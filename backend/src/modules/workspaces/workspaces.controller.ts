@@ -15,14 +15,18 @@ import {
 import { WorkspacesService } from './workspaces.service';
 import { CreateWorkspaceDto, UpdateWorkspaceDto, InviteMemberDto } from './dto';
 import { Workspace, WorkspaceMember } from '../../database/entities';
-import { ResponseMessage, CurrentUser, RequireWorkspaceRole } from '../../common/decorators';
+import {
+  ResponseMessage,
+  CurrentUser,
+  RequireWorkspaceRole,
+} from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { WorkspaceMemberGuard } from '../../common/guards';
 import { WorkspaceRole } from '../../common/enums';
 
 @Controller('workspaces')
 export class WorkspacesController {
-  constructor(private readonly workspacesService: WorkspacesService) {}
+  constructor(private readonly workspacesService: WorkspacesService) { }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -59,14 +63,6 @@ export class WorkspacesController {
     return this.workspacesService.update(id, updateWorkspaceDto);
   }
 
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
-  @RequireWorkspaceRole(WorkspaceRole.OWNER)
-  @ResponseMessage('Workspace deleted successfully')
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.workspacesService.remove(id);
-  }
-
   /**
    * Invite a member to workspace
    * Only OWNER or ADMIN can invite
@@ -80,7 +76,11 @@ export class WorkspacesController {
     @Body() inviteMemberDto: InviteMemberDto,
     @CurrentUser('userId') userId: string,
   ): Promise<WorkspaceMember> {
-    return this.workspacesService.inviteMember(workspaceId, inviteMemberDto, userId);
+    return this.workspacesService.inviteMember(
+      workspaceId,
+      inviteMemberDto,
+      userId,
+    );
   }
 
   /**

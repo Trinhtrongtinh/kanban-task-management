@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum, MaxLength } from 'class-validator';
 import { WorkspaceType } from '../../../database/entities/workspace.entity';
 
 export class UpdateWorkspaceDto {

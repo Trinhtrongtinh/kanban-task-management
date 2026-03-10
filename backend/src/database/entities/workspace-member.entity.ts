@@ -46,7 +46,12 @@ export class WorkspaceMember {
   })
   status: MemberStatus;
 
-  @Column({ name: 'invite_token', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'invite_token',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   inviteToken: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

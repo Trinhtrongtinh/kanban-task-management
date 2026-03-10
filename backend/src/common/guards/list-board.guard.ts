@@ -63,9 +63,7 @@ export class ListBoardGuard implements CanActivate {
     });
 
     if (!membership) {
-      throw new ForbiddenException(
-        'You are not a member of this board',
-      );
+      throw new ForbiddenException('You are not a member of this board');
     }
 
     // Attach info to request for later use

@@ -1,7 +1,7 @@
 /**
  * Centralized Error Codes for the application
  * Format: DOMAIN_ERROR_DESCRIPTION
- * 
+ *
  * Easy to extend when adding new features (Board, Card, etc.)
  */
 export enum ErrorCode {
@@ -71,7 +71,8 @@ export enum ErrorCode {
 export const ErrorMessages: Record<ErrorCode, string> = {
   // Authentication & Authorization
   [ErrorCode.INVALID_CREDENTIALS]: 'Invalid email or password',
-  [ErrorCode.UNAUTHORIZED_ACCESS]: 'You are not authorized to access this resource',
+  [ErrorCode.UNAUTHORIZED_ACCESS]:
+    'You are not authorized to access this resource',
   [ErrorCode.TOKEN_EXPIRED]: 'Your session has expired. Please login again',
   [ErrorCode.TOKEN_INVALID]: 'Invalid authentication token',
 
@@ -84,7 +85,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.WORKSPACE_NOT_FOUND]: 'Workspace not found',
   [ErrorCode.WORKSPACE_ALREADY_EXISTS]: 'Workspace already exists',
   [ErrorCode.WORKSPACE_SLUG_EXISTS]: 'Workspace slug is already taken',
-  [ErrorCode.WORKSPACE_ACCESS_DENIED]: 'You do not have access to this workspace',
+  [ErrorCode.WORKSPACE_ACCESS_DENIED]:
+    'You do not have access to this workspace',
 
   // Board
   [ErrorCode.BOARD_NOT_FOUND]: 'Board not found',

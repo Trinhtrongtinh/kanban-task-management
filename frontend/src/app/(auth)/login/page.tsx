@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,41 +26,48 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-// Zod schema for login validation
+import { authApi } from '@/api/auth';
+import { useAuthStore } from '@/stores/authStore';
+
 const loginSchema = z.object({
   email: z
     .string()
     .min(1, 'Email không được để trống')
     .email('Email không đúng định dạng'),
-  password: z
-    .string()
-    .min(1, 'Mật khẩu không được để trống'),
+  password: z.string().min(1, 'Mật khẩu không được để trống'),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
+  const login = useAuthStore((s) => s.login);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
+    defaultValues: { email: '', password: '' },
   });
 
+  const isSubmitting = form.formState.isSubmitting;
+
   const onSubmit = async (values: LoginFormValues) => {
-    setIsSubmitting(true);
-    
-    // Simulate API call
-    console.log('Login values:', values);
-    
-    // TODO: Replace with actual API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
+    setServerError(null);
+    try {
+      const { user, accessToken } = await authApi.login({
+        email: values.email,
+        password: values.password,
+      });
+      login(user, accessToken);
+      router.replace('/dashboard');
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? 'Email hoặc mật khẩu không đúng.';
+      setServerError(Array.isArray(msg) ? msg.join(', ') : msg);
+    }
   };
 
   return (
@@ -75,6 +83,13 @@ export default function LoginPage() {
       </CardHeader>
 
       <CardContent>
+        {serverError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        )}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -134,10 +149,7 @@ export default function LoginPage() {
       <CardFooter className="flex justify-center">
         <p className="text-sm text-muted-foreground">
           Chưa có tài khoản?{' '}
-          <Link
-            href="/register"
-            className="font-medium text-primary hover:underline"
-          >
+          <Link href="/register" className="font-medium text-primary hover:underline">
             Đăng ký ngay
           </Link>
         </p>

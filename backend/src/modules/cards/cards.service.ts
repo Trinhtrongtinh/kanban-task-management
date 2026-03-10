@@ -32,7 +32,10 @@ export class CardsService {
     });
 
     if (!list) {
-      throw new BusinessException(ErrorCode.LIST_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.LIST_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
@@ -91,7 +94,10 @@ export class CardsService {
     });
 
     if (!card) {
-      throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.CARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return card;
@@ -160,7 +166,10 @@ export class CardsService {
       });
 
       if (!card) {
-        throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+        throw new BusinessException(
+          ErrorCode.CARD_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
 
       oldListTitle = card.list.title;
@@ -173,7 +182,10 @@ export class CardsService {
       });
 
       if (!targetList) {
-        throw new BusinessException(ErrorCode.LIST_NOT_FOUND, HttpStatus.NOT_FOUND);
+        throw new BusinessException(
+          ErrorCode.LIST_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
       }
 
       targetListTitle = targetList.title;
@@ -189,14 +201,19 @@ export class CardsService {
           where: { listId: targetListId, id: Not(id) }, // Exclude current card
           order: { position: 'DESC' },
         });
-        newPosition = lastCard ? lastCard.position + POSITION_GAP : POSITION_GAP;
+        newPosition = lastCard
+          ? lastCard.position + POSITION_GAP
+          : POSITION_GAP;
       } else if (!prevCardId && nextCardId) {
         // Moving to the beginning of the list
         const nextCard = await queryRunner.manager.findOne(Card, {
           where: { id: nextCardId },
         });
         if (!nextCard) {
-          throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+          throw new BusinessException(
+            ErrorCode.CARD_NOT_FOUND,
+            HttpStatus.NOT_FOUND,
+          );
         }
         newPosition = nextCard.position / 2;
       } else if (prevCardId && !nextCardId) {
@@ -205,7 +222,10 @@ export class CardsService {
           where: { id: prevCardId },
         });
         if (!prevCard) {
-          throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+          throw new BusinessException(
+            ErrorCode.CARD_NOT_FOUND,
+            HttpStatus.NOT_FOUND,
+          );
         }
         newPosition = prevCard.position + POSITION_GAP;
       } else {
@@ -216,24 +236,33 @@ export class CardsService {
         ]);
 
         if (!prevCard || !nextCard) {
-          throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+          throw new BusinessException(
+            ErrorCode.CARD_NOT_FOUND,
+            HttpStatus.NOT_FOUND,
+          );
         }
 
         newPosition = (prevCard.position + nextCard.position) / 2;
       }
 
       // Update card position and list using UPDATE query
-      await queryRunner.manager.update(Card, { id }, {
-        listId: targetListId,
-        position: newPosition,
-      });
+      await queryRunner.manager.update(
+        Card,
+        { id },
+        {
+          listId: targetListId,
+          position: newPosition,
+        },
+      );
 
       // Fetch updated card
       const updatedCard = await queryRunner.manager.findOne(Card, {
         where: { id },
       });
       if (!updatedCard) {
-        throw new NotFoundException(`Card with ID ${id} not found after update`);
+        throw new NotFoundException(
+          `Card with ID ${id} not found after update`,
+        );
       }
       savedCard = updatedCard;
 
@@ -255,13 +284,15 @@ export class CardsService {
       ? `Đã chuyển thẻ "${savedCard.title}" từ "${oldListTitle}" sang "${targetListTitle}"`
       : `Đã thay đổi vị trí thẻ "${savedCard.title}" trong "${targetListTitle}"`;
 
-    this.activitiesService.createLog({
-      userId,
-      boardId,
-      cardId: savedCard.id,
-      action: 'MOVE_CARD',
-      content: logContent,
-    }).catch(err => console.error('Failed to log activity:', err));
+    this.activitiesService
+      .createLog({
+        userId,
+        boardId,
+        cardId: savedCard.id,
+        action: 'MOVE_CARD',
+        content: logContent,
+      })
+      .catch((err) => console.error('Failed to log activity:', err));
 
     // Emit real-time event after successful commit
     this.cardsGateway.emitCardMoved(boardId, {

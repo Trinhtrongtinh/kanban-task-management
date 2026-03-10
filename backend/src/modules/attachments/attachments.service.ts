@@ -25,17 +25,17 @@ export class AttachmentsService {
     });
 
     if (!card) {
-      throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.CARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
   /**
    * Upload and create attachment
    */
-  async create(
-    cardId: string,
-    file: Express.Multer.File,
-  ): Promise<Attachment> {
+  async create(cardId: string, file: Express.Multer.File): Promise<Attachment> {
     // Validate card exists
     await this.validateCardExists(cardId);
 

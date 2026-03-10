@@ -22,10 +22,10 @@ export class SearchController {
     return this.searchService.globalSearch(dto, userId);
   }
 
-/* *
- * Advanced search with filters
- * GET /search/advanced?boardId=&labelIds=&dueDate=
-*/
+  /* *
+   * Advanced search with filters
+   * GET /search/advanced?boardId=&labelIds=&dueDate=
+   */
   @Get('advanced')
   @ResponseMessage('Tìm kiếm nâng cao thành công')
   async advancedSearch(

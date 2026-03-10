@@ -9,9 +9,11 @@ export class StripeService {
 
   constructor(private readonly configService: ConfigService) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
-    
+
     if (!secretKey || secretKey === 'sk_test_xxx') {
-      this.logger.warn('Stripe secret key not configured. Payment features will be disabled.');
+      this.logger.warn(
+        'Stripe secret key not configured. Payment features will be disabled.',
+      );
       return;
     }
 
@@ -76,7 +78,11 @@ export class StripeService {
       throw new Error('Stripe is not initialized');
     }
 
-    return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    return this.stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      webhookSecret,
+    );
   }
 
   /**
@@ -95,7 +101,9 @@ export class StripeService {
   /**
    * Retrieve subscription details
    */
-  async retrieveSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
+  async retrieveSubscription(
+    subscriptionId: string,
+  ): Promise<Stripe.Subscription> {
     if (!this.stripe) {
       throw new Error('Stripe is not initialized');
     }
@@ -106,7 +114,9 @@ export class StripeService {
   /**
    * Cancel a subscription
    */
-  async cancelSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
+  async cancelSubscription(
+    subscriptionId: string,
+  ): Promise<Stripe.Subscription> {
     if (!this.stripe) {
       throw new Error('Stripe is not initialized');
     }
@@ -117,7 +127,10 @@ export class StripeService {
   /**
    * Create a customer portal session for managing subscription
    */
-  async createPortalSession(customerId: string, returnUrl: string): Promise<Stripe.BillingPortal.Session> {
+  async createPortalSession(
+    customerId: string,
+    returnUrl: string,
+  ): Promise<Stripe.BillingPortal.Session> {
     if (!this.stripe) {
       throw new Error('Stripe is not initialized');
     }

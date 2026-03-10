@@ -57,7 +57,10 @@ export class NotificationsGateway
    * Check if user is currently online
    */
   isUserOnline(userId: string): boolean {
-    return this.userSockets.has(userId) && (this.userSockets.get(userId)?.size ?? 0) > 0;
+    return (
+      this.userSockets.has(userId) &&
+      (this.userSockets.get(userId)?.size ?? 0) > 0
+    );
   }
 
   /**

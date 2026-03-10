@@ -44,9 +44,7 @@ export class ChecklistsController {
 
   @Delete(':id')
   @ResponseMessage('Checklist deleted successfully')
-  async removeChecklist(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<void> {
+  async removeChecklist(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.checklistsService.removeChecklist(id);
   }
 
@@ -78,7 +76,10 @@ export class ChecklistsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateChecklistItemDto: UpdateChecklistItemDto,
   ): Promise<ChecklistItem> {
-    return this.checklistsService.updateChecklistItem(id, updateChecklistItemDto);
+    return this.checklistsService.updateChecklistItem(
+      id,
+      updateChecklistItemDto,
+    );
   }
 
   @Delete('items/:id')
@@ -95,6 +96,9 @@ export class ChecklistsController {
     @Param('checklistId', ParseUUIDPipe) checklistId: string,
     @Body() bulkCreateDto: BulkCreateChecklistItemDto,
   ): Promise<ChecklistItem[]> {
-    return this.checklistsService.bulkCreateChecklistItems(checklistId, bulkCreateDto);
+    return this.checklistsService.bulkCreateChecklistItems(
+      checklistId,
+      bulkCreateDto,
+    );
   }
 }

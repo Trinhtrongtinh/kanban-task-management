@@ -1,14 +1,9 @@
-import {
-  IsOptional,
-  IsUUID,
-  IsArray,
-  IsEnum,
-} from 'class-validator';
+import { IsOptional, IsUUID, IsArray, IsEnum } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export enum DueDateFilter {
-  OVERDUE = 'overdue',         // Đã quá hạn
-  DUE_SOON = 'due_soon',       // Sắp tới hạn (trong 7 ngày)
+  OVERDUE = 'overdue', // Đã quá hạn
+  DUE_SOON = 'due_soon', // Sắp tới hạn (trong 7 ngày)
   NO_DEADLINE = 'no_deadline', // Không có deadline
 }
 

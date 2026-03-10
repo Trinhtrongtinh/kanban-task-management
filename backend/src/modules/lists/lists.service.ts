@@ -27,7 +27,10 @@ export class ListsService {
     });
 
     if (!board) {
-      throw new BusinessException(ErrorCode.BOARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.BOARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
@@ -83,7 +86,10 @@ export class ListsService {
     });
 
     if (!list) {
-      throw new BusinessException(ErrorCode.LIST_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.LIST_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return list;

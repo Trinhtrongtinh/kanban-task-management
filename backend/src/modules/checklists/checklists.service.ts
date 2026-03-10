@@ -34,7 +34,10 @@ export class ChecklistsService {
     });
 
     if (!card) {
-      throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.CARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
@@ -92,7 +95,10 @@ export class ChecklistsService {
     });
 
     if (!checklist) {
-      throw new BusinessException(ErrorCode.CHECKLIST_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.CHECKLIST_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return checklist;
@@ -114,7 +120,9 @@ export class ChecklistsService {
 
   // ==================== CHECKLIST ITEM CRUD ====================
 
-  async createChecklistItem(createChecklistItemDto: CreateChecklistItemDto & { checklistId: string }): Promise<ChecklistItem> {
+  async createChecklistItem(
+    createChecklistItemDto: CreateChecklistItemDto & { checklistId: string },
+  ): Promise<ChecklistItem> {
     const { checklistId, content } = createChecklistItemDto;
 
     // Validate checklist exists
@@ -139,7 +147,10 @@ export class ChecklistsService {
     });
 
     if (!item) {
-      throw new BusinessException(ErrorCode.CHECKLIST_ITEM_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.CHECKLIST_ITEM_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return item;

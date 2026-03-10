@@ -44,15 +44,26 @@ export class PaymentsService {
     // Get user info
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
-      throw new BusinessException(ErrorCode.USER_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.USER_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    const successUrl = createCheckoutDto.successUrl || `${frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = createCheckoutDto.cancelUrl || `${frontendUrl}/payment/cancel`;
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const successUrl =
+      createCheckoutDto.successUrl ||
+      `${frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl =
+      createCheckoutDto.cancelUrl || `${frontendUrl}/payment/cancel`;
 
     // Use priceId from request or fallback to env
-    const priceId = createCheckoutDto.priceId || this.configService.get<string>('STRIPE_PRO_PRICE_ID');
+    const priceId =
+      createCheckoutDto.priceId ||
+      this.configService.get<string>('STRIPE_PRO_PRICE_ID');
     if (!priceId) {
       throw new BusinessException(
         ErrorCode.VALIDATION_ERROR,
@@ -80,7 +91,9 @@ export class PaymentsService {
    * Handle Stripe webhook events
    */
   async handleWebhook(payload: Buffer, signature: string): Promise<void> {
-    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
+    const webhookSecret = this.configService.get<string>(
+      'STRIPE_WEBHOOK_SECRET',
+    );
 
     if (!webhookSecret || webhookSecret === 'whsec_xxx') {
       this.logger.error('Stripe webhook secret not configured');
@@ -94,9 +107,15 @@ export class PaymentsService {
     let event: Stripe.Event;
 
     try {
-      event = this.stripeService.constructWebhookEvent(payload, signature, webhookSecret);
+      event = this.stripeService.constructWebhookEvent(
+        payload,
+        signature,
+        webhookSecret,
+      );
     } catch (err) {
-      this.logger.error(`Webhook signature verification failed: ${err.message}`);
+      this.logger.error(
+        `Webhook signature verification failed: ${err.message}`,
+      );
       throw new BusinessException(
         ErrorCode.VALIDATION_ERROR,
         HttpStatus.BAD_REQUEST,
@@ -109,15 +128,21 @@ export class PaymentsService {
     // Handle different event types
     switch (event.type) {
       case 'checkout.session.completed':
-        await this.handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+        await this.handleCheckoutCompleted(
+          event.data.object as Stripe.Checkout.Session,
+        );
         break;
 
       case 'customer.subscription.updated':
-        await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+        await this.handleSubscriptionUpdated(
+          event.data.object as Stripe.Subscription,
+        );
         break;
 
       case 'customer.subscription.deleted':
-        await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+        await this.handleSubscriptionDeleted(
+          event.data.object as Stripe.Subscription,
+        );
         break;
 
       case 'invoice.payment_failed':
@@ -132,7 +157,9 @@ export class PaymentsService {
   /**
    * Handle checkout.session.completed event
    */
-  private async handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  private async handleCheckoutCompleted(
+    session: Stripe.Checkout.Session,
+  ): Promise<void> {
     const userId = session.client_reference_id;
     const customerId = session.customer as string;
     const subscriptionId = session.subscription as string;
@@ -150,7 +177,9 @@ export class PaymentsService {
 
     try {
       // Get user
-      const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
+      const user = await queryRunner.manager.findOne(User, {
+        where: { id: userId },
+      });
       if (!user) {
         this.logger.error(`User not found: ${userId}`);
         await queryRunner.rollbackTransaction();
@@ -158,8 +187,11 @@ export class PaymentsService {
       }
 
       // Get subscription to determine expiration
-      const subscription = await this.stripeService.retrieveSubscription(subscriptionId);
-      const expiredAt = new Date((subscription as any).current_period_end * 1000);
+      const subscription =
+        await this.stripeService.retrieveSubscription(subscriptionId);
+      const expiredAt = new Date(
+        (subscription as any).current_period_end * 1000,
+      );
 
       // Update user
       await queryRunner.manager.update(User, userId, {
@@ -174,7 +206,9 @@ export class PaymentsService {
 
       // Send notifications (after commit, non-blocking)
       this.sendUpgradeNotifications(user, expiredAt).catch((err) => {
-        this.logger.error(`Failed to send upgrade notifications: ${err.message}`);
+        this.logger.error(
+          `Failed to send upgrade notifications: ${err.message}`,
+        );
       });
     } catch (error) {
       // Only rollback if transaction is still active
@@ -191,7 +225,9 @@ export class PaymentsService {
   /**
    * Handle subscription updated (renewal, plan change)
    */
-  private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
+  private async handleSubscriptionUpdated(
+    subscription: Stripe.Subscription,
+  ): Promise<void> {
     const customerId = subscription.customer as string;
 
     const user = await this.userRepository.findOne({
@@ -211,7 +247,9 @@ export class PaymentsService {
         planType: PlanType.PRO,
         expiredAt,
       });
-      this.logger.log(`Subscription renewed for user ${user.id}. New expiry: ${expiredAt}`);
+      this.logger.log(
+        `Subscription renewed for user ${user.id}. New expiry: ${expiredAt}`,
+      );
     } else if (status === 'canceled' || status === 'unpaid') {
       await this.userRepository.update(user.id, {
         planType: PlanType.FREE,
@@ -224,7 +262,9 @@ export class PaymentsService {
   /**
    * Handle subscription deleted (cancellation)
    */
-  private async handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
+  private async handleSubscriptionDeleted(
+    subscription: Stripe.Subscription,
+  ): Promise<void> {
     const customerId = subscription.customer as string;
 
     const user = await this.userRepository.findOne({
@@ -245,7 +285,9 @@ export class PaymentsService {
 
     // Send cancellation notification
     this.sendCancellationNotification(user).catch((err) => {
-      this.logger.error(`Failed to send cancellation notification: ${err.message}`);
+      this.logger.error(
+        `Failed to send cancellation notification: ${err.message}`,
+      );
     });
   }
 
@@ -271,7 +313,8 @@ export class PaymentsService {
       userId: user.id,
       type: NotificationType.MENTION, // Reuse existing type
       title: 'Thanh toán thất bại',
-      message: 'Thanh toán gói PRO của bạn không thành công. Vui lòng cập nhật phương thức thanh toán.',
+      message:
+        'Thanh toán gói PRO của bạn không thành công. Vui lòng cập nhật phương thức thanh toán.',
       link: '/settings/billing',
     });
   }
@@ -279,7 +322,10 @@ export class PaymentsService {
   /**
    * Send upgrade success notifications
    */
-  private async sendUpgradeNotifications(user: User, expiredAt: Date): Promise<void> {
+  private async sendUpgradeNotifications(
+    user: User,
+    expiredAt: Date,
+  ): Promise<void> {
     // In-app notification
     await this.notificationsService.create({
       userId: user.id,
@@ -305,7 +351,8 @@ export class PaymentsService {
       userId: user.id,
       type: NotificationType.MENTION,
       title: 'Hủy gói PRO',
-      message: 'Gói PRO của bạn đã bị hủy. Bạn vẫn có thể sử dụng các tính năng cơ bản.',
+      message:
+        'Gói PRO của bạn đã bị hủy. Bạn vẫn có thể sử dụng các tính năng cơ bản.',
       link: '/settings/billing',
     });
   }
@@ -320,7 +367,10 @@ export class PaymentsService {
   }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
-      throw new BusinessException(ErrorCode.USER_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.USER_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return {
@@ -351,7 +401,10 @@ export class PaymentsService {
       );
     }
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
     const session = await this.stripeService.createPortalSession(
       user.stripeCustomerId,
       `${frontendUrl}/settings/billing`,

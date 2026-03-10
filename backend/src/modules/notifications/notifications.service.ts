@@ -37,7 +37,8 @@ export class NotificationsService {
       isRead: false,
     });
 
-    const savedNotification = await this.notificationRepository.save(notification);
+    const savedNotification =
+      await this.notificationRepository.save(notification);
 
     // Emit real-time notification if user is online
     this.notificationsGateway.emitNotification(dto.userId, savedNotification);
@@ -68,13 +69,19 @@ export class NotificationsService {
   /**
    * Mark notification as read
    */
-  async markAsRead(notificationId: string, userId: string): Promise<Notification> {
+  async markAsRead(
+    notificationId: string,
+    userId: string,
+  ): Promise<Notification> {
     const notification = await this.notificationRepository.findOne({
       where: { id: notificationId, userId },
     });
 
     if (!notification) {
-      throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     notification.isRead = true;
@@ -108,7 +115,10 @@ export class NotificationsService {
     });
 
     if (!notification) {
-      throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     await this.notificationRepository.remove(notification);

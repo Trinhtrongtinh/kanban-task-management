@@ -6,18 +6,19 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy, LocalStrategy } from './strategies';
-import { User, Workspace } from '../../database/entities';
+import { User, Workspace, WorkspaceMember } from '../../database/entities';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Workspace]),
+    TypeOrmModule.forFeature([User, Workspace, WorkspaceMember]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('jwt.secret') || 'default_secret',
         signOptions: {
-          expiresIn: (configService.get<string>('jwt.expiresIn') || '7d') as any,
+          expiresIn: (configService.get<string>('jwt.expiresIn') ||
+            '7d') as any,
         },
       }),
       inject: [ConfigService],

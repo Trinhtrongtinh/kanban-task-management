@@ -7,7 +7,10 @@ import { Comment, Card, BoardMember } from '../../database/entities';
 import { ActivitiesModule } from '../activities/activities.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Comment, Card, BoardMember]), ActivitiesModule],
+  imports: [
+    TypeOrmModule.forFeature([Comment, Card, BoardMember]),
+    ActivitiesModule,
+  ],
   controllers: [CommentsController],
   providers: [CommentsService, CommentsGateway],
   exports: [CommentsService, CommentsGateway],

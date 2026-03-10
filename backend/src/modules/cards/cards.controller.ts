@@ -12,7 +12,11 @@ import {
 import { CardsService } from './cards.service';
 import { CreateCardDto, UpdateCardDto, MoveCardDto } from './dto';
 import { Card, Checklist } from '../../database/entities';
-import { ResponseMessage, CurrentUser, RequireBoardRole } from '../../common/decorators';
+import {
+  ResponseMessage,
+  CurrentUser,
+  RequireBoardRole,
+} from '../../common/decorators';
 import { LabelsService } from '../labels/labels.service';
 import { ChecklistsService } from '../checklists/checklists.service';
 import { CreateChecklistDto } from '../checklists/dto';

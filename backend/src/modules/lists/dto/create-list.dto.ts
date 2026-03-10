@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsUUID,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsNotEmpty, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateListDto {
   @IsString()

@@ -13,7 +13,7 @@ interface Board {
 interface Workspace {
   id: string;
   name: string;
-  boards: Board[];
+  boards?: Board[];
 }
 
 // Gradient presets for boards
@@ -97,14 +97,14 @@ export function WorkspaceSection({ workspace, icon }: WorkspaceSectionProps) {
             {workspace.name}
           </h2>
           <span className="text-sm text-muted-foreground hidden sm:inline-block">
-            ({workspace.boards.length} boards)
+            ({workspace.boards?.length || 0} boards)
           </span>
         </Link>
       </div>
 
       {/* Boards Grid */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {workspace.boards.map((board, index) => (
+        {(workspace.boards || []).map((board, index) => (
           <BoardCard key={board.id} board={board} index={index} />
         ))}
       </div>

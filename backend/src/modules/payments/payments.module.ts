@@ -7,10 +7,7 @@ import { User } from '../../database/entities';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User]),
-    NotificationsModule,
-  ],
+  imports: [TypeOrmModule.forFeature([User]), NotificationsModule],
   controllers: [PaymentsController],
   providers: [PaymentsService, StripeService],
   exports: [PaymentsService, StripeService],

@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  MaxLength,
-  Matches,
-} from 'class-validator';
+import { IsString, IsOptional, MaxLength, Matches } from 'class-validator';
 
 export class UpdateLabelDto {
   @IsString()

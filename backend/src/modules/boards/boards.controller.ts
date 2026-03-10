@@ -12,7 +12,12 @@ import {
 import { BoardsService } from './boards.service';
 import { CreateBoardDto, UpdateBoardDto } from './dto';
 import { Board } from '../../database/entities';
-import { ResponseMessage, CurrentUser, RequireBoardRole, RequireWorkspaceRole } from '../../common/decorators';
+import {
+  ResponseMessage,
+  CurrentUser,
+  RequireBoardRole,
+  RequireWorkspaceRole,
+} from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { BoardMemberGuard, WorkspaceMemberGuard } from '../../common/guards';
 import { BoardRole, WorkspaceRole } from '../../common/enums';

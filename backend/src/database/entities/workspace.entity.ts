@@ -4,7 +4,7 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
+  OneToOne,
   OneToMany,
   JoinColumn,
 } from 'typeorm';
@@ -38,10 +38,10 @@ export class Workspace {
   })
   type: WorkspaceType;
 
-  @Column({ name: 'owner_id' })
+  @Column({ name: 'owner_id', unique: true })
   ownerId: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_id' })
   owner: User;
 

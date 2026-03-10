@@ -23,7 +23,7 @@ export class WorkspacesService {
     private readonly usersService: UsersService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Generate slug from name
@@ -32,19 +32,73 @@ export class WorkspacesService {
   private generateSlug(name: string): string {
     // Vietnamese character mapping
     const vietnameseMap: Record<string, string> = {
-      'à': 'a', 'á': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a',
-      'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a',
-      'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a',
-      'đ': 'd',
-      'è': 'e', 'é': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e',
-      'ê': 'e', 'ề': 'e', 'ế': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e',
-      'ì': 'i', 'í': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
-      'ò': 'o', 'ó': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o',
-      'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o',
-      'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
-      'ù': 'u', 'ú': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u',
-      'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u',
-      'ỳ': 'y', 'ý': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
+      à: 'a',
+      á: 'a',
+      ả: 'a',
+      ã: 'a',
+      ạ: 'a',
+      ă: 'a',
+      ằ: 'a',
+      ắ: 'a',
+      ẳ: 'a',
+      ẵ: 'a',
+      ặ: 'a',
+      â: 'a',
+      ầ: 'a',
+      ấ: 'a',
+      ẩ: 'a',
+      ẫ: 'a',
+      ậ: 'a',
+      đ: 'd',
+      è: 'e',
+      é: 'e',
+      ẻ: 'e',
+      ẽ: 'e',
+      ẹ: 'e',
+      ê: 'e',
+      ề: 'e',
+      ế: 'e',
+      ể: 'e',
+      ễ: 'e',
+      ệ: 'e',
+      ì: 'i',
+      í: 'i',
+      ỉ: 'i',
+      ĩ: 'i',
+      ị: 'i',
+      ò: 'o',
+      ó: 'o',
+      ỏ: 'o',
+      õ: 'o',
+      ọ: 'o',
+      ô: 'o',
+      ồ: 'o',
+      ố: 'o',
+      ổ: 'o',
+      ỗ: 'o',
+      ộ: 'o',
+      ơ: 'o',
+      ờ: 'o',
+      ớ: 'o',
+      ở: 'o',
+      ỡ: 'o',
+      ợ: 'o',
+      ù: 'u',
+      ú: 'u',
+      ủ: 'u',
+      ũ: 'u',
+      ụ: 'u',
+      ư: 'u',
+      ừ: 'u',
+      ứ: 'u',
+      ử: 'u',
+      ữ: 'u',
+      ự: 'u',
+      ỳ: 'y',
+      ý: 'y',
+      ỷ: 'y',
+      ỹ: 'y',
+      ỵ: 'y',
     };
 
     return name
@@ -85,12 +139,14 @@ export class WorkspacesService {
   }
 
   async create(createWorkspaceDto: CreateWorkspaceDto, userId: string): Promise<Workspace> {
+    const existing = await this.workspaceRepository.findOne({ where: { ownerId: userId } });
+    if (existing) {
+      throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, 'Mỗi tài khoản chỉ được tạo tối đa 1 Workspace cá nhân');
+    }
+
     const { name, slug, ...rest } = createWorkspaceDto;
 
-    // Generate slug from name if not provided
     let workspaceSlug = slug || this.generateSlug(name);
-
-    // Ensure slug is unique
     workspaceSlug = await this.ensureUniqueSlug(workspaceSlug);
 
     const workspace = this.workspaceRepository.create({
@@ -102,7 +158,6 @@ export class WorkspacesService {
 
     const savedWorkspace = await this.workspaceRepository.save(workspace);
 
-    // Create workspace member for owner
     const workspaceMember = this.workspaceMemberRepository.create({
       workspaceId: savedWorkspace.id,
       userId,
@@ -121,7 +176,7 @@ export class WorkspacesService {
       relations: ['workspace', 'workspace.owner'],
     });
 
-    return memberships.map(m => m.workspace);
+    return memberships.map((m) => m.workspace);
   }
 
   async findAll(): Promise<Workspace[]> {
@@ -137,7 +192,10 @@ export class WorkspacesService {
     });
 
     if (!workspace) {
-      throw new BusinessException(ErrorCode.WORKSPACE_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.WORKSPACE_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return workspace;
@@ -155,7 +213,10 @@ export class WorkspacesService {
     if (slug) {
       const uniqueSlug = await this.ensureUniqueSlug(slug, id);
       if (uniqueSlug !== slug) {
-        throw new BusinessException(ErrorCode.WORKSPACE_SLUG_EXISTS, HttpStatus.CONFLICT);
+        throw new BusinessException(
+          ErrorCode.WORKSPACE_SLUG_EXISTS,
+          HttpStatus.CONFLICT,
+        );
       }
       workspace.slug = slug;
     } else if (name && name !== workspace.name) {
@@ -171,11 +232,6 @@ export class WorkspacesService {
     Object.assign(workspace, rest);
 
     return this.workspaceRepository.save(workspace);
-  }
-
-  async remove(id: string): Promise<void> {
-    const workspace = await this.findOne(id);
-    await this.workspaceRepository.remove(workspace);
   }
 
   /**
@@ -205,7 +261,10 @@ export class WorkspacesService {
       }
 
       // Step 2: Check if user already in workspace
-      const existingMember = await this.findExistingMember(workspaceId, invitedUser.id);
+      const existingMember = await this.findExistingMember(
+        workspaceId,
+        invitedUser.id,
+      );
       if (existingMember) {
         throw new BusinessException(
           ErrorCode.USER_ALREADY_EXISTS,
@@ -216,7 +275,9 @@ export class WorkspacesService {
 
       // Step 3: Get workspace and inviter info
       const workspace = await this.findOne(workspaceId);
-      const inviter = await this.userRepository.findOne({ where: { id: inviterId } });
+      const inviter = await this.userRepository.findOne({
+        where: { id: inviterId },
+      });
 
       // Step 4: Generate invite token
       const inviteToken = this.generateInviteToken();
@@ -323,7 +384,7 @@ export class WorkspacesService {
     });
 
     // Check if owner is already in members list
-    const ownerInList = members.some(m => m.userId === workspace.ownerId);
+    const ownerInList = members.some((m) => m.userId === workspace.ownerId);
 
     // If owner not in list, add them
     if (!ownerInList) {
@@ -373,7 +434,10 @@ export class WorkspacesService {
   }
 
   private generateInviteLink(workspaceId: string, token: string): string {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
     return `${frontendUrl}/workspaces/${workspaceId}/accept-invite?token=${token}`;
   }
 

@@ -40,7 +40,9 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Profile retrieved successfully')
-  async getProfile(@CurrentUser('userId') userId: string): Promise<Partial<User> | null> {
+  async getProfile(
+    @CurrentUser('userId') userId: string,
+  ): Promise<Partial<User> | null> {
     return this.authService.getProfile(userId);
   }
 }

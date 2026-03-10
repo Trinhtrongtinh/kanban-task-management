@@ -26,7 +26,9 @@ export class MailerService {
     const pass = this.configService.get<string>('MAIL_PASS');
 
     if (!user || !pass) {
-      this.logger.warn('Mail credentials not configured. Email sending will be disabled.');
+      this.logger.warn(
+        'Mail credentials not configured. Email sending will be disabled.',
+      );
       return;
     }
 
@@ -48,13 +50,21 @@ export class MailerService {
    */
   async sendMail(options: SendEmailOptions): Promise<boolean> {
     if (!this.transporter) {
-      this.logger.warn('Mail transporter not initialized. Skipping email send.');
+      this.logger.warn(
+        'Mail transporter not initialized. Skipping email send.',
+      );
       return false;
     }
 
     try {
-      const fromEmail = this.configService.get<string>('MAIL_FROM', 'noreply@kanban.app');
-      const fromName = this.configService.get<string>('MAIL_FROM_NAME', 'Kanban App');
+      const fromEmail = this.configService.get<string>(
+        'MAIL_FROM',
+        'noreply@kanban.app',
+      );
+      const fromName = this.configService.get<string>(
+        'MAIL_FROM_NAME',
+        'Kanban App',
+      );
 
       await this.transporter.sendMail({
         from: `"${fromName}" <${fromEmail}>`,

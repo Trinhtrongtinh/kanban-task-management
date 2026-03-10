@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsNumber,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsOptional, IsNumber, MaxLength } from 'class-validator';
 
 export class UpdateListDto {
   @IsString()

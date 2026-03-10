@@ -50,9 +50,7 @@ export class NotificationsController {
 
   @Post('mark-all-read')
   @ResponseMessage('All notifications marked as read')
-  async markAllAsRead(
-    @CurrentUser('userId') userId: string,
-  ): Promise<void> {
+  async markAllAsRead(@CurrentUser('userId') userId: string): Promise<void> {
     return this.notificationsService.markAllAsRead(userId);
   }
 

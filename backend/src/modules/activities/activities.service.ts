@@ -26,7 +26,10 @@ export class ActivitiesService {
     });
 
     if (!board) {
-      throw new BusinessException(ErrorCode.BOARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.BOARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
@@ -39,7 +42,10 @@ export class ActivitiesService {
     });
 
     if (!card) {
-      throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.CARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
@@ -47,7 +53,9 @@ export class ActivitiesService {
    * Create an activity log entry
    * Called by other services when actions are performed
    */
-  async createLog(createActivityLogDto: CreateActivityLogDto): Promise<ActivityLog> {
+  async createLog(
+    createActivityLogDto: CreateActivityLogDto,
+  ): Promise<ActivityLog> {
     const activityLog = this.activityLogRepository.create({
       userId: createActivityLogDto.userId,
       boardId: createActivityLogDto.boardId,

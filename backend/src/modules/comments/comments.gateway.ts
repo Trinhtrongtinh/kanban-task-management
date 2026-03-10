@@ -16,7 +16,9 @@ import { Comment } from '../../database/entities';
   },
   namespace: '/comments',
 })
-export class CommentsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class CommentsGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 

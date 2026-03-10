@@ -3,10 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { User, Workspace, WorkspaceType } from '../../database/entities';
+import {
+  User,
+  Workspace,
+  WorkspaceType,
+} from '../../database/entities';
 import { RegisterDto, LoginDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode } from '../../common/enums';
+import { ErrorCode, WorkspaceRole, MemberStatus } from '../../common/enums';
 
 @Injectable()
 export class AuthService {
@@ -16,9 +20,11 @@ export class AuthService {
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
-  async register(registerDto: RegisterDto): Promise<{ user: Partial<User>; accessToken: string }> {
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<{ user: Partial<User>; accessToken: string }> {
     const { username, email, password } = registerDto;
 
     const existingUser = await this.userRepository.findOne({
@@ -26,7 +32,10 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new BusinessException(ErrorCode.USER_EMAIL_EXISTS, HttpStatus.CONFLICT);
+      throw new BusinessException(
+        ErrorCode.USER_EMAIL_EXISTS,
+        HttpStatus.CONFLICT,
+      );
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -39,15 +48,6 @@ export class AuthService {
 
     await this.userRepository.save(user);
 
-    // Create default personal workspace for new user
-    const defaultWorkspace = this.workspaceRepository.create({
-      name: `${username}'s Workspace`,
-      slug: this.generateSlug(`${username}-workspace-${Date.now()}`),
-      type: WorkspaceType.PERSONAL,
-      ownerId: user.id,
-    });
-    await this.workspaceRepository.save(defaultWorkspace);
-
     const accessToken = this.generateToken(user);
 
     return {
@@ -56,7 +56,9 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto): Promise<{ user: Partial<User>; accessToken: string }> {
+  async login(
+    loginDto: LoginDto,
+  ): Promise<{ user: Partial<User>; accessToken: string }> {
     const { email, password } = loginDto;
 
     const user = await this.userRepository.findOne({
@@ -64,13 +66,19 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, HttpStatus.UNAUTHORIZED);
+      throw new BusinessException(
+        ErrorCode.INVALID_CREDENTIALS,
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, HttpStatus.UNAUTHORIZED);
+      throw new BusinessException(
+        ErrorCode.INVALID_CREDENTIALS,
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     const accessToken = this.generateToken(user);
@@ -106,19 +114,73 @@ export class AuthService {
    */
   private generateSlug(name: string): string {
     const vietnameseMap: Record<string, string> = {
-      'à': 'a', 'á': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a',
-      'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a',
-      'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a',
-      'đ': 'd',
-      'è': 'e', 'é': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e',
-      'ê': 'e', 'ề': 'e', 'ế': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e',
-      'ì': 'i', 'í': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
-      'ò': 'o', 'ó': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o',
-      'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o',
-      'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
-      'ù': 'u', 'ú': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u',
-      'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u',
-      'ỳ': 'y', 'ý': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
+      à: 'a',
+      á: 'a',
+      ả: 'a',
+      ã: 'a',
+      ạ: 'a',
+      ă: 'a',
+      ằ: 'a',
+      ắ: 'a',
+      ẳ: 'a',
+      ẵ: 'a',
+      ặ: 'a',
+      â: 'a',
+      ầ: 'a',
+      ấ: 'a',
+      ẩ: 'a',
+      ẫ: 'a',
+      ậ: 'a',
+      đ: 'd',
+      è: 'e',
+      é: 'e',
+      ẻ: 'e',
+      ẽ: 'e',
+      ẹ: 'e',
+      ê: 'e',
+      ề: 'e',
+      ế: 'e',
+      ể: 'e',
+      ễ: 'e',
+      ệ: 'e',
+      ì: 'i',
+      í: 'i',
+      ỉ: 'i',
+      ĩ: 'i',
+      ị: 'i',
+      ò: 'o',
+      ó: 'o',
+      ỏ: 'o',
+      õ: 'o',
+      ọ: 'o',
+      ô: 'o',
+      ồ: 'o',
+      ố: 'o',
+      ổ: 'o',
+      ỗ: 'o',
+      ộ: 'o',
+      ơ: 'o',
+      ờ: 'o',
+      ớ: 'o',
+      ở: 'o',
+      ỡ: 'o',
+      ợ: 'o',
+      ù: 'u',
+      ú: 'u',
+      ủ: 'u',
+      ũ: 'u',
+      ụ: 'u',
+      ư: 'u',
+      ừ: 'u',
+      ứ: 'u',
+      ử: 'u',
+      ữ: 'u',
+      ự: 'u',
+      ỳ: 'y',
+      ý: 'y',
+      ỷ: 'y',
+      ỹ: 'y',
+      ỵ: 'y',
     };
 
     return name

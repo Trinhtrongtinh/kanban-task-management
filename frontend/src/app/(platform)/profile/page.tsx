@@ -35,6 +35,7 @@ import {
   PenLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -144,9 +145,11 @@ function SaveFeedback({ saved }: { saved: boolean }) {
 // ── Page ──────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
+  const user = useAuthStore((s) => s.user);
+
   // ── Profile form ──────────────────────────────────────────────────
-  const [fullName, setFullName] = useState('Người Dùng Hiện Tại');
-  const [avatarSrc, setAvatarSrc] = useState('https://i.pravatar.cc/150?u=current_user');
+  const [fullName, setFullName] = useState(user?.fullName || user?.username || '');
+  const [avatarSrc, setAvatarSrc] = useState(user?.avatarUrl || `https://i.pravatar.cc/150?u=${user?.id || 'guest'}`);
   const [profileSaved, setProfileSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -200,10 +203,10 @@ export default function ProfilePage() {
           </AvatarFallback>
         </Avatar>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{fullName}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{fullName || 'Chưa cập nhật tên'}</h1>
           <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
             <Mail className="h-3.5 w-3.5" />
-            user@example.com
+            {user?.email || 'user@example.com'}
           </p>
         </div>
       </div>
@@ -299,7 +302,7 @@ export default function ProfilePage() {
                     <Input
                       id="email"
                       type="email"
-                      value="user@example.com"
+                      value={user?.email || ''}
                       disabled
                       className="pl-9"
                     />

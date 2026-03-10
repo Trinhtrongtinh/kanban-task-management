@@ -57,3 +57,4 @@ coverage/
 # TypeScript
 *.tsbuildinfo
 CLAUDE.md
+backend/src/cleanup.ts

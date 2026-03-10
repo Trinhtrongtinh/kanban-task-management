@@ -25,6 +25,9 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const handleLogout = () => {
     logout();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   const getInitials = (name: string) => {
@@ -79,10 +82,10 @@ export function Header({ onMenuClick }: HeaderProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                <Avatar size="default">
-                  <AvatarImage src={user?.avatarUrl} alt={user?.name || 'User'} />
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user?.avatarUrl} alt={user?.fullName || user?.username || 'User'} />
                   <AvatarFallback>
-                    {user?.name ? getInitials(user.name) : 'U'}
+                    {user?.fullName || user?.username ? getInitials(user.fullName || user.username) : 'U'}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -90,7 +93,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user?.name}</p>
+                  <p className="text-sm font-medium leading-none">{user?.fullName || user?.username}</p>
                   <p className="text-xs leading-none text-muted-foreground">
                     {user?.email}
                   </p>

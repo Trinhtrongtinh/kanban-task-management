@@ -40,7 +40,12 @@ export class User {
   @Column({ type: 'timestamp', nullable: true, name: 'expired_at' })
   expiredAt: Date | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'stripe_customer_id' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'stripe_customer_id',
+  })
   stripeCustomerId: string | null;
 
   @Column({ type: 'boolean', default: false, name: 'is_verified' })

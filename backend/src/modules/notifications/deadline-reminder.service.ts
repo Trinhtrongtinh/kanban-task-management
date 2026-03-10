@@ -2,7 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThan, MoreThan, And } from 'typeorm';
-import { Card, Notification, NotificationType, User, List, Board } from '../../database/entities';
+import {
+  Card,
+  Notification,
+  NotificationType,
+  User,
+  List,
+  Board,
+} from '../../database/entities';
 import { NotificationsService } from './notifications.service';
 import { MailerService } from './mailer.service';
 import { ConfigService } from '@nestjs/config';
@@ -44,9 +51,14 @@ export class DeadlineReminderService {
       const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
       // Find cards approaching deadline
-      const cardsToRemind = await this.findCardsApproachingDeadline(now, in24Hours);
+      const cardsToRemind = await this.findCardsApproachingDeadline(
+        now,
+        in24Hours,
+      );
 
-      this.logger.log(`Found ${cardsToRemind.length} cards approaching deadline`);
+      this.logger.log(
+        `Found ${cardsToRemind.length} cards approaching deadline`,
+      );
 
       if (cardsToRemind.length === 0) {
         return;
@@ -62,7 +74,10 @@ export class DeadlineReminderService {
           successCount++;
         } catch (error) {
           errorCount++;
-          this.logger.error(`Failed to process reminder for card ${card.id}:`, error);
+          this.logger.error(
+            `Failed to process reminder for card ${card.id}:`,
+            error,
+          );
           // Continue processing other cards even if one fails
         }
       }
@@ -112,19 +127,26 @@ export class DeadlineReminderService {
         return;
       }
 
-      const user = card.assignee || await queryRunner.manager.findOne(User, {
-        where: { id: card.assigneeId },
-      });
+      const user =
+        card.assignee ||
+        (await queryRunner.manager.findOne(User, {
+          where: { id: card.assigneeId },
+        }));
 
       if (!user) {
-        this.logger.warn(`User ${card.assigneeId} not found for card ${card.id}`);
+        this.logger.warn(
+          `User ${card.assigneeId} not found for card ${card.id}`,
+        );
         await queryRunner.manager.update(Card, card.id, { isReminded: true });
         await queryRunner.commitTransaction();
         return;
       }
 
       const boardName = card.list?.board?.title || 'Unknown Board';
-      const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+      const frontendUrl = this.configService.get<string>(
+        'FRONTEND_URL',
+        'http://localhost:3000',
+      );
       const cardLink = `${frontendUrl}/boards/${card.list?.boardId}/cards/${card.id}`;
 
       // 1. Create notification in database
@@ -159,7 +181,10 @@ export class DeadlineReminderService {
 
       // 4. Send email (non-blocking, errors don't affect the process)
       this.sendReminderEmail(user, card, boardName, cardLink).catch((error) => {
-        this.logger.error(`Failed to send reminder email to ${user.email}:`, error);
+        this.logger.error(
+          `Failed to send reminder email to ${user.email}:`,
+          error,
+        );
       });
 
       this.logger.log(
@@ -241,10 +266,13 @@ export class DeadlineReminderService {
     errors: number;
   }> {
     this.logger.log('Manual deadline check triggered');
-    
+
     const now = new Date();
     const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const cardsToRemind = await this.findCardsApproachingDeadline(now, in24Hours);
+    const cardsToRemind = await this.findCardsApproachingDeadline(
+      now,
+      in24Hours,
+    );
 
     let processed = 0;
     let errors = 0;
@@ -255,7 +283,10 @@ export class DeadlineReminderService {
         processed++;
       } catch (error) {
         errors++;
-        this.logger.error(`Manual check: Failed to process card ${card.id}:`, error);
+        this.logger.error(
+          `Manual check: Failed to process card ${card.id}:`,
+          error,
+        );
       }
     }
 

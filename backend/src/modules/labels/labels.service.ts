@@ -26,7 +26,10 @@ export class LabelsService {
     });
 
     if (!board) {
-      throw new BusinessException(ErrorCode.BOARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.BOARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
@@ -40,7 +43,10 @@ export class LabelsService {
     });
 
     if (!card) {
-      throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.CARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return card;
@@ -76,7 +82,10 @@ export class LabelsService {
     });
 
     if (!label) {
-      throw new BusinessException(ErrorCode.LABEL_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.LABEL_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return label;

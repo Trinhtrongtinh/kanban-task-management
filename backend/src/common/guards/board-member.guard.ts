@@ -35,7 +35,8 @@ export class BoardMemberGuard implements CanActivate {
 
     // Get boardId from params (could be :boardId, :id for board routes)
     // or from body for POST requests like creating lists/cards
-    const boardId = request.params.boardId || request.params.id || request.body?.boardId;
+    const boardId =
+      request.params.boardId || request.params.id || request.body?.boardId;
     // console.log('BoardId:', boardId);
     if (!boardId) {
       // If no boardId found anywhere, skip board check
@@ -48,9 +49,7 @@ export class BoardMemberGuard implements CanActivate {
     });
 
     if (!membership) {
-      throw new ForbiddenException(
-        'You are not a member of this board',
-      );
+      throw new ForbiddenException('You are not a member of this board');
     }
 
     // Attach membership info to request for later use

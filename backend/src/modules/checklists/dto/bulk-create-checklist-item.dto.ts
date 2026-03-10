@@ -1,4 +1,12 @@
-import { IsNotEmpty, IsString, IsArray, ValidateNested, ArrayMinSize, IsInt, Min } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
+  IsInt,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ChecklistItemContentDto {

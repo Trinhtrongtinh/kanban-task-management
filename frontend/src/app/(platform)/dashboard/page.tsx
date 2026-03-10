@@ -4,51 +4,37 @@ import { useState } from 'react';
 import { Briefcase, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WorkspaceSection } from '@/components/workspaces/workspace-section';
+import { useWorkspaces } from '@/hooks/use-workspaces';
+import { useWorkspaceModal } from '@/hooks/use-workspace-modal';
+import { Loader2, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // ── Types ────────────────────────────────────────────────────────────
 
 interface Board {
   id: string;
   title: string;
-  backgroundColor: string;
+  backgroundColor?: string;
+  backgroundImage?: string;
 }
 
-interface Workspace {
-  id: string;
-  name: string;
-  description?: string;
-  boards: Board[];
-}
-
-// ── Mock data ────────────────────────────────────────────────────────
-
-const INITIAL_WORKSPACES: Workspace[] = [
-  {
-    id: 'ws-1',
-    name: 'Công ty ABC',
-    description: 'Workspace chính của công ty',
-    boards: [
-      { id: 'board-1', title: 'Dự án Website Redesign', backgroundColor: 'from-blue-500 to-blue-600' },
-      { id: 'board-2', title: 'Marketing Q1 2026', backgroundColor: 'from-purple-500 to-pink-500' },
-      { id: 'board-3', title: 'Product Roadmap', backgroundColor: 'from-green-500 to-teal-500' },
-      { id: 'board-4', title: 'Bug Tracking', backgroundColor: 'from-orange-500 to-red-500' },
-    ],
-  },
-  {
-    id: 'ws-2',
-    name: 'Dự án cá nhân',
-    description: 'Quản lý các dự án cá nhân',
-    boards: [
-      { id: 'board-5', title: 'Học tiếng Anh', backgroundColor: 'from-indigo-500 to-purple-500' },
-      { id: 'board-6', title: 'Kế hoạch du lịch 2026', backgroundColor: 'from-cyan-500 to-blue-500' },
-    ],
-  },
-];
+// ── Safe type helper for the UI components
+export type WorkspaceWithNestedBoards = import('@/api/workspaces').Workspace & {
+  boards?: Board[];
+};
 
 // ── Page component ───────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [workspaces] = useState<Workspace[]>(INITIAL_WORKSPACES);
+  const { data: workspaces = [], isLoading } = useWorkspaces();
+  const onOpenWorkspaceModal = useWorkspaceModal(s => s.onOpen);
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -82,7 +68,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {workspaces.reduce((acc, ws) => acc + ws.boards.length, 0)}
+              {workspaces.reduce((acc, ws) => acc + ((ws as WorkspaceWithNestedBoards).boards?.length || 0), 0)}
             </div>
             <p className="text-xs text-muted-foreground">
               Board bạn đang quản lý
@@ -129,17 +115,18 @@ export default function DashboardPage() {
       {workspaces.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center bg-card">
           <Briefcase className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h2 className="mb-2 text-xl font-semibold">Chưa có workspace nào</h2>
+          <h2 className="mb-2 text-xl font-semibold">Tạm thời bạn chưa có workspace nào</h2>
           <p className="mb-4 text-muted-foreground">
-            Hiện tại bạn chưa có workspace nào.
+            Vui lòng tạo 1 workspace cá nhân hoặc liên hệ Admin để xin cấp quyền.
           </p>
+          <Button onClick={onOpenWorkspaceModal}>Tạo Workspace đầu tiên</Button>
         </div>
       ) : (
         <div className="space-y-8">
           {workspaces.map((workspace, index) => (
             <WorkspaceSection
               key={workspace.id}
-              workspace={workspace}
+              workspace={workspace as WorkspaceWithNestedBoards}
               icon={
                 index === 0 ? (
                   <Briefcase className="h-5 w-5" />

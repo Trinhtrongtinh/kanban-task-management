@@ -31,7 +31,10 @@ export class PaymentsController {
     @Body() createCheckoutDto: CreateCheckoutDto,
     @CurrentUser('userId') userId: string,
   ): Promise<{ url: string; sessionId: string }> {
-    return this.paymentsService.createCheckoutSession(createCheckoutDto, userId);
+    return this.paymentsService.createCheckoutSession(
+      createCheckoutDto,
+      userId,
+    );
   }
 
   /**

@@ -31,7 +31,10 @@ export class CommentsService {
     });
 
     if (!card) {
-      throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.CARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return card;
@@ -46,14 +49,21 @@ export class CommentsService {
     });
 
     if (!card) {
-      throw new BusinessException(ErrorCode.CARD_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.CARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
   /**
    * Create a new comment
    */
-  async create(cardId: string, createCommentDto: CreateCommentDto, userId: string): Promise<Comment> {
+  async create(
+    cardId: string,
+    createCommentDto: CreateCommentDto,
+    userId: string,
+  ): Promise<Comment> {
     // Get card with list for boardId
     const card = await this.getCardWithList(cardId);
 
@@ -133,7 +143,10 @@ export class CommentsService {
     });
 
     if (!comment) {
-      throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.COMMENT_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return comment;
@@ -142,7 +155,10 @@ export class CommentsService {
   /**
    * Check if user can modify the comment (owner or board admin)
    */
-  private async validateCommentPermission(comment: Comment, userId: string): Promise<void> {
+  private async validateCommentPermission(
+    comment: Comment,
+    userId: string,
+  ): Promise<void> {
     // Owner can always modify their own comment
     if (comment.userId === userId) {
       return;
@@ -167,7 +183,11 @@ export class CommentsService {
   /**
    * Update comment content
    */
-  async update(id: string, updateCommentDto: UpdateCommentDto, userId: string): Promise<Comment> {
+  async update(
+    id: string,
+    updateCommentDto: UpdateCommentDto,
+    userId: string,
+  ): Promise<Comment> {
     const comment = await this.findOne(id);
 
     // Check permission
