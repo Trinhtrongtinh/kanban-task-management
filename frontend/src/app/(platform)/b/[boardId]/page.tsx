@@ -31,7 +31,12 @@ export default function BoardDetailPage() {
         className={`-m-6 flex h-[calc(100vh-64px)] flex-col overflow-x-auto overflow-y-hidden rounded-xl p-4 ${isUrl ? '' : `bg-gradient-to-br ${bgClass}`}`}
         style={bgStyle}
       >
-        <BoardNavbar boardId={boardId} title={board?.title || 'Board'} workspaceId={board?.workspaceId || ''} />
+        <BoardNavbar
+          boardId={boardId}
+          title={board?.title || 'Board'}
+          workspaceId={board?.workspaceId || ''}
+          backgroundUrl={board?.backgroundUrl || ''}
+        />
         <ListContainer />
       </div>
       <ModalProvider />

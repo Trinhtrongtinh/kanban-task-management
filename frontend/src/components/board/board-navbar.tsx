@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Check, UserPlus, ChevronLeft } from 'lucide-react';
+import { Check, UserPlus, ChevronLeft, Settings, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { useUpdateBoard } from '@/hooks/use-boards';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,17 +45,53 @@ const INITIAL_MEMBERS: User[] = [
   ALL_SYSTEM_USERS[1], // Bob
 ];
 
+const GRADIENT_PRESETS = [
+  'from-blue-500 to-blue-600',
+  'from-purple-500 to-pink-500',
+  'from-green-500 to-teal-500',
+  'from-orange-500 to-red-500',
+  'from-indigo-500 to-purple-500',
+  'from-cyan-500 to-blue-500',
+  'from-rose-500 to-rose-600',
+  'from-amber-500 to-orange-500',
+];
+
 // ── Component ────────────────────────────────────────────────────────
 
 interface BoardNavbarProps {
   boardId: string;
   title: string;
   workspaceId: string;
+  backgroundUrl: string;
 }
 
-export function BoardNavbar({ boardId, title, workspaceId }: BoardNavbarProps) {
+export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: BoardNavbarProps) {
   const [boardMembers, setBoardMembers] = useState<User[]>(INITIAL_MEMBERS);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Settings popover
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(title);
+  const [editedBg, setEditedBg] = useState(backgroundUrl || GRADIENT_PRESETS[0]);
+  const updateBoardMutation = useUpdateBoard();
+
+  const handleUpdateBoard = (e: React.FormEvent) => {
+    e.preventDefault();
+    const payloadTitle = editedTitle.trim();
+    if (!payloadTitle) return;
+
+    updateBoardMutation.mutate({
+      id: boardId,
+      payload: {
+        title: payloadTitle,
+        backgroundUrl: editedBg
+      }
+    }, {
+      onSuccess: () => {
+        setIsSettingsOpen(false);
+      }
+    });
+  };
 
   const memberIds = new Set(boardMembers.map((m) => m.id));
 
@@ -156,6 +195,69 @@ export function BoardNavbar({ boardId, title, workspaceId }: BoardNavbarProps) {
                   </CommandGroup>
                 </CommandList>
               </Command>
+            </PopoverContent>
+          </Popover>
+
+          {/* ── Settings Popover ─────────────────────────── */}
+          <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-2 flex h-8 w-8 p-0 items-center justify-center rounded-md border bg-white text-neutral-600 transition hover:bg-neutral-100"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+
+            <PopoverContent
+              align="end"
+              className="w-80"
+              side="bottom"
+              sideOffset={8}
+            >
+              <div className="space-y-4">
+                <h4 className="font-medium leading-none">Cài đặt bảng</h4>
+                <p className="text-sm text-muted-foreground">
+                  Thay đổi tên hiển thị và màu nền của bảng.
+                </p>
+                <form onSubmit={handleUpdateBoard} className="space-y-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Tên bảng</label>
+                    <Input
+                      value={editedTitle}
+                      onChange={(e) => setEditedTitle(e.target.value)}
+                      placeholder="Nhập tên bảng..."
+                      disabled={updateBoardMutation.isPending}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Màu nền</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {GRADIENT_PRESETS.map((g, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setEditedBg(g)}
+                          className={cn(
+                            'h-8 cursor-pointer rounded-md bg-gradient-to-br transition-all hover:scale-105',
+                            g,
+                            editedBg === g ? 'ring-2 ring-primary ring-offset-2' : ''
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full mt-2"
+                    disabled={updateBoardMutation.isPending || !editedTitle.trim()}
+                  >
+                    {updateBoardMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lưu lại'}
+                  </Button>
+                </form>
+              </div>
             </PopoverContent>
           </Popover>
         </div>
