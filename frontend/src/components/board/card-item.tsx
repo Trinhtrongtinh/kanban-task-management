@@ -42,7 +42,7 @@ export function CardItem({ card, listId }: CardItemProps) {
     transition,
   };
 
-  const dueDateStatus = getDueDateStatus(card.dueDate, card.isCompleted);
+  const dueDateStatus = getDueDateStatus(card.deadline || undefined, false);
   const dueDateColor = getDueDateColor(dueDateStatus);
 
   return (
@@ -61,8 +61,8 @@ export function CardItem({ card, listId }: CardItemProps) {
       {card.labels && card.labels.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-1.5">
           {card.labels.map(label => (
-            <div 
-              key={label.id} 
+            <div
+              key={label.id}
               className="h-2 w-10 rounded-full"
               style={{ backgroundColor: label.color }}
               title={label.title}
@@ -72,7 +72,7 @@ export function CardItem({ card, listId }: CardItemProps) {
       )}
 
       <span className="text-sm text-foreground block">{card.title}</span>
-      {card.dueDate && (
+      {card.deadline && (
         <div className="mt-1.5 flex items-center">
           <span
             className={cn(
@@ -81,7 +81,7 @@ export function CardItem({ card, listId }: CardItemProps) {
             )}
           >
             <Clock className="h-3 w-3" />
-            {formatDueDateShort(card.dueDate)}
+            {formatDueDateShort(card.deadline as string)}
           </span>
         </div>
       )}

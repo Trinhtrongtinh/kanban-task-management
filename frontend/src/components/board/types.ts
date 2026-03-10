@@ -10,11 +10,13 @@ export interface Label {
 export interface BoardCard {
   id: string;
   title: string;
+  description?: string | null;
   boardId?: string;
   members?: User[];
   labels?: Label[];
-  dueDate?: string; // ISO format
-  isCompleted?: boolean;
+  deadline?: string | null; // ISO format
+  isReminded?: boolean;
+  isArchived?: boolean;
   attachments?: {
     id: string;
     url: string;

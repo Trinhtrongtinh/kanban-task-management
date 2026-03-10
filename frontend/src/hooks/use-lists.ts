@@ -36,8 +36,8 @@ export function useUpdateList() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ id, payload }: { id: string; payload: UpdateListPayload & { boardId: string } }) =>
-            listsApi.update(id, payload).then(res => ({ ...res, _boardId: payload.boardId })),
+        mutationFn: ({ id, payload, boardId }: { id: string; payload: UpdateListPayload; boardId: string }) =>
+            listsApi.update(id, payload).then(res => ({ ...res, _boardId: boardId })),
         onSuccess: (data) => {
             queryClient.invalidateQueries({
                 queryKey: LIST_QUERY_KEYS.byBoard(data._boardId),

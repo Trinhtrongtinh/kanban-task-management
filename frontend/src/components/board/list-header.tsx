@@ -49,7 +49,7 @@ export function ListHeader({ list, dragHandleProps, dragHandleListeners }: ListH
     if (title.trim() === '') {
       setTitle(list.title);
     } else if (title !== list.title) {
-      updateList.mutate({ id: list.id, payload: { title, boardId: list.boardId } });
+      updateList.mutate({ id: list.id, payload: { title }, boardId: list.boardId });
     }
     onDisableEditing();
   };

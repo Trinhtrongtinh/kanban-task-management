@@ -205,7 +205,7 @@ export function CommentEditor({ onSave, isLoading }: CommentEditorProps) {
       {/* Actions row */}
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-muted-foreground select-none">
-          <kbd className="rounded border px-1 font-mono text-[9px]">Ctrl↵</kbd> save · <span className="font-medium text-foreground">@</span> mention
+          <kbd className="rounded border px-1 font-mono text-[9px]">Ctrl↵</kbd> send · <span className="font-medium text-foreground">@</span> mention
         </p>
         <Button
           size="sm"
@@ -213,7 +213,7 @@ export function CommentEditor({ onSave, isLoading }: CommentEditorProps) {
           onClick={handleSave}
           disabled={!content.trim() || isLoading}
         >
-          {isLoading ? 'Saving…' : 'Save'}
+          {isLoading ? 'Sending…' : 'Send'}
         </Button>
       </div>
     </div>

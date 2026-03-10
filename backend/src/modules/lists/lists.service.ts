@@ -16,7 +16,7 @@ export class ListsService {
     private readonly listRepository: Repository<List>,
     @InjectRepository(Board)
     private readonly boardRepository: Repository<Board>,
-  ) {}
+  ) { }
 
   /**
    * Validate board exists
@@ -76,6 +76,7 @@ export class ListsService {
     return this.listRepository.find({
       where: { boardId },
       order: { position: 'ASC' },
+      relations: ['cards', 'cards.labels', 'cards.assignee'],
     });
   }
 

@@ -6,7 +6,7 @@ import { ListItem } from './list-item';
 import { ListCreator } from './list-creator';
 
 export function ListContainer() {
-  const { lists } = useBoard();
+  const { lists, boardId } = useBoard();
   const listIds = lists.map((list) => list.id);
 
   return (
@@ -16,7 +16,7 @@ export function ListContainer() {
           <ListItem key={list.id} list={list} />
         ))}
       </SortableContext>
-      <ListCreator boardId={lists[0]?.boardId ?? 'default-board'} />
+      <ListCreator boardId={boardId} />
     </div>
   );
 }

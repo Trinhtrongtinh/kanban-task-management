@@ -14,6 +14,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import type { BoardCard, BoardList } from './types';
 import { BoardStatic } from './board-static';
 import { useListsByBoard, useUpdateList } from '@/hooks/use-lists';
+import { useMoveCard } from '@/hooks/use-cards';
 import { Loader2 } from 'lucide-react';
 
 interface BoardContextValue {
@@ -50,6 +51,7 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
   const [lists, setLists] = useState<BoardList[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const updateList = useUpdateList();
+  const moveCard = useMoveCard();
 
   useEffect(() => {
     setIsMounted(true);
@@ -151,7 +153,8 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
         // Call API to persist new ordering
         updateList.mutate({
           id: active.id as string,
-          payload: { boardId, position: newPosition }
+          payload: { position: newPosition },
+          boardId
         });
 
         // Optimistically update the list's local position
@@ -175,7 +178,20 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
             const oldIndex = list.cards.findIndex((c) => c.id === cardId);
             const newIndex = list.cards.findIndex((c) => c.id === over.id);
             if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
-              return { ...list, cards: arrayMove(list.cards, oldIndex, newIndex) };
+              const newCards = arrayMove(list.cards, oldIndex, newIndex);
+              const prevCardId = newIndex > 0 ? newCards[newIndex - 1].id : undefined;
+              const nextCardId = newIndex < newCards.length - 1 ? newCards[newIndex + 1].id : undefined;
+
+              moveCard.mutate({
+                id: cardId,
+                payload: {
+                  targetListId,
+                  prevCardId,
+                  nextCardId,
+                },
+              });
+
+              return { ...list, cards: newCards };
             }
             return list;
           })
@@ -202,6 +218,18 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
 
           const newTargetCards = [...targetList.cards];
           newTargetCards.splice(insertIndex, 0, movedCard);
+
+          const prevCardId = insertIndex > 0 ? newTargetCards[insertIndex - 1].id : undefined;
+          const nextCardId = insertIndex < newTargetCards.length - 1 ? newTargetCards[insertIndex + 1].id : undefined;
+
+          moveCard.mutate({
+            id: cardId,
+            payload: {
+              targetListId,
+              prevCardId,
+              nextCardId,
+            },
+          });
 
           return prev.map((list) => {
             if (list.id === sourceListId) return { ...list, cards: newSourceCards };

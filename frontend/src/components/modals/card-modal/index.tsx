@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/popover';
 import { useCardModal } from '@/hooks/use-card-modal';
 import { useBoardSafe } from '@/components/board/board-context';
+import { useUpdateCard, useDeleteCard } from '@/hooks/use-cards';
 import { useAddChecklistMutation } from '@/api/checklists';
 import { ChecklistsContainer } from './checklists-container';
 import { CommentEditor, BOARD_MEMBERS } from './comment-editor';
@@ -49,6 +50,7 @@ import {
   ChevronRight,
   Tag,
   MessageSquare,
+  Trash,
 } from 'lucide-react';
 import {
   getDueDateStatus,
@@ -171,6 +173,8 @@ export function CardModal() {
   const setLists = boardCtx?.setLists;
 
   const currentCard = lists.flatMap((l) => l.cards).find((c) => c.id === id);
+  const updateCardApi = useUpdateCard();
+  const deleteCardApi = useDeleteCard();
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -197,8 +201,10 @@ export function CardModal() {
 
   const updateCard = useCallback(
     (updates: {
-      dueDate?: string;
-      isCompleted?: boolean;
+      deadline?: string | null;
+      isArchived?: boolean;
+      title?: string;
+      description?: string;
       attachments?: {
         id: string;
         url: string;
@@ -208,6 +214,13 @@ export function CardModal() {
       }[];
     }) => {
       if (!id || !setLists) return;
+
+      // Update DB
+      if ('deadline' in updates || 'isArchived' in updates || 'title' in updates || 'description' in updates) {
+        updateCardApi.mutate({ id, payload: updates as any });
+      }
+
+      // Optimistic update
       setLists((prev) =>
         prev.map((list) => ({
           ...list,
@@ -217,24 +230,20 @@ export function CardModal() {
         }))
       );
     },
-    [id, setLists]
+    [id, setLists, updateCardApi]
   );
 
   const handleDateSelect = useCallback(
     (date: Date | undefined) => {
       if (!date) return;
-      updateCard({ dueDate: date.toISOString() });
+      updateCard({ deadline: date.toISOString() });
       setDatePopoverOpen(false);
     },
     [updateCard]
   );
 
-  const handleToggleCompleted = useCallback(() => {
-    updateCard({ isCompleted: !currentCard?.isCompleted });
-  }, [updateCard, currentCard?.isCompleted]);
-
   const handleRemoveDate = useCallback(() => {
-    updateCard({ dueDate: undefined, isCompleted: false });
+    updateCard({ deadline: null });
     setDatePopoverOpen(false);
   }, [updateCard]);
 
@@ -272,16 +281,39 @@ export function CardModal() {
     [currentCard, updateCard]
   );
 
+  const handleDeleteCard = useCallback(() => {
+    if (!id || !setLists) return;
+    deleteCardApi.mutate(id);
+    setLists((prev) =>
+      prev.map((list) => ({
+        ...list,
+        cards: list.cards.filter((card) => card.id !== id),
+      }))
+    );
+    onClose();
+  }, [id, setLists, deleteCardApi, onClose]);
+
   const dueDateStatus = getDueDateStatus(
-    currentCard?.dueDate,
-    currentCard?.isCompleted
+    currentCard?.deadline || undefined,
+    false
   );
   const dueDateColor = getDueDateColor(dueDateStatus);
-  const selectedDate = currentCard?.dueDate
-    ? new Date(currentCard.dueDate)
+  const selectedDate = currentCard?.deadline
+    ? new Date(currentCard.deadline)
     : undefined;
 
-  const cardTitle = id ? `Card ${id}` : 'Card';
+  const cardTitle = currentCard?.title || 'Card';
+  const currentList = lists.find((l) => l.cards.some((c) => c.id === id));
+
+  // Local state for title / description to handle forms smoothly
+  const [descValue, setDescValue] = useState(currentCard?.description || '');
+  const [titleValue, setTitleValue] = useState(cardTitle);
+
+  // Sync state when opening different cards
+  useEffect(() => {
+    setTitleValue(currentCard?.title || 'Card');
+    setDescValue(currentCard?.description || '');
+  }, [currentCard?.id, currentCard?.title, currentCard?.description]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -296,19 +328,50 @@ export function CardModal() {
           <div className="flex flex-1 min-w-0 flex-col overflow-y-auto p-6 gap-5">
             {/* Title */}
             <div className="space-y-1">
-              <h2 className="text-xl font-bold tracking-tight leading-tight">
-                {cardTitle}
-              </h2>
-              <p className="text-xs text-muted-foreground">In list: <span className="font-medium text-foreground">To Do</span></p>
+              <Input
+                value={titleValue}
+                onChange={(e) => setTitleValue(e.target.value)}
+                className="text-xl font-bold tracking-tight leading-tight border-none px-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+              <p className="text-xs text-muted-foreground pl-1">In list: <span className="font-medium text-foreground">{currentList?.title}</span></p>
             </div>
 
             {/* Description */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 pl-1">
               <label className="text-sm font-semibold">Description</label>
               <Textarea
                 placeholder="Add a detailed description…"
+                value={descValue}
+                onChange={(e) => setDescValue(e.target.value)}
                 className="min-h-[100px] resize-none text-sm"
               />
+
+              {/* Save / Cancel edits for Title & Description */}
+              {(titleValue !== (currentCard?.title || 'Card') || descValue !== (currentCard?.description || '')) && (
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const newTitle = titleValue.trim() || currentCard?.title || 'Card';
+                      updateCard({ title: newTitle, description: descValue });
+                      setTitleValue(newTitle);
+                    }}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setTitleValue(currentCard?.title || 'Card');
+                      setDescValue(currentCard?.description || '');
+                      onClose();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Checklists — collapsible */}
@@ -478,7 +541,7 @@ export function CardModal() {
                     onSelect={handleDateSelect}
                     initialFocus
                   />
-                  {currentCard?.dueDate && (
+                  {currentCard?.deadline && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -492,13 +555,8 @@ export function CardModal() {
                 </PopoverContent>
               </Popover>
 
-              {currentCard?.dueDate && (
+              {currentCard?.deadline && (
                 <div className="pl-1 flex items-center gap-1">
-                  <Checkbox
-                    checked={currentCard.isCompleted ?? false}
-                    onCheckedChange={handleToggleCompleted}
-                    className="h-3 w-3"
-                  />
                   <Badge
                     className={cn(
                       'h-5 gap-1 rounded-md border px-1.5 text-[10px] font-medium',
@@ -506,7 +564,7 @@ export function CardModal() {
                     )}
                   >
                     <Clock className="h-2.5 w-2.5" />
-                    {formatDueDate(currentCard.dueDate)}
+                    {formatDueDate(currentCard.deadline)}
                   </Badge>
                 </div>
               )}
@@ -581,6 +639,16 @@ export function CardModal() {
                 accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
               />
             </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full justify-start text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleDeleteCard}
+            >
+              <Trash className="mr-1.5 h-3.5 w-3.5" />
+              Delete card
+            </Button>
           </div>
 
           {/* ═══════════════════════════════════════════════════════

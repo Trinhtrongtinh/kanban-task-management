@@ -5,6 +5,7 @@ import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useBoard } from './board-context';
+import { useCreateCard } from '@/hooks/use-cards';
 
 interface CardFormProps {
   listId: string;
@@ -26,13 +27,17 @@ export function CardForm({ listId }: CardFormProps) {
     }
   }, [isEditing]);
 
+  const createCard = useCreateCard();
+
   const handleSubmit = useCallback(() => {
     const trimmed = title.trim();
     if (!trimmed) return;
 
+    const tempId = `card-${Date.now()}`;
+
     // Optimistic: append card to the list instantly
     const newCard = {
-      id: `card-${Date.now()}`,
+      id: tempId,
       title: trimmed,
       boardId,
       members: [],
@@ -44,6 +49,38 @@ export function CardForm({ listId }: CardFormProps) {
           ? { ...list, cards: [...list.cards, newCard] }
           : list
       )
+    );
+
+    createCard.mutate(
+      { listId, title: trimmed },
+      {
+        onSuccess: (data) => {
+          // Replace optimistic ID with real ID
+          setLists((prev) =>
+            prev.map((list) =>
+              list.id === listId
+                ? {
+                  ...list,
+                  cards: list.cards.map((c) => (c.id === tempId ? data : c)),
+                }
+                : list
+            )
+          );
+        },
+        onError: () => {
+          // Rollback
+          setLists((prev) =>
+            prev.map((list) =>
+              list.id === listId
+                ? {
+                  ...list,
+                  cards: list.cards.filter((c) => c.id !== tempId),
+                }
+                : list
+            )
+          );
+        },
+      }
     );
 
     setTitle('');
