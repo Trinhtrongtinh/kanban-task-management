@@ -109,6 +109,13 @@ export class NotificationsService {
   }
 
   /**
+   * Delete all notifications for a user
+   */
+  async removeAll(userId: string): Promise<void> {
+    await this.notificationRepository.delete({ userId });
+  }
+
+  /**
    * Delete a notification
    */
   async remove(notificationId: string, userId: string): Promise<void> {

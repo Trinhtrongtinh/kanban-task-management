@@ -5,6 +5,7 @@ import { List, Board } from '../../database/entities';
 import { CreateListDto, UpdateListDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode } from '../../common/enums';
+import { CardsGateway } from '../cards/cards.gateway';
 
 // Default position increment for new lists
 const POSITION_GAP = 65535;
@@ -16,6 +17,7 @@ export class ListsService {
     private readonly listRepository: Repository<List>,
     @InjectRepository(Board)
     private readonly boardRepository: Repository<Board>,
+    private readonly cardsGateway: CardsGateway,
   ) { }
 
   /**
@@ -66,7 +68,9 @@ export class ListsService {
       position,
     });
 
-    return this.listRepository.save(list);
+    const savedList = await this.listRepository.save(list);
+    this.cardsGateway.emitListCreated(savedList.boardId, savedList);
+    return savedList;
   }
 
   async findAllByBoard(boardId: string): Promise<List[]> {
@@ -107,11 +111,15 @@ export class ListsService {
 
     Object.assign(list, updateListDto);
 
-    return this.listRepository.save(list);
+    const updatedList = await this.listRepository.save(list);
+    this.cardsGateway.emitListUpdated(updatedList.boardId, updatedList);
+    return updatedList;
   }
 
   async remove(id: string): Promise<void> {
     const list = await this.findOne(id);
+    const boardId = list.boardId;
     await this.listRepository.remove(list);
+    this.cardsGateway.emitListDeleted(boardId, { id, boardId });
   }
 }

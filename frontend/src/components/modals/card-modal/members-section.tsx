@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/types";
 import { MemberPicker } from "./member-picker";
+import { resolveAvatarUrl } from "@/lib/utils";
 
 interface MembersSectionProps {
     card: Card;
@@ -19,7 +20,7 @@ export const MembersSection = ({ card }: MembersSectionProps) => {
             <div className="flex flex-row flex-wrap items-center gap-1">
                 {card.members.map((member) => (
                     <Avatar key={member.id} className="h-8 w-8">
-                        <AvatarImage src={member.avatarUrl} alt={member.username || member.name || ''} />
+                        <AvatarImage src={resolveAvatarUrl(member.avatarUrl)} alt={member.username || member.name || ''} />
                         <AvatarFallback className="text-xs">
                             {(member.username || member.name || 'U').substring(0, 2).toUpperCase()}
                         </AvatarFallback>

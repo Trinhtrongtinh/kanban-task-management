@@ -54,6 +54,12 @@ export class NotificationsController {
     return this.notificationsService.markAllAsRead(userId);
   }
 
+  @Delete()
+  @ResponseMessage('All notifications deleted successfully')
+  async removeAll(@CurrentUser('userId') userId: string): Promise<void> {
+    return this.notificationsService.removeAll(userId);
+  }
+
   @Delete(':id')
   @ResponseMessage('Notification deleted successfully')
   async remove(

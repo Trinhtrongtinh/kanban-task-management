@@ -8,12 +8,17 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Card } from '../../database/entities';
+import { Card, List } from '../../database/entities';
 
 export interface CardMovedPayload {
   card: Card;
   fromListId: string;
   toListId: string;
+}
+
+export interface ListDeletedPayload {
+  id: string;
+  boardId: string;
 }
 
 @WebSocketGateway({
@@ -86,5 +91,17 @@ export class CardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    */
   emitCardDeleted(boardId: string, cardId: string) {
     this.server.to(`board:${boardId}`).emit('card:deleted', { cardId });
+  }
+
+  emitListCreated(boardId: string, list: List) {
+    this.server.to(`board:${boardId}`).emit('list:created', list);
+  }
+
+  emitListUpdated(boardId: string, list: List) {
+    this.server.to(`board:${boardId}`).emit('list:updated', list);
+  }
+
+  emitListDeleted(boardId: string, payload: ListDeletedPayload) {
+    this.server.to(`board:${boardId}`).emit('list:deleted', payload);
   }
 }

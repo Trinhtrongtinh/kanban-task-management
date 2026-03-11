@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
 import { MoreHorizontal } from 'lucide-react';
 import type { BoardList } from './types';
 import { Button } from '@/components/ui/button';
@@ -17,11 +16,9 @@ import {
 
 interface ListHeaderProps {
   list: BoardList;
-  dragHandleProps?: Record<string, any>;
-  dragHandleListeners?: Record<string, any>;
 }
 
-export function ListHeader({ list, dragHandleProps, dragHandleListeners }: ListHeaderProps) {
+export function ListHeader({ list }: ListHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(list.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -70,8 +67,6 @@ export function ListHeader({ list, dragHandleProps, dragHandleListeners }: ListH
   return (
     <div className="flex items-center justify-between pb-2 px-1 gap-x-2">
       <div
-        {...dragHandleProps}
-        {...dragHandleListeners}
         className="flex-1 min-w-0"
       >
         {isEditing ? (

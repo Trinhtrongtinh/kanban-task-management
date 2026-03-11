@@ -11,7 +11,7 @@ export function useNotifications() {
     return useQuery({
         queryKey: notificationKeys.lists(),
         queryFn: notificationsApi.getNotifications,
-        refetchInterval: 30000, // Poll every 30s as fallback to WS
+        refetchInterval: 30000,
     });
 }
 
@@ -44,6 +44,32 @@ export function useMarkAllNotificationsAsRead() {
         mutationFn: notificationsApi.markAllAsRead,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+        },
+    });
+}
+
+export function useDeleteNotification() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: notificationsApi.delete,
+        onSuccess: (_data, id) => {
+            queryClient.setQueryData<Notification[]>(notificationKeys.lists(), (old) =>
+                old?.filter((n) => n.id !== id)
+            );
+            queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() });
+        },
+    });
+}
+
+export function useDeleteAllNotifications() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: notificationsApi.deleteAll,
+        onSuccess: () => {
+            queryClient.setQueryData<Notification[]>(notificationKeys.lists(), []);
+            queryClient.setQueryData(notificationKeys.unreadCount(), 0);
         },
     });
 }

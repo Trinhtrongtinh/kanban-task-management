@@ -4,7 +4,8 @@ import { useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { BoardList } from './types';
 import { CardItem } from './card-item';
 import { CardForm } from './card-form';
@@ -16,6 +17,8 @@ interface ListItemProps {
 }
 
 export function ListItem({ list }: ListItemProps) {
+  const searchParams = useSearchParams();
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const {
     attributes,
     listeners,
@@ -45,24 +48,42 @@ export function ListItem({ list }: ListItemProps) {
   };
 
   const cardIds = useMemo(() => list.cards.map((card) => card.id), [list.cards]);
+  const highlightedListId = searchParams.get('listId');
+  const isHighlighted = highlightedListId === list.id;
+
+  useEffect(() => {
+    if (!isHighlighted) return;
+
+    rootRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    });
+  }, [isHighlighted]);
+
+  const handleSetNodeRef = (node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    rootRef.current = node;
+  };
 
   return (
     <div
-      ref={setNodeRef}
+      ref={handleSetNodeRef}
       style={style}
       className={cn(
         'flex h-fit max-h-full w-[272px] shrink-0 flex-col rounded-xl bg-[#f1f2f4] p-3',
-        isDragging && 'opacity-50'
+        isDragging && 'opacity-50',
+        isHighlighted && 'ring-2 ring-primary shadow-lg shadow-primary/15'
       )}
     >
       {/* Header */}
       <div
-        className="mb-1"
+        className="mb-1 cursor-grab active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
       >
         <ListHeader 
           list={list} 
-          dragHandleProps={attributes} 
-          dragHandleListeners={listeners} 
         />
       </div>
 

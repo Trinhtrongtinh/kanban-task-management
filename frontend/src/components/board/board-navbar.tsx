@@ -30,6 +30,7 @@ import {
 import type { User } from '@/types';
 import { useWorkspaceMembers } from '@/hooks/use-workspaces';
 import { useGetBoardMembers, useAddMemberToBoard, useRemoveMemberFromBoard } from '@/api/board-members';
+import { resolveAvatarUrl } from '@/lib/utils';
 
 // ── Shared Constants ────────────────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
                 <Tooltip key={member.id}>
                   <TooltipTrigger asChild>
                     <Avatar className="h-8 w-8 ring-2 ring-white transition-transform hover:z-10 hover:scale-110">
-                      <AvatarImage src={member.avatarUrl} alt={member.username || member.name} />
+                      <AvatarImage src={resolveAvatarUrl(member.avatarUrl)} alt={member.username || member.name} />
                       <AvatarFallback className="bg-indigo-100 text-xs font-medium text-indigo-700">
                         {(member.username || member.name || 'U').substring(0, 2).toUpperCase()}
                       </AvatarFallback>
@@ -185,7 +186,7 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
                           disabled={addMemberMutation.isPending || removeMemberMutation.isPending}
                         >
                           <Avatar className="h-8 w-8 shrink-0">
-                            <AvatarImage src={user.avatarUrl} alt={user.username || user.name || ''} />
+                            <AvatarImage src={resolveAvatarUrl(user.avatarUrl)} alt={user.username || user.name || ''} />
                             <AvatarFallback className="text-[10px] font-medium">
                               {(user.username || user.name || 'U').substring(0, 2).toUpperCase()}
                             </AvatarFallback>
@@ -218,7 +219,7 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
                           disabled={addMemberMutation.isPending || removeMemberMutation.isPending}
                         >
                           <Avatar className="h-8 w-8 shrink-0">
-                            <AvatarImage src={user.avatarUrl} alt={user.username || user.name || ''} />
+                            <AvatarImage src={resolveAvatarUrl(user.avatarUrl)} alt={user.username || user.name || ''} />
                             <AvatarFallback className="text-[10px] font-medium">
                               {(user.username || user.name || 'U').substring(0, 2).toUpperCase()}
                             </AvatarFallback>

@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { User } from '@/types';
+import { resolveAvatarUrl } from '@/lib/utils';
 
 interface CommentEditorProps {
   members: User[];
@@ -179,7 +180,7 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
                     className="flex cursor-pointer items-center gap-2 px-2 py-1.5"
                   >
                     <Avatar className="h-6 w-6 shrink-0">
-                      <AvatarImage src={member.avatarUrl} alt={member.username || member.name || ''} />
+                      <AvatarImage src={resolveAvatarUrl(member.avatarUrl)} alt={member.username || member.name || ''} />
                       <AvatarFallback className="text-[9px] font-medium">
                         {(member.username || member.name || 'U').substring(0, 2).toUpperCase()}
                       </AvatarFallback>

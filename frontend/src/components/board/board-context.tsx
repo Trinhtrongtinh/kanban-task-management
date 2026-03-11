@@ -11,11 +11,13 @@ import {
   closestCorners,
 } from '@dnd-kit/core';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { BoardCard, BoardList } from './types';
 import { BoardStatic } from './board-static';
-import { useListsByBoard, useUpdateList } from '@/hooks/use-lists';
+import { LIST_QUERY_KEYS, useListsByBoard, useUpdateList } from '@/hooks/use-lists';
 import { useMoveCard } from '@/hooks/use-cards';
 import { Loader2 } from 'lucide-react';
+import { useSocket } from '@/hooks/useSocket';
 
 interface BoardContextValue {
   boardId: string;
@@ -47,11 +49,13 @@ interface BoardProviderProps {
 }
 
 export function BoardProvider({ boardId, children }: BoardProviderProps) {
+  const queryClient = useQueryClient();
   const { data: fetchedLists, isLoading } = useListsByBoard(boardId);
   const [lists, setLists] = useState<BoardList[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const updateList = useUpdateList();
   const moveCard = useMoveCard();
+  const { on } = useSocket(boardId, '/cards');
 
   useEffect(() => {
     setIsMounted(true);
@@ -74,6 +78,29 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
       setLists(mappedLists as BoardList[]);
     }
   }, [fetchedLists]);
+
+  useEffect(() => {
+    const refetchBoardLists = () => {
+      queryClient.invalidateQueries({
+        queryKey: LIST_QUERY_KEYS.byBoard(boardId),
+        refetchType: 'active',
+      });
+    };
+
+    const unsubscribers = [
+      on('list:created', refetchBoardLists),
+      on('list:updated', refetchBoardLists),
+      on('list:deleted', refetchBoardLists),
+      on('card:created', refetchBoardLists),
+      on('card:updated', refetchBoardLists),
+      on('card:deleted', refetchBoardLists),
+      on('card:moved', refetchBoardLists),
+    ];
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [boardId, on, queryClient]);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
@@ -247,7 +274,7 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
         });
       }
     }
-  }, [lists]);
+  }, [boardId, lists, moveCard, updateList]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, {

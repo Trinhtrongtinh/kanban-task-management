@@ -1,4 +1,5 @@
 import { format, isPast, differenceInHours } from 'date-fns';
+import { parseApiDate } from '@/lib/date-time';
 
 export type DueDateStatus = 'completed' | 'overdue' | 'due-soon' | 'default';
 
@@ -9,7 +10,7 @@ export function getDueDateStatus(
   if (!dueDate) return 'default';
   if (isCompleted) return 'completed';
 
-  const date = new Date(dueDate);
+  const date = parseApiDate(dueDate);
   const now = new Date();
 
   if (isPast(date)) return 'overdue';
@@ -31,9 +32,9 @@ export function getDueDateColor(status: DueDateStatus): string {
 }
 
 export function formatDueDate(dueDate: string): string {
-  return format(new Date(dueDate), 'MMM d \'at\' h:mm a');
+  return format(parseApiDate(dueDate), 'dd/MM/yyyy HH:mm');
 }
 
 export function formatDueDateShort(dueDate: string): string {
-  return format(new Date(dueDate), 'MMM d');
+  return format(parseApiDate(dueDate), 'dd/MM');
 }

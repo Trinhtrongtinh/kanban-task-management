@@ -149,8 +149,25 @@ export class BoardsService {
   async create(createBoardDto: CreateBoardDto, userId: string): Promise<Board> {
     const { title, slug, workspaceId, ...rest } = createBoardDto;
 
-    // Validate workspace exists
-    await this.validateWorkspaceExists(workspaceId);
+    // Validate workspace exists and user is the owner
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+    });
+
+    if (!workspace) {
+      throw new BusinessException(
+        ErrorCode.WORKSPACE_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (workspace.ownerId !== userId) {
+      throw new BusinessException(
+        ErrorCode.WORKSPACE_ACCESS_DENIED,
+        HttpStatus.FORBIDDEN,
+        'Chỉ người tạo workspace mới có thể tạo bảng',
+      );
+    }
 
     // Generate slug from title if not provided
     let boardSlug = slug || this.generateSlug(title);

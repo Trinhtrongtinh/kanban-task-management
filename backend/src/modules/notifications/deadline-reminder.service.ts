@@ -7,12 +7,9 @@ import {
   Notification,
   NotificationType,
   User,
-  List,
-  Board,
 } from '../../database/entities';
-import { NotificationsService } from './notifications.service';
 import { MailerService } from './mailer.service';
-import { ConfigService } from '@nestjs/config';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
 export class DeadlineReminderService {
@@ -25,9 +22,8 @@ export class DeadlineReminderService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
-    private readonly notificationsService: NotificationsService,
     private readonly mailerService: MailerService,
-    private readonly configService: ConfigService,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   /**
@@ -143,11 +139,7 @@ export class DeadlineReminderService {
       }
 
       const boardName = card.list?.board?.title || 'Unknown Board';
-      const frontendUrl = this.configService.get<string>(
-        'FRONTEND_URL',
-        'http://localhost:3000',
-      );
-      const cardLink = `${frontendUrl}/b/${card.list?.boardId}?cardId=${card.id}&focus=activity`;
+      const cardLink = `/b/${card.list?.boardId}?cardId=${card.id}&focus=activity`;
 
       // 1. Create notification in database
       const notification = await this.createNotificationInTransaction(
@@ -164,20 +156,8 @@ export class DeadlineReminderService {
       // Commit transaction
       await queryRunner.commitTransaction();
 
-      // 3. Send real-time notification (after commit)
-      try {
-        await this.notificationsService.create({
-          userId: user.id,
-          cardId: card.id,
-          type: NotificationType.DEADLINE_REMINDER,
-          title: 'Nhắc nhở hạn chót',
-          message: `Thẻ "${card.title}" sẽ đến hạn vào ${this.formatDeadline(card.deadline!)}`,
-          link: cardLink,
-        });
-      } catch (error) {
-        // Log but don't fail - notification already saved in transaction
-        this.logger.error(`Failed to emit real-time notification:`, error);
-      }
+      // 3. Emit real-time notification (after commit, without creating duplicate row)
+      this.notificationsGateway.emitNotification(user.id, notification);
 
       // 4. Send email (non-blocking, errors don't affect the process)
       this.sendReminderEmail(user, card, boardName, cardLink).catch((error) => {
@@ -219,6 +199,11 @@ export class DeadlineReminderService {
       message: `Thẻ "${card.title}" trong board "${boardName}" sẽ đến hạn vào ${this.formatDeadline(card.deadline!)}`,
       link: cardLink,
       isRead: false,
+      metadata: {
+        boardId: card.list?.boardId,
+        cardId: card.id,
+        listId: card.listId,
+      },
     });
 
     return queryRunner.manager.save(Notification, notification);
@@ -249,6 +234,7 @@ export class DeadlineReminderService {
 
   private formatDeadline(deadline: Date): string {
     return deadline.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
       weekday: 'short',
       day: 'numeric',
       month: 'numeric',

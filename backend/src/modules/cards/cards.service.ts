@@ -122,7 +122,11 @@ export class CardsService {
         .add(assigneeId);
     }
 
-    return this.findOne(savedCard.id);
+    const fullCard = await this.findOne(savedCard.id);
+    const boardId = fullCard.list.boardId;
+    this.cardsGateway.emitCardCreated(boardId, fullCard);
+
+    return fullCard;
   }
 
   async findAllByList(listId: string): Promise<Card[]> {
@@ -221,7 +225,11 @@ export class CardsService {
       }).catch(() => null);
     }
 
-    return updatedCard;
+    const fullUpdatedCard = await this.findOne(updatedCard.id);
+    const boardIdForEmit = fullUpdatedCard.list.boardId;
+    this.cardsGateway.emitCardUpdated(boardIdForEmit, fullUpdatedCard);
+
+    return fullUpdatedCard;
   }
 
   async addMember(cardId: string, userId: string): Promise<Card> {
@@ -256,7 +264,9 @@ export class CardsService {
       },
     }).catch(() => null);
 
-    return this.findOne(cardId);
+    const fullCard = await this.findOne(cardId);
+    this.cardsGateway.emitCardUpdated(fullCard.list.boardId, fullCard);
+    return fullCard;
   }
 
   async removeMember(cardId: string, userId: string): Promise<Card> {
@@ -275,12 +285,16 @@ export class CardsService {
       await this.cardRepository.update(cardId, { assigneeId: null });
     }
 
-    return this.findOne(cardId);
+    const fullCard = await this.findOne(cardId);
+    this.cardsGateway.emitCardUpdated(fullCard.list.boardId, fullCard);
+    return fullCard;
   }
 
   async remove(id: string): Promise<void> {
     const card = await this.findOne(id);
+    const boardId = card.list.boardId;
     await this.cardRepository.remove(card);
+    this.cardsGateway.emitCardDeleted(boardId, id);
   }
 
   /**

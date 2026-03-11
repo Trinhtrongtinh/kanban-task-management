@@ -20,6 +20,7 @@ import {
     CommandList,
 } from "@/components/ui/command";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { resolveAvatarUrl } from "@/lib/utils";
 
 interface MemberPickerProps {
     card: Card;
@@ -63,7 +64,7 @@ export const MemberPicker = ({ card, children }: MemberPickerProps) => {
                                         className="flex cursor-pointer items-center gap-2"
                                     >
                                         <Avatar className="h-6 w-6">
-                                            <AvatarImage src={user.avatarUrl} alt={user.username || user.name || ''} />
+                                            <AvatarImage src={resolveAvatarUrl(user.avatarUrl)} alt={user.username || user.name || ''} />
                                             <AvatarFallback className="text-[10px]">
                                                 {(user.username || user.name || 'U').substring(0, 2).toUpperCase()}
                                             </AvatarFallback>

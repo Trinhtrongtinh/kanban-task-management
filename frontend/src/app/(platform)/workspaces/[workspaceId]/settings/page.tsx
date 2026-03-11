@@ -16,7 +16,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember, useRemoveWorkspaceMember } from '@/hooks/use-workspaces';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-
+import { resolveAvatarUrl } from '@/lib/utils';
 export default function WorkspaceSettingsPage({
   params
 }: {
@@ -57,6 +57,7 @@ export default function WorkspaceSettingsPage({
   const removeMemberMutation = useRemoveWorkspaceMember();
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [memberPendingRemove, setMemberPendingRemove] = useState<{ userId: string; name?: string } | null>(null);
 
   const handleUpdate = () => {
     updateMutation.mutate({
@@ -86,18 +87,15 @@ export default function WorkspaceSettingsPage({
     });
   };
 
-  const handleRemoveMember = (memberUserId: string, memberName?: string) => {
-    const confirmRemove = window.confirm(
-      `Bạn có chắc muốn xóa ${memberName || 'thành viên này'} khỏi workspace?`,
-    );
-
-    if (!confirmRemove) return;
+  const handleRemoveMember = () => {
+    if (!memberPendingRemove) return;
 
     removeMemberMutation.mutate(
-      { id: workspaceId, memberId: memberUserId },
+      { id: workspaceId, memberId: memberPendingRemove.userId },
       {
         onSuccess: () => {
           toast.success('Đã xóa thành viên khỏi workspace');
+          setMemberPendingRemove(null);
         },
         onError: (err: any) => {
           toast.error(err.response?.data?.message || 'Không thể xóa thành viên');
@@ -279,7 +277,7 @@ export default function WorkspaceSettingsPage({
                         <div key={member.id} className={`flex items-center justify-between p-4 ${i !== members.length - 1 ? 'border-b' : ''}`}>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-9 w-9">
-                              <AvatarImage src={member.user?.avatarUrl} />
+                              <AvatarImage src={resolveAvatarUrl(member.user?.avatarUrl)} />
                               <AvatarFallback>{member.user?.username?.charAt(0) || 'U'}</AvatarFallback>
                             </Avatar>
                             <div className="flex flex-col">
@@ -296,7 +294,9 @@ export default function WorkspaceSettingsPage({
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleRemoveMember(member.userId, member.user?.username)}
+                                onClick={() =>
+                                  setMemberPendingRemove({ userId: member.userId, name: member.user?.username })
+                                }
                                 disabled={removeMemberMutation.isPending}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -309,6 +309,32 @@ export default function WorkspaceSettingsPage({
                   )}
                 </CardContent>
               </Card>
+
+              <Dialog open={!!memberPendingRemove} onOpenChange={(open) => !open && setMemberPendingRemove(null)}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Xác nhận xóa thành viên</DialogTitle>
+                    <DialogDescription>
+                      {`Bạn có chắc muốn xóa ${memberPendingRemove?.name || 'thành viên này'} khỏi workspace?`}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setMemberPendingRemove(null)}>
+                      Hủy
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleRemoveMember}
+                      disabled={removeMemberMutation.isPending}
+                    >
+                      {removeMemberMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Xóa thành viên
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </TabsContent>
 
             {/* ── NOTIFICATIONS TAB ── */}

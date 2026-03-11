@@ -1,7 +1,7 @@
 'use client';
 
-import { Bell, Check, X, Loader2 } from 'lucide-react';
-import { useNotifications, useUnreadNotificationsCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from '@/hooks/use-notifications';
+import { Bell, Check, X, Loader2, Trash2 } from 'lucide-react';
+import { useNotifications, useUnreadNotificationsCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead, useDeleteNotification, useDeleteAllNotifications } from '@/hooks/use-notifications';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -12,14 +12,13 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { NotificationType } from '@/api/notifications';
-import { formatDistanceToNow } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import { workspacesApi } from '@/api/workspaces';
 import { useQueryClient } from '@tanstack/react-query';
 import { workspaceKeys } from '@/hooks/use-workspaces';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { formatDateTimeVN } from '@/lib/date-time';
 
 export function NotificationBell() {
     const router = useRouter();
@@ -27,6 +26,8 @@ export function NotificationBell() {
     const { data: unreadCount = 0 } = useUnreadNotificationsCount();
     const markAsRead = useMarkNotificationAsRead();
     const markAllAsRead = useMarkAllNotificationsAsRead();
+    const deleteNotification = useDeleteNotification();
+    const deleteAllNotifications = useDeleteAllNotifications();
     const queryClient = useQueryClient();
     const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -49,7 +50,6 @@ export function NotificationBell() {
         try {
             setProcessingId(notificationId);
 
-            // Handle cases where metadata might be a string (SQLite or certain drivers)
             const data = parseMetadata(metadata);
             const { workspaceId, inviteToken } = data || {};
 
@@ -83,8 +83,24 @@ export function NotificationBell() {
             // Ignore read-state error so navigation still works
         }
 
-        if (notification.link) {
-            router.push(notification.link);
+        const data = parseMetadata(notification.metadata);
+        const fallbackLink =
+            data?.boardId && data?.cardId
+                ? `/b/${data.boardId}?cardId=${data.cardId}&focus=activity`
+                : null;
+
+        const targetLink = notification.link || fallbackLink;
+        if (targetLink) {
+            try {
+                const resolved = new URL(targetLink, window.location.origin);
+                if (resolved.origin === window.location.origin) {
+                    router.push(`${resolved.pathname}${resolved.search}${resolved.hash}`);
+                } else {
+                    window.location.href = targetLink;
+                }
+            } catch {
+                router.push(targetLink);
+            }
         }
     };
 
@@ -102,18 +118,34 @@ export function NotificationBell() {
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-80" align="end">
                 <DropdownMenuLabel className="flex items-center justify-between">
-                    Thông báo
-                    {unreadCount > 0 && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-auto p-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-primary"
-                            onClick={() => markAllAsRead.mutate()}
-                            disabled={markAllAsRead.isPending}
-                        >
-                            Đánh dấu tất cả đã đọc
-                        </Button>
-                    )}
+                    <span className="font-semibold">Thông báo</span>
+                    <div className="flex items-center gap-1">
+                        {unreadCount > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto p-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-primary"
+                                onClick={() => markAllAsRead.mutate()}
+                                disabled={markAllAsRead.isPending}
+                            >
+                                Đánh dấu đã đọc
+                            </Button>
+                        )}
+                        {notifications.length > 0 && (
+                            <>
+                                {unreadCount > 0 && <span className="text-muted-foreground/40 text-xs">·</span>}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto p-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-destructive"
+                                    onClick={() => deleteAllNotifications.mutate()}
+                                    disabled={deleteAllNotifications.isPending}
+                                >
+                                    Xóa tất cả
+                                </Button>
+                            </>
+                        )}
+                    </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <div className="max-h-80 overflow-y-auto">
@@ -129,7 +161,7 @@ export function NotificationBell() {
                                 className={`flex flex-col items-start gap-1 p-4 ${!n.isRead ? 'bg-primary/5' : ''}`}
                                 onSelect={async (e) => {
                                     if (n.type === NotificationType.WORKSPACE_INVITE) {
-                                        e.preventDefault(); // Don't close if clicking invite buttons
+                                        e.preventDefault();
                                         return;
                                     }
 
@@ -137,12 +169,29 @@ export function NotificationBell() {
                                 }}
                             >
                                 <div className="flex w-full items-start justify-between gap-2">
-                                    <span className={`text-sm font-semibold ${!n.isRead ? 'text-primary' : ''}`}>
+                                    <span className={`text-sm font-semibold flex-1 min-w-0 truncate ${!n.isRead ? 'text-primary' : ''}`}>
                                         {n.title}
                                     </span>
-                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap pt-0.5">
-                                        {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: vi })}
-                                    </span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <span className="text-[10px] text-muted-foreground whitespace-nowrap pt-0.5">
+                                            {formatDateTimeVN(n.createdAt)}
+                                        </span>
+                                        <button
+                                            className="ml-1 flex h-5 w-5 items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 transition-colors"
+                                            aria-label="Xóa thông báo"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                            }}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                deleteNotification.mutate(n.id);
+                                            }}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <p className="text-xs text-muted-foreground line-clamp-2">
                                     {n.message}
@@ -191,3 +240,4 @@ export function NotificationBell() {
         </DropdownMenu>
     );
 }
+

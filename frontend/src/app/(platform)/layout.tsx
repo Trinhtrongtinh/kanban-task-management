@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 
 import { GlobalModalProvider } from '@/components/providers/global-modal-provider';
 import { SocketProvider } from '@/components/providers/socket-provider';
+import { Toaster } from '@/components/ui/sonner';
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
     <QueryClientProvider client={queryClient}>
       <SocketProvider>
         <GlobalModalProvider />
+        <Toaster richColors closeButton position="top-right" />
         <div className="min-h-screen bg-background">
           {/* Header */}
           <Header onMenuClick={handleMenuClick} />

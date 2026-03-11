@@ -9,6 +9,7 @@ export interface AuthUser {
   fullName?: string;
   avatarUrl?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AuthResponse {

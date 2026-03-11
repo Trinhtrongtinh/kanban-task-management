@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BoardMember, Card, List } from '../../database/entities';
+import { BoardMember, Board, Card, List } from '../../database/entities';
 import { BoardRole } from '../enums';
 import { BOARD_ROLES_KEY } from '../decorators';
 
@@ -24,6 +24,8 @@ export class CardBoardGuard implements CanActivate {
     private boardMemberRepository: Repository<BoardMember>,
     @InjectRepository(Card)
     private cardRepository: Repository<Card>,
+    @InjectRepository(Board)
+    private boardRepository: Repository<Board>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -57,6 +59,18 @@ export class CardBoardGuard implements CanActivate {
     }
 
     const boardId = card.list.boardId;
+
+    // Check if user is the workspace owner — full access
+    const board = await this.boardRepository.findOne({
+      where: { id: boardId },
+      relations: ['workspace'],
+    });
+    if (board && board.workspace?.ownerId === userId) {
+      request.boardMembership = { userId, boardId, role: BoardRole.ADMIN };
+      request.card = card;
+      request.boardId = boardId;
+      return true;
+    }
 
     // Find user's membership in the board
     const membership = await this.boardMemberRepository.findOne({

@@ -2,21 +2,14 @@
 
 import { Fragment, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
+import { formatDateTimeVN } from '@/lib/date-time';
+import { resolveAvatarUrl } from '@/lib/utils';
 import type { Comment } from '@/api/comments';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function formatCommentTime(iso: string): string {
-  return new Intl.DateTimeFormat('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour12: false,
-  }).format(new Date(iso));
+  return formatDateTimeVN(iso);
 }
 
 /**
@@ -86,7 +79,7 @@ export function CommentList({ comments, memberNames, highlightedCommentId }: Com
           {/* Avatar */}
           <Avatar className="h-8 w-8 shrink-0 mt-0.5">
             <AvatarImage
-              src={comment.user.avatarUrl || undefined}
+              src={resolveAvatarUrl(comment.user.avatarUrl)}
               alt={comment.user.username}
             />
             <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">

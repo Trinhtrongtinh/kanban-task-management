@@ -18,7 +18,7 @@ import {
 import type { User } from '@/types';
 import { useGetBoardMembers } from '@/api/board-members';
 import { Loader2 } from 'lucide-react';
-
+import { resolveAvatarUrl } from '@/lib/utils';
 interface CardMemberPickerProps {
   boardId?: string;
   assignedMembers: User[];
@@ -72,7 +72,7 @@ export function CardMemberPicker({
                     title={isLoading ? 'Đang tải thành viên, vui lòng chờ...' : undefined}
                   >
                     <Avatar className="h-7 w-7 shrink-0">
-                      <AvatarImage src={user.avatarUrl} alt={user.name || user.username} />
+                      <AvatarImage src={resolveAvatarUrl(user.avatarUrl)} alt={user.name || user.username} />
                       <AvatarFallback className="text-[10px] font-medium">
                         {(user.name || user.username || 'Un').substring(0, 2).toUpperCase()}
                       </AvatarFallback>

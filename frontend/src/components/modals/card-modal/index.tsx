@@ -65,6 +65,7 @@ import {
 import type { User } from '@/types';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
+import { resolveAvatarUrl } from '@/lib/utils';
 
 // ── Collapsible Section ───────────────────────────────────────────────
 function CollapsibleSection({
@@ -543,7 +544,7 @@ export function CardModal() {
                       <Tooltip key={m.id}>
                         <TooltipTrigger asChild>
                           <Avatar className="h-6 w-6 ring-2 ring-background cursor-pointer hover:scale-110 transition-transform">
-                            <AvatarImage src={m.avatarUrl} alt={m.name || m.username} />
+                            <AvatarImage src={resolveAvatarUrl(m.avatarUrl)} alt={m.name || m.username} />
                             <AvatarFallback className="text-[9px] font-medium bg-primary/10 text-primary">
                               {(m.name || m.username || 'Un').substring(0, 2).toUpperCase()}
                             </AvatarFallback>
@@ -737,7 +738,7 @@ export function CardModal() {
             <div className="border-t bg-background px-4 py-3 space-y-2">
               <div className="flex items-start gap-2">
                 <Avatar className="h-7 w-7 shrink-0 mt-0.5">
-                  <AvatarImage src={user?.avatarUrl} alt={user?.username || 'Me'} />
+                  <AvatarImage src={resolveAvatarUrl(user?.avatarUrl)} alt={user?.username || 'Me'} />
                   <AvatarFallback className="bg-primary/10 text-[9px] font-semibold text-primary">
                     {(user?.username || 'Me').substring(0, 2).toUpperCase()}
                   </AvatarFallback>

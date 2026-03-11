@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
-import { Workspace, Board, Card, List } from '../../database/entities';
+import { Workspace, Board, Card, List, Comment } from '../../database/entities';
 import { GlobalSearchDto, AdvancedSearchDto, DueDateFilter } from './dto';
+import { MemberStatus } from '../../common/enums';
 
 @Injectable()
 export class SearchService {
@@ -15,78 +16,210 @@ export class SearchService {
     private readonly cardRepository: Repository<Card>,
     @InjectRepository(List)
     private readonly listRepository: Repository<List>,
+    @InjectRepository(Comment)
+    private readonly commentRepository: Repository<Comment>,
   ) {}
 
   /**
    * Global search across workspaces, boards, and cards
    * Only returns results the user has access to
    */
-  async globalSearch(dto: GlobalSearchDto, userId: string) {
+async globalSearch(dto: GlobalSearchDto, userId: string) {
     const keyword = `%${dto.q}%`;
 
-    // Search Workspaces (user is owner)
-    const workspaces = await this.workspaceRepository
-      .createQueryBuilder('workspace')
-      .where('workspace.ownerId = :userId', { userId })
-      .andWhere('workspace.name LIKE :keyword', { keyword })
-      .select([
-        'workspace.id',
-        'workspace.name',
-        'workspace.slug',
-        'workspace.type',
-      ])
-      .getMany();
+    const accessParams = {
+      userId,
+      activeStatus: MemberStatus.ACTIVE,
+      keyword,
+    };
 
-    // Search Boards (in user's workspaces)
-    const boards = await this.boardRepository
-      .createQueryBuilder('board')
-      .innerJoin('board.workspace', 'workspace')
-      .where('workspace.ownerId = :userId', { userId })
-      .andWhere('board.title LIKE :keyword', { keyword })
-      .select([
-        'board.id',
-        'board.title',
-        'board.slug',
-        'board.visibility',
-        'board.workspaceId',
-      ])
-      .getMany();
+    const [workspaces, boards, lists, cards, comments] = await Promise.all([
+      this.workspaceRepository
+        .createQueryBuilder('workspace')
+        .leftJoin(
+          'workspace_members',
+          'wm',
+          'wm.workspace_id = workspace.id AND wm.user_id = :userId AND wm.status = :activeStatus',
+          accessParams,
+        )
+        // FIX 1: Thêm dấu ngoặc đơn () bao quanh câu lệnh OR
+        .where('(workspace.ownerId = :userId OR wm.id IS NOT NULL)', { userId })
+        .andWhere('workspace.name LIKE :keyword', { keyword })
+        .select('workspace.id', 'id')
+        .addSelect('workspace.name', 'name')
+        .addSelect('workspace.slug', 'slug')
+        .addSelect('workspace.type', 'type')
+        .addSelect('workspace.updatedAt', 'updatedAt')
+        .orderBy('workspace.updatedAt', 'DESC')
+        // FIX 2: Đổi take thành limit khi dùng getRawMany
+        .limit(8)
+        .getRawMany(),
 
-    // Search Cards (in user's boards) - search title OR description
-    const cards = await this.cardRepository
-      .createQueryBuilder('card')
-      .innerJoin('card.list', 'list')
-      .innerJoin('list.board', 'board')
-      .innerJoin('board.workspace', 'workspace')
-      .where('workspace.ownerId = :userId', { userId })
-      .andWhere(
-        new Brackets((qb) => {
-          qb.where('card.title LIKE :keyword', { keyword }).orWhere(
-            'card.description LIKE :keyword',
-            { keyword },
-          );
-        }),
-      )
-      .select([
-        'card.id',
-        'card.title',
-        'card.description',
-        'card.listId',
-        'card.deadline',
-        'card.isArchived',
-      ])
-      .addSelect('list.boardId', 'boardId')
-      .leftJoinAndSelect('card.labels', 'labels')
-      .getMany();
+      this.boardRepository
+        .createQueryBuilder('board')
+        .innerJoin('board.workspace', 'workspace')
+        .leftJoin(
+          'workspace_members',
+          'wm',
+          'wm.workspace_id = workspace.id AND wm.user_id = :userId AND wm.status = :activeStatus',
+          accessParams,
+        )
+        .leftJoin(
+          'board_members',
+          'bm',
+          'bm.board_id = board.id AND bm.user_id = :userId',
+          { userId },
+        )
+        // FIX 1: Thêm dấu ngoặc đơn ()
+        .where(
+          '(workspace.ownerId = :userId OR wm.id IS NOT NULL OR bm.id IS NOT NULL)',
+          { userId },
+        )
+        .andWhere('board.title LIKE :keyword', { keyword })
+        .select('board.id', 'id')
+        .addSelect('board.title', 'title')
+        .addSelect('board.slug', 'slug')
+        .addSelect('board.visibility', 'visibility')
+        .addSelect('board.workspaceId', 'workspaceId')
+        .addSelect('workspace.name', 'workspaceName')
+        .addSelect('board.updatedAt', 'updatedAt')
+        .orderBy('board.updatedAt', 'DESC')
+        .limit(10) // Đổi thành limit
+        .getRawMany(),
+
+      this.listRepository
+        .createQueryBuilder('list')
+        .innerJoin('list.board', 'board')
+        .innerJoin('board.workspace', 'workspace')
+        .leftJoin(
+          'workspace_members',
+          'wm',
+          'wm.workspace_id = workspace.id AND wm.user_id = :userId AND wm.status = :activeStatus',
+          accessParams,
+        )
+        .leftJoin(
+          'board_members',
+          'bm',
+          'bm.board_id = board.id AND bm.user_id = :userId',
+          { userId },
+        )
+        // FIX 1: Thêm dấu ngoặc đơn ()
+        .where(
+          '(workspace.ownerId = :userId OR wm.id IS NOT NULL OR bm.id IS NOT NULL)',
+          { userId },
+        )
+        .andWhere('list.title LIKE :keyword', { keyword })
+        .select('list.id', 'id')
+        .addSelect('list.title', 'title')
+        .addSelect('list.boardId', 'boardId')
+        .addSelect('board.title', 'boardTitle')
+        .addSelect('board.workspaceId', 'workspaceId')
+        .addSelect('workspace.name', 'workspaceName')
+        .addSelect('list.updatedAt', 'updatedAt')
+        .orderBy('list.updatedAt', 'DESC')
+        .limit(10) // Đổi thành limit
+        .getRawMany(),
+
+      this.cardRepository
+        .createQueryBuilder('card')
+        .innerJoin('card.list', 'list')
+        .innerJoin('list.board', 'board')
+        .innerJoin('board.workspace', 'workspace')
+        .leftJoin(
+          'workspace_members',
+          'wm',
+          'wm.workspace_id = workspace.id AND wm.user_id = :userId AND wm.status = :activeStatus',
+          accessParams,
+        )
+        .leftJoin(
+          'board_members',
+          'bm',
+          'bm.board_id = board.id AND bm.user_id = :userId',
+          { userId },
+        )
+        // FIX 1: Thêm dấu ngoặc đơn ()
+        .where(
+          '(workspace.ownerId = :userId OR wm.id IS NOT NULL OR bm.id IS NOT NULL)',
+          { userId },
+        )
+        .andWhere('card.isArchived = :isArchived', { isArchived: false })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('card.title LIKE :keyword', { keyword }).orWhere(
+              'card.description LIKE :keyword',
+              { keyword },
+            );
+          }),
+        )
+        .select('card.id', 'id')
+        .addSelect('card.title', 'title')
+        .addSelect('card.description', 'description')
+        .addSelect('card.listId', 'listId')
+        .addSelect('list.title', 'listTitle')
+        .addSelect('list.boardId', 'boardId')
+        .addSelect('board.title', 'boardTitle')
+        .addSelect('board.workspaceId', 'workspaceId')
+        .addSelect('workspace.name', 'workspaceName')
+        .addSelect('card.deadline', 'deadline')
+        .addSelect('card.isArchived', 'isArchived')
+        .addSelect('card.updatedAt', 'updatedAt')
+        .orderBy('card.updatedAt', 'DESC')
+        .limit(12) // Đổi thành limit
+        .getRawMany(),
+
+      this.commentRepository
+        .createQueryBuilder('comment')
+        .innerJoin('comment.card', 'card')
+        .innerJoin('card.list', 'list')
+        .innerJoin('list.board', 'board')
+        .innerJoin('board.workspace', 'workspace')
+        .leftJoin(
+          'workspace_members',
+          'wm',
+          'wm.workspace_id = workspace.id AND wm.user_id = :userId AND wm.status = :activeStatus',
+          accessParams,
+        )
+        .leftJoin(
+          'board_members',
+          'bm',
+          'bm.board_id = board.id AND bm.user_id = :userId',
+          { userId },
+        )
+        // FIX 1: Thêm dấu ngoặc đơn ()
+        .where(
+          '(workspace.ownerId = :userId OR wm.id IS NOT NULL OR bm.id IS NOT NULL)',
+          { userId },
+        )
+        .andWhere('card.isArchived = :isArchived', { isArchived: false })
+        .andWhere('comment.content LIKE :keyword', { keyword })
+        .select('comment.id', 'id')
+        .addSelect('comment.content', 'content')
+        .addSelect('comment.cardId', 'cardId')
+        .addSelect('card.title', 'cardTitle')
+        .addSelect('card.listId', 'listId')
+        .addSelect('list.title', 'listTitle')
+        .addSelect('list.boardId', 'boardId')
+        .addSelect('board.title', 'boardTitle')
+        .addSelect('board.workspaceId', 'workspaceId')
+        .addSelect('workspace.name', 'workspaceName')
+        .addSelect('comment.updatedAt', 'updatedAt')
+        .orderBy('comment.updatedAt', 'DESC')
+        .limit(12) // Đổi thành limit
+        .getRawMany(),
+    ]);
 
     return {
       workspaces,
       boards,
+      lists,
       cards,
+      comments,
       total: {
         workspaces: workspaces.length,
         boards: boards.length,
+        lists: lists.length,
         cards: cards.length,
+        comments: comments.length,
       },
     };
   }
@@ -101,7 +234,22 @@ export class SearchService {
       .innerJoin('card.list', 'list')
       .innerJoin('list.board', 'board')
       .innerJoin('board.workspace', 'workspace')
-      .where('workspace.ownerId = :userId', { userId })
+      .leftJoin(
+        'workspace_members',
+        'wm',
+        'wm.workspace_id = workspace.id AND wm.user_id = :userId AND wm.status = :activeStatus',
+        { userId, activeStatus: MemberStatus.ACTIVE },
+      )
+      .leftJoin(
+        'board_members',
+        'bm',
+        'bm.board_id = board.id AND bm.user_id = :userId',
+        { userId },
+      )
+      .where(
+        'workspace.ownerId = :userId OR wm.id IS NOT NULL OR bm.id IS NOT NULL',
+        { userId },
+      )
       .andWhere('card.isArchived = :isArchived', { isArchived: false });
 
     // Filter by boardId

@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { formatDistanceToNow } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import Cropper from 'react-easy-crop';
+import type { Point, Area } from 'react-easy-crop';
 import {
   Tabs,
   TabsContent,
@@ -25,6 +25,15 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
   Activity,
   Camera,
   CheckCircle2,
@@ -41,7 +50,52 @@ import {
 import { toast } from 'sonner';
 import { usersApi, type RecentActivity } from '@/api/users';
 import { useAuthStore } from '@/stores/authStore';
-import { cn } from '@/lib/utils';
+import { cn, resolveAvatarUrl } from '@/lib/utils';
+import { formatDateTimeVN } from '@/lib/date-time';
+
+/** Canvas-based circular crop helper */
+async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<File> {
+  const image = new window.Image();
+  image.crossOrigin = 'anonymous';
+  image.src = imageSrc;
+  await new Promise<void>((resolve) => {
+    image.onload = () => resolve();
+  });
+
+  const size = Math.min(pixelCrop.width, pixelCrop.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+
+  // Clip to circle
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    size,
+    size,
+  );
+
+  return new Promise<File>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return reject(new Error('Canvas is empty'));
+        resolve(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
+      },
+      'image/jpeg',
+      0.92,
+    );
+  });
+}
 
 function SaveFeedback({ saved }: { saved: boolean }) {
   if (!saved) return null;
@@ -75,23 +129,43 @@ function getActivityKind(activity: RecentActivity): ActivityKind {
 }
 
 export default function ProfilePage() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const logout = useAuthStore((s) => s.logout);
   const [username, setUsername] = useState(user?.username || '');
-  const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || '');
+  const [avatarPreview, setAvatarPreview] = useState(resolveAvatarUrl(user?.avatarUrl) || '');
   const [profileSaved, setProfileSaved] = useState(false);
   const [pwSaved, setPwSaved] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Crop state
+  const [cropSrc, setCropSrc] = useState('');
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
+  const onCropComplete = useCallback((_: Area, cropped: Area) => {
+    setCroppedAreaPixels(cropped);
+  }, []);
+
+  const handleCloseCropDialog = () => {
+    setIsCropOpen(false);
+    if (cropSrc.startsWith('blob:')) URL.revokeObjectURL(cropSrc);
+    setCropSrc('');
+  };
 
   useEffect(() => {
     setUsername(user?.username || '');
-    setAvatarPreview(user?.avatarUrl || '');
-  }, [user?.username, user?.avatarUrl]);
+    setAvatarPreview(resolveAvatarUrl(user?.avatarUrl) || '');
+  }, [user?.username, resolveAvatarUrl(user?.avatarUrl)]);
 
   const { data: activities = [], isLoading: isLoadingActivities } = useQuery({
     queryKey: ['profile', 'activities'],
@@ -116,14 +190,28 @@ export default function ProfilePage() {
     mutationFn: usersApi.uploadAvatar,
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
-      setAvatarPreview(updatedUser.avatarUrl || '');
+      setAvatarPreview(resolveAvatarUrl(updatedUser.avatarUrl) || '');
+      queryClient.invalidateQueries();
       toast.success('Đã cập nhật ảnh đại diện');
     },
     onError: (error: any) => {
-      setAvatarPreview(user?.avatarUrl || '');
+      setAvatarPreview(resolveAvatarUrl(user?.avatarUrl) || '');
       toast.error(error?.response?.data?.message || 'Không thể cập nhật ảnh đại diện');
     },
   });
+
+  const handleCropConfirm = async () => {
+    if (!croppedAreaPixels) return;
+    try {
+      const file = await getCroppedImg(cropSrc, croppedAreaPixels);
+      setIsCropOpen(false);
+      // show blob preview while uploading
+      setAvatarPreview(cropSrc);
+      uploadAvatarMutation.mutate(file);
+    } catch {
+      toast.error('Không thể cắt ảnh, vui lòng thử lại');
+    }
+  };
 
   const changePasswordMutation = useMutation({
     mutationFn: usersApi.changePassword,
@@ -161,6 +249,8 @@ export default function ProfilePage() {
     [newPw],
   );
 
+  const deletePhrase = 'XOA TAI KHOAN';
+
   const displayName = user?.username || 'Người dùng';
 
   const handleSaveProfile = () => {
@@ -170,15 +260,29 @@ export default function ProfilePage() {
       return;
     }
 
+    if (trimmed.length < 3) {
+      toast.error('Username phải có ít nhất 3 ký tự');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_.-]+$/.test(trimmed)) {
+      toast.error('Username chỉ được gồm chữ, số và các ký tự . _ -');
+      return;
+    }
+
     updateProfileMutation.mutate({ username: trimmed });
   };
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    setAvatarPreview(URL.createObjectURL(file));
-    uploadAvatarMutation.mutate(file);
+    // Reset input so same file can be re-selected
+    event.target.value = '';
+    setCropSrc(URL.createObjectURL(file));
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+    setIsCropOpen(true);
   };
 
   const handleChangePassword = () => {
@@ -192,6 +296,16 @@ export default function ProfilePage() {
       return;
     }
 
+    if (newPw === currentPw) {
+      toast.error('Mật khẩu mới phải khác mật khẩu hiện tại');
+      return;
+    }
+
+    if (strength < 3) {
+      toast.error('Mật khẩu mới chưa đủ mạnh');
+      return;
+    }
+
     changePasswordMutation.mutate({
       currentPassword: currentPw,
       newPassword: newPw,
@@ -199,18 +313,24 @@ export default function ProfilePage() {
   };
 
   const handleDeleteAccount = () => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa tài khoản? Hành động này không thể hoàn tác.')) {
+    if (deleteConfirmText.trim().toUpperCase() !== deletePhrase) {
+      toast.error(`Vui lòng nhập chính xác: ${deletePhrase}`);
       return;
     }
 
-    deleteAccountMutation.mutate();
+    deleteAccountMutation.mutate(undefined, {
+      onSuccess: () => {
+        setDeleteConfirmText('');
+        setIsDeleteDialogOpen(false);
+      },
+    });
   };
 
   return (
     <div className="mx-auto mt-10 max-w-3xl px-4 pb-16">
       <div className="mb-8 flex items-center gap-4">
-        <Avatar className="h-16 w-16 ring-4 ring-primary/20 shadow-md">
-          <AvatarImage src={avatarPreview || undefined} alt={displayName} />
+        <Avatar key={avatarPreview} className="h-16 w-16 ring-4 ring-primary/20 shadow-md">
+          <AvatarImage src={resolveAvatarUrl(avatarPreview) || undefined} alt={displayName} />
           <AvatarFallback className="text-xl font-semibold bg-primary/10 text-primary">
             {displayName.substring(0, 2).toUpperCase()}
           </AvatarFallback>
@@ -251,8 +371,8 @@ export default function ProfilePage() {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-5">
                 <div className="relative">
-                  <Avatar className="h-24 w-24 shadow-sm">
-                    <AvatarImage src={avatarPreview || undefined} alt={displayName} />
+                  <Avatar key={avatarPreview} className="h-24 w-24 shadow-sm">
+                    <AvatarImage src={resolveAvatarUrl(avatarPreview) || undefined} alt={displayName} />
                     <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
                       {displayName.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
@@ -341,14 +461,45 @@ export default function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardFooter className="border-t bg-destructive/5 py-4">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDeleteAccount}
-                disabled={deleteAccountMutation.isPending}
-              >
-                {deleteAccountMutation.isPending ? 'Đang xóa...' : 'Xóa tài khoản'}
-              </Button>
+              <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="destructive" size="sm">
+                    Xóa tài khoản
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="text-destructive">Xác nhận xóa tài khoản</DialogTitle>
+                    <DialogDescription>
+                      Hành động này không thể hoàn tác. Để xác nhận, nhập chính xác chuỗi bên dưới.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-3">
+                    <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium tracking-wide">
+                      {deletePhrase}
+                    </div>
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder="Nhập chuỗi xác nhận"
+                    />
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDeleteAccount}
+                      disabled={
+                        deleteAccountMutation.isPending ||
+                        deleteConfirmText.trim().toUpperCase() !== deletePhrase
+                      }
+                    >
+                      {deleteAccountMutation.isPending ? 'Đang xóa...' : 'Xác nhận xóa vĩnh viễn'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -480,10 +631,7 @@ export default function ProfilePage() {
                             {target ? <span className="font-semibold"> · {target}</span> : null}
                           </p>
                           <time className="shrink-0 text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(activity.createdAt), {
-                              addSuffix: true,
-                              locale: vi,
-                            })}
+                            {formatDateTimeVN(activity.createdAt)}
                           </time>
                         </div>
                       </li>
@@ -495,6 +643,58 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Avatar Crop Dialog */}
+      <Dialog open={isCropOpen} onOpenChange={(open) => { if (!open) handleCloseCropDialog(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cắt ảnh đại diện</DialogTitle>
+            <DialogDescription>
+              Di chuyển và phóng to để chỉnh vùng ảnh muốn dùng.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative h-72 w-full overflow-hidden rounded-lg bg-muted">
+            {cropSrc && (
+              <Cropper
+                image={cropSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            )}
+          </div>
+          <div className="flex items-center gap-3 px-1">
+            <span className="text-xs text-muted-foreground w-8 shrink-0">Thu nhỏ</span>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.05}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="flex-1 accent-primary"
+            />
+            <span className="text-xs text-muted-foreground w-6 shrink-0">To</span>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleCloseCropDialog}>
+              Hủy
+            </Button>
+            <Button onClick={handleCropConfirm} disabled={!croppedAreaPixels || uploadAvatarMutation.isPending}>
+              {uploadAvatarMutation.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tải...</>
+              ) : (
+                'Xác nhận và lưu'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
