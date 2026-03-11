@@ -17,6 +17,7 @@ import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember,
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { resolveAvatarUrl } from '@/lib/utils';
+import { paymentsApi } from '@/api/payments';
 export default function WorkspaceSettingsPage({
   params
 }: {
@@ -40,7 +41,20 @@ export default function WorkspaceSettingsPage({
   const updateMutation = useUpdateWorkspace();
 
   const onOpen = useProModal((state) => state.onOpen);
-  const isPro = false; // Mock billing state
+  const isPro = user?.planType === 'PRO';
+  const [isPortalLoading, setIsPortalLoading] = useState(false);
+
+  const handleManageSubscription = async () => {
+    setIsPortalLoading(true);
+    try {
+      const { url } = await paymentsApi.createPortalSession();
+      window.location.href = url;
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Không thể mở cổng quản lý thanh toán.');
+    } finally {
+      setIsPortalLoading(false);
+    }
+  };
 
   // Form states
   const [name, setName] = useState('');
@@ -419,9 +433,9 @@ export default function WorkspaceSettingsPage({
             <TabsContent value="billing" className="mt-0 space-y-6 focus-visible:outline-none focus-visible:ring-0">
               <Card className="border-border/50 shadow-sm">
                 <CardHeader>
-                  <CardTitle>Billing & Subscription</CardTitle>
+                  <CardTitle>Thanh toán & Gói đăng ký</CardTitle>
                   <CardDescription>
-                    Manage your billing details and upgrade your plan.
+                    Quản lý thông tin thanh toán và nâng cấp gói của bạn.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -429,11 +443,38 @@ export default function WorkspaceSettingsPage({
                   {/* Current Plan Card */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-lg border bg-card p-6 shadow-sm">
                     <div className="space-y-1">
-                      <p className="text-lg font-semibold leading-none">Free Plan</p>
-                      <p className="text-sm text-muted-foreground pt-1">Basic project management for individuals and small teams.</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-semibold leading-none">{isPro ? 'Kanban Pro' : 'Free Plan'}</p>
+                        {isPro && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                            <Zap className="h-3 w-3" /> PRO
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground pt-1">
+                        {isPro
+                          ? `Gói Pro đang hoạt động${user?.expiredAt ? ` — hết hạn ${new Date(user.expiredAt).toLocaleDateString('vi-VN')}` : ''}`
+                          : 'Quản lý dự án cơ bản cho cá nhân và nhóm nhỏ.'}
+                      </p>
                     </div>
-                    <div className="flex justify-end">
-                      <Badge variant="secondary" className="font-semibold uppercase tracking-wider text-muted-foreground h-7 px-3">Current Plan</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={isPro ? 'default' : 'secondary'}
+                        className="font-semibold uppercase tracking-wider h-7 px-3"
+                      >
+                        {isPro ? 'Pro' : 'Free'}
+                      </Badge>
+                      {isPro && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleManageSubscription}
+                          disabled={isPortalLoading}
+                        >
+                          {isPortalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                          Quản lý gói
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -451,8 +492,8 @@ export default function WorkspaceSettingsPage({
                               <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 mb-3">
                                 <Zap className="h-3.5 w-3.5" /> PRO
                               </div>
-                              <h3 className="text-2xl font-bold text-amber-950">Unlock your team&apos;s full potential</h3>
-                              <p className="text-amber-800/80 mt-1">Get advanced features for productivity and control.</p>
+                              <h3 className="text-2xl font-bold text-amber-950">Mở khóa toàn bộ tiềm năng</h3>
+                              <p className="text-amber-800/80 mt-1">Nâng cấp lên Pro để sử dụng đầy đủ các tính năng.</p>
                             </div>
                           </div>
 
@@ -460,21 +501,21 @@ export default function WorkspaceSettingsPage({
                             <ul className="space-y-4 text-sm text-amber-900/90">
                               <li className="flex items-center gap-x-3">
                                 <div className="bg-amber-100 rounded-full p-1"><Check className="h-3 w-3 text-amber-600" /></div>
-                                <span className="font-medium">Unlimited boards</span> and lists
+                                <span className="font-medium">Không giới hạn</span> bảng & danh sách
                               </li>
                               <li className="flex items-center gap-x-3">
                                 <div className="bg-amber-100 rounded-full p-1"><Check className="h-3 w-3 text-amber-600" /></div>
-                                <span className="font-medium">Advanced checklists</span> and dates
+                                Thành viên <span className="font-medium">không giới hạn</span>
                               </li>
                             </ul>
                             <ul className="space-y-4 text-sm text-amber-900/90">
                               <li className="flex items-center gap-x-3">
                                 <div className="bg-amber-100 rounded-full p-1"><Check className="h-3 w-3 text-amber-600" /></div>
-                                <span className="font-medium">Larger file attachments</span> (250MB)
+                                Tệp đính kèm tới <span className="font-medium">250MB</span>
                               </li>
                               <li className="flex items-center gap-x-3">
                                 <div className="bg-amber-100 rounded-full p-1"><Check className="h-3 w-3 text-amber-600" /></div>
-                                <span className="font-medium">Premium priority support</span>
+                                <span className="font-medium">Hỗ trợ ưu tiên</span> 24/7
                               </li>
                             </ul>
                           </div>
@@ -484,7 +525,7 @@ export default function WorkspaceSettingsPage({
                             size="lg"
                             className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 font-semibold text-white shadow-md focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 border-0"
                           >
-                            Upgrade for $9/mo
+                            Nâng cấp $9/tháng
                           </Button>
                         </div>
                       </div>

@@ -2,12 +2,17 @@ import { apiClient } from './client';
 
 // ── Types matching backend responses ─────────────────────────────────
 
+export type PlanType = 'FREE' | 'PRO';
+
 export interface AuthUser {
   id: string;
   username: string;
   email: string;
   fullName?: string;
   avatarUrl?: string;
+  planType?: PlanType;
+  expiredAt?: string | null;
+  stripeCustomerId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

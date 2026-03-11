@@ -14,6 +14,7 @@ import {
   Loader2,
   List as ListIcon,
   MessageSquare,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -33,6 +34,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { searchApi, type SearchEntityType } from '@/api/search';
 import { cn, resolveAvatarUrl } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const SEARCH_FILTERS: Array<{ type: SearchEntityType; label: string }> = [
   { type: 'all', label: 'Tất cả' },
@@ -369,8 +371,22 @@ export function Header({ onMenuClick }: HeaderProps) {
         </div>
 
         {/* Right: User menu */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <NotificationBell />
+          {/* PRO/FREE Badge */}
+          {user?.planType && (
+            <Badge
+              className={cn(
+                'h-6 text-xs font-semibold flex items-center gap-1',
+                user.planType === 'PRO'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white border border-amber-400/50 shadow-lg shadow-amber-500/20'
+                  : 'bg-slate-200 text-slate-700'
+              )}
+            >
+              {user.planType === 'PRO' && <Zap className="h-3 w-3" />}
+              {user.planType}
+            </Badge>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">

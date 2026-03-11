@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { boardsApi, CreateBoardPayload, UpdateBoardPayload } from '@/api/boards';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { useProModal } from '@/hooks/use-pro-modal';
 
 export const BOARD_QUERY_KEYS = {
     all: ['boards'] as const,
@@ -28,6 +29,7 @@ export function useBoardById(id: string | undefined | null) {
 export function useCreateBoard() {
     const queryClient = useQueryClient();
     const router = useRouter();
+    const onOpenProModal = useProModal((state) => state.onOpen);
 
     return useMutation({
         mutationFn: (payload: CreateBoardPayload) => boardsApi.create(payload),
@@ -43,6 +45,14 @@ export function useCreateBoard() {
             router.push(`/b/${data.id}`);
         },
         onError: (error: any) => {
+            const code = error?.response?.data?.errorCode;
+            if (code === 'PLAN_LIMIT_EXCEEDED') {
+                onOpenProModal();
+                toast.info('Giới hạn gói Free', {
+                    description: error.response?.data?.message || 'Nâng cấp Pro để tạo không giới hạn bảng.',
+                });
+                return;
+            }
             toast.error('Lỗi', {
                 description: error.response?.data?.message || 'Không thể tạo bảng',
             });

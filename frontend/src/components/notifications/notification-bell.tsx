@@ -75,6 +75,14 @@ export function NotificationBell() {
             return;
         }
 
+        // For payment notifications, just mark as read without navigating
+        if (notification.type === NotificationType.PAYMENT_NOTIFICATION) {
+            if (!notification.isRead) {
+                await markAsRead.mutateAsync(notification.id);
+            }
+            return;
+        }
+
         try {
             if (!notification.isRead) {
                 await markAsRead.mutateAsync(notification.id);

@@ -46,6 +46,7 @@ import {
   Shield,
   Trash2,
   User,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usersApi, type RecentActivity } from '@/api/users';
@@ -343,6 +344,47 @@ export default function ProfilePage() {
           </p>
         </div>
       </div>
+
+      {/* Plan Info Card */}
+      <Card className={cn('mb-6 border-2 overflow-hidden', user?.planType === 'PRO' ? 'border-amber-400/50 bg-gradient-to-br from-amber-50/50 to-transparent dark:from-amber-950/20' : 'border-border')}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {user?.planType === 'PRO' && <Zap className="h-5 w-5 text-amber-500" />}
+              <CardTitle className={user?.planType === 'PRO' ? 'text-amber-900 dark:text-amber-100' : ''}>
+                {user?.planType === 'PRO' ? 'Kanban Pro' : 'Free Plan'}
+              </CardTitle>
+            </div>
+            <Badge
+              className={cn(
+                'px-3 py-1 font-semibold',
+                user?.planType === 'PRO'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20'
+                  : 'bg-slate-200 text-slate-700'
+              )}
+            >
+              {user?.planType}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Tình trạng</p>
+              <p className="font-semibold flex items-center gap-2 mt-1">
+                <CheckCircle2 className={`h-4 w-4 ${user?.planType === 'PRO' ? 'text-amber-500' : 'text-green-500'}`} />
+                {user?.planType === 'PRO' ? 'Hoạt động' : 'Miễn phí'}
+              </p>
+            </div>
+            {user?.planType === 'PRO' && user?.expiredAt && (
+              <div>
+                <p className="text-muted-foreground">Hết hạn</p>
+                <p className="font-semibold mt-1">{new Date(user.expiredAt).toLocaleDateString('vi-VN')}</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="profile">
         <TabsList className="mb-6 grid w-full grid-cols-3">

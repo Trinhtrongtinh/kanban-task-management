@@ -305,7 +305,7 @@ export class PaymentsService {
     // Send payment failed notification
     await this.notificationsService.create({
       userId: user.id,
-      type: NotificationType.MENTION, // Reuse existing type
+      type: NotificationType.PAYMENT_NOTIFICATION,
       title: 'Thanh toán thất bại',
       message:
         'Thanh toán gói PRO của bạn không thành công. Vui lòng cập nhật phương thức thanh toán.',
@@ -323,7 +323,7 @@ export class PaymentsService {
     // In-app notification
     await this.notificationsService.create({
       userId: user.id,
-      type: NotificationType.MENTION,
+      type: NotificationType.PAYMENT_NOTIFICATION,
       title: '🎉 Nâng cấp thành công!',
       message: `Tài khoản của bạn đã được nâng cấp lên gói PRO. Hết hạn: ${expiredAt.toLocaleDateString('vi-VN')}`,
       link: '/settings/billing',
@@ -343,7 +343,7 @@ export class PaymentsService {
   private async sendCancellationNotification(user: User): Promise<void> {
     await this.notificationsService.create({
       userId: user.id,
-      type: NotificationType.MENTION,
+      type: NotificationType.PAYMENT_NOTIFICATION,
       title: 'Hủy gói PRO',
       message:
         'Gói PRO của bạn đã bị hủy. Bạn vẫn có thể sử dụng các tính năng cơ bản.',

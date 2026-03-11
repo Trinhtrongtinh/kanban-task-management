@@ -1,9 +1,10 @@
 'use client';
 
-import { ChevronsUpDown, Check, Loader2, Plus } from 'lucide-react';
+import { ChevronsUpDown, Check, Loader2, Plus, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWorkspaces } from '@/hooks/use-workspaces';
 import { useWorkspaceModal } from '@/hooks/use-workspace-modal';
+import { useAuthStore } from '@/stores/authStore';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,17 +13,19 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { useRouter, usePathname } from 'next/navigation';
-
+import { cn } from '@/lib/utils';
 
 export function WorkspaceSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const onOpenWorkspaceModal = useWorkspaceModal((s) => s.onOpen);
   // Try to determine active workspace from URL (e.g. /workspaces/:workspaceId)
   const match = pathname.match(/\/workspaces\/([^\/]+)/);
   const activeWorkspaceId = match ? match[1] : null;
 
   const { data: workspaces = [], isLoading } = useWorkspaces();
+  const isFreePlanLimitReached = user?.planType === 'FREE' && workspaces.length >= 1;
   const activeWorkspace = workspaces.find((ws) => ws.id === activeWorkspaceId);
 
   return (
@@ -58,10 +61,15 @@ export function WorkspaceSwitcher() {
           <div className="py-2 text-center text-xs text-muted-foreground">Không có workspace định sẵn</div>
         )}
         {!isLoading && <DropdownMenuSeparator />}
-        {!isLoading && (
+        {!isLoading && !isFreePlanLimitReached && (
           <DropdownMenuItem onSelect={onOpenWorkspaceModal} className="cursor-pointer gap-2">
             <Plus className="h-4 w-4" /> Tạo Workspace mới
           </DropdownMenuItem>
+        )}
+        {!isLoading && isFreePlanLimitReached && (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground cursor-not-allowed opacity-60 flex items-center gap-2">
+            <Lock className="h-4 w-4" /> Nâng cấp để tạo thêm
+          </div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

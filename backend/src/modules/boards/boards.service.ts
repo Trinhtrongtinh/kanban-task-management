@@ -5,7 +5,9 @@ import { Board, Workspace, BoardMember, WorkspaceMember } from '../../database/e
 import { CreateBoardDto, UpdateBoardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode, BoardRole, MemberStatus } from '../../common/enums';
-import { User } from '../../database/entities';
+import { User, PlanType } from '../../database/entities';
+
+const FREE_PLAN_BOARD_LIMIT = 3;
 
 @Injectable()
 export class BoardsService {
@@ -16,6 +18,8 @@ export class BoardsService {
     private readonly workspaceRepository: Repository<Workspace>,
     @InjectRepository(BoardMember)
     private readonly boardMemberRepository: Repository<BoardMember>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) { }
 
   /**
@@ -167,6 +171,19 @@ export class BoardsService {
         HttpStatus.FORBIDDEN,
         'Chỉ người tạo workspace mới có thể tạo bảng',
       );
+    }
+
+    // Check FREE plan board limit
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (user && user.planType === PlanType.FREE) {
+      const boardCount = await this.boardRepository.count({ where: { workspaceId } });
+      if (boardCount >= FREE_PLAN_BOARD_LIMIT) {
+        throw new BusinessException(
+          ErrorCode.PLAN_LIMIT_EXCEEDED,
+          HttpStatus.FORBIDDEN,
+          `Gói Free chỉ cho phép tối đa ${FREE_PLAN_BOARD_LIMIT} bảng. Nâng cấp lên Pro để tạo không giới hạn.`,
+        );
+      }
     }
 
     // Generate slug from title if not provided

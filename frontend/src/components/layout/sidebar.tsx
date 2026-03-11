@@ -18,6 +18,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useProModal } from '@/hooks/use-pro-modal';
+import { useAuthStore } from '@/stores/authStore';
 
 // ── Nav structure ────────────────────────────────────────────────────
 
@@ -115,6 +116,8 @@ function NavGroupSection({
 
 function DesktopSidebar() {
   const onOpen = useProModal((state) => state.onOpen);
+  const user = useAuthStore((state) => state.user);
+  const isProUser = user?.planType === 'PRO';
 
   return (
     <aside className="fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-60 border-r bg-background md:flex flex-col">
@@ -126,15 +129,17 @@ function DesktopSidebar() {
       </nav>
 
       {/* Upgrade CTA */}
-      <div className="px-3 pb-4">
-        <Button
-          onClick={onOpen}
-          className="w-full justify-start gap-2 bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white shadow-md border-0 text-sm"
-        >
-          <Zap className="h-4 w-4 fill-white shrink-0" />
-          Upgrade to Pro
-        </Button>
-      </div>
+      {!isProUser && (
+        <div className="px-3 pb-4">
+          <Button
+            onClick={onOpen}
+            className="w-full justify-start gap-2 bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white shadow-md border-0 text-sm"
+          >
+            <Zap className="h-4 w-4 fill-white shrink-0" />
+            Upgrade to Pro
+          </Button>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="border-t px-3 py-3">
@@ -148,6 +153,8 @@ function DesktopSidebar() {
 
 function MobileSidebar({ isOpen, onClose }: SidebarProps) {
   const onOpen = useProModal((state) => state.onOpen);
+  const user = useAuthStore((state) => state.user);
+  const isProUser = user?.planType === 'PRO';
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -175,18 +182,20 @@ function MobileSidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         {/* Upgrade CTA */}
-        <div className="px-3 pb-4">
-          <Button
-            onClick={() => {
-              onClose();
-              onOpen();
-            }}
-            className="w-full justify-start gap-2 bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white shadow-md border-0 text-sm"
-          >
-            <Zap className="h-4 w-4 fill-white shrink-0" />
-            Upgrade to Pro
-          </Button>
-        </div>
+        {!isProUser && (
+          <div className="px-3 pb-4">
+            <Button
+              onClick={() => {
+                onClose();
+                onOpen();
+              }}
+              className="w-full justify-start gap-2 bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white shadow-md border-0 text-sm"
+            >
+              <Zap className="h-4 w-4 fill-white shrink-0" />
+              Upgrade to Pro
+            </Button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

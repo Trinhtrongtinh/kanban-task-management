@@ -16,6 +16,7 @@ export enum NotificationType {
   CARD_MOVED = 'CARD_MOVED',
   MENTION = 'MENTION',
   WORKSPACE_INVITE = 'WORKSPACE_INVITE',
+  PAYMENT_NOTIFICATION = 'PAYMENT_NOTIFICATION',
 }
 
 @Entity('notifications')

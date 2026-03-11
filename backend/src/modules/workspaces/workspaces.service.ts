@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
-import { Workspace, WorkspaceMember, User } from '../../database/entities';
+import { Workspace, WorkspaceMember, User, PlanType } from '../../database/entities';
 import { NotificationType } from '../../database/entities/notification.entity';
 import { CreateWorkspaceDto, UpdateWorkspaceDto, InviteMemberDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
@@ -168,15 +168,27 @@ export class WorkspacesService implements OnModuleInit {
     createWorkspaceDto: CreateWorkspaceDto,
     userId: string,
   ): Promise<Workspace> {
-    const existing = await this.workspaceRepository.findOne({
-      where: { ownerId: userId },
-    });
-    if (existing) {
+    // Get user to check plan
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
       throw new BusinessException(
-        ErrorCode.FORBIDDEN,
-        HttpStatus.FORBIDDEN,
-        'Mỗi tài khoản chỉ được tạo tối đa 1 Workspace cá nhân',
+        ErrorCode.USER_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
       );
+    }
+
+    // Check FREE plan workspace limit (1 workspace per FREE user)
+    if (user.planType === PlanType.FREE) {
+      const workspaceCount = await this.workspaceRepository.count({
+        where: { ownerId: userId },
+      });
+      if (workspaceCount >= 1) {
+        throw new BusinessException(
+          ErrorCode.PLAN_LIMIT_EXCEEDED,
+          HttpStatus.FORBIDDEN,
+          'Gói Free chỉ cho phép tối đa 1 workspace. Nâng cấp lên Pro để tạo không giới hạn.',
+        );
+      }
     }
 
     const { name, slug, ...rest } = createWorkspaceDto;

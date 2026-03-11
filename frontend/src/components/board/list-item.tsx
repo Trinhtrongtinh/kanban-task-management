@@ -76,16 +76,12 @@ export function ListItem({ list }: ListItemProps) {
         isHighlighted && 'ring-2 ring-primary shadow-lg shadow-primary/15'
       )}
     >
-      {/* Header */}
-      <div
-        className="mb-1 cursor-grab active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
-      >
-        <ListHeader 
-          list={list} 
-        />
-      </div>
+      {/* Header — drag handle is now inside ListHeader as a grip icon */}
+      <ListHeader
+        list={list}
+        dragListeners={listeners}
+        dragAttributes={attributes}
+      />
 
       {/* Cards - scrollable, droppable area */}
       <div

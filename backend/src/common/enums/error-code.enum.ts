@@ -26,6 +26,7 @@ export enum ErrorCode {
   BOARD_NOT_FOUND = 'BOARD_NOT_FOUND',
   BOARD_ACCESS_DENIED = 'BOARD_ACCESS_DENIED',
   BOARD_SLUG_EXISTS = 'BOARD_SLUG_EXISTS',
+  PLAN_LIMIT_EXCEEDED = 'PLAN_LIMIT_EXCEEDED',
 
   // List (for future use)
   LIST_NOT_FOUND = 'LIST_NOT_FOUND',
@@ -92,6 +93,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.BOARD_NOT_FOUND]: 'Board not found',
   [ErrorCode.BOARD_ACCESS_DENIED]: 'You do not have access to this board',
   [ErrorCode.BOARD_SLUG_EXISTS]: 'Board slug is already taken',
+  [ErrorCode.PLAN_LIMIT_EXCEEDED]: 'Bạn đã đạt giới hạn gói Free. Nâng cấp lên Pro để tiếp tục.',
 
   // List
   [ErrorCode.LIST_NOT_FOUND]: 'List not found',

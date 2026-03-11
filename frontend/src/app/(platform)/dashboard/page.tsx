@@ -33,8 +33,10 @@ export type WorkspaceWithNestedBoards = import('@/api/workspaces').Workspace & {
 
 export default function DashboardPage() {
   const currentUserId = useAuthStore((s) => s.user?.id);
+  const user = useAuthStore((s) => s.user);
   const { data: workspaces = [], isLoading } = useWorkspaces();
   const onOpenWorkspaceModal = useWorkspaceModal(s => s.onOpen);
+  const isFreePlanLimitReached = user?.planType === 'FREE' && workspaces.length >= 1;
 
   const workspaceMembersQueries = useQueries({
     queries: workspaces.map((workspace) => ({
@@ -203,7 +205,17 @@ export default function DashboardPage() {
           <p className="mb-4 text-muted-foreground">
             Vui lòng tạo 1 workspace cá nhân hoặc liên hệ Admin để xin cấp quyền.
           </p>
-          <Button onClick={onOpenWorkspaceModal}>Tạo Workspace đầu tiên</Button>
+          <Button onClick={onOpenWorkspaceModal} disabled={isFreePlanLimitReached}>
+            Tạo Workspace đầu tiên
+          </Button>
+        </div>
+      ) : isFreePlanLimitReached ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center bg-card">
+          <Briefcase className="mb-4 h-12 w-12 text-muted-foreground" />
+          <h2 className="mb-2 text-xl font-semibold">Bạn đã đạt giới hạn Workspace</h2>
+          <p className="mb-4 text-muted-foreground">
+            Gói Free chỉ cho phép 1 workspace. Nâng cấp lên Pro để tạo thêm workspace khác.
+          </p>
         </div>
       ) : (
         <div className="space-y-8">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { GripVertical, MoreHorizontal } from 'lucide-react';
 import type { BoardList } from './types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +16,11 @@ import {
 
 interface ListHeaderProps {
   list: BoardList;
+  dragListeners?: Record<string, any>;
+  dragAttributes?: Record<string, any>;
 }
 
-export function ListHeader({ list }: ListHeaderProps) {
+export function ListHeader({ list, dragListeners, dragAttributes }: ListHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(list.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,9 +68,17 @@ export function ListHeader({ list }: ListHeaderProps) {
 
   return (
     <div className="flex items-center justify-between pb-2 px-1 gap-x-2">
+      {/* Drag handle */}
       <div
-        className="flex-1 min-w-0"
+        className="shrink-0 cursor-grab active:cursor-grabbing p-0.5 rounded hover:bg-black/10 transition-colors text-muted-foreground"
+        {...dragListeners}
+        {...dragAttributes}
       >
+        <GripVertical className="h-4 w-4" />
+      </div>
+
+      {/* Title */}
+      <div className="flex-1 min-w-0">
         {isEditing ? (
           <Input
             ref={inputRef}
