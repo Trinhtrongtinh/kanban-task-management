@@ -120,4 +120,35 @@ export class ActivitiesService {
       },
     });
   }
+
+  async findRecentByUser(userId: string): Promise<ActivityLog[]> {
+    return this.activityLogRepository.find({
+      where: { userId },
+      relations: ['user', 'board', 'card'],
+      order: { createdAt: 'DESC' },
+      take: 20,
+      select: {
+        id: true,
+        boardId: true,
+        cardId: true,
+        userId: true,
+        action: true,
+        content: true,
+        createdAt: true,
+        user: {
+          id: true,
+          username: true,
+          avatarUrl: true,
+        },
+        board: {
+          id: true,
+          title: true,
+        },
+        card: {
+          id: true,
+          title: true,
+        },
+      },
+    });
+  }
 }

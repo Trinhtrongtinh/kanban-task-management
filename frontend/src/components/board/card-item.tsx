@@ -64,8 +64,8 @@ export function CardItem({ card, listId }: CardItemProps) {
             <div
               key={label.id}
               className="h-2 w-10 rounded-full"
-              style={{ backgroundColor: label.color }}
-              title={label.title}
+              style={{ backgroundColor: label.colorCode }}
+              title={label.name}
             />
           ))}
         </div>

@@ -3,101 +3,43 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { apiClient } from './client';
 import type { Checklist, ChecklistItem } from '@/types';
 
-// ── In-memory mock store ──────────────────────────────────────────────
+// ── API calls ────────────────────────────────────────────────────────
 
-const MOCK_CHECKLISTS: Record<string, Checklist[]> = {};
-
-function getChecklistsForCard(cardId: string): Checklist[] {
-  return MOCK_CHECKLISTS[cardId] ?? [];
-}
-
-function setChecklistsForCard(cardId: string, checklists: Checklist[]) {
-  MOCK_CHECKLISTS[cardId] = checklists;
-}
-
-// ── Mock API functions ────────────────────────────────────────────────
-
-function addChecklist(cardId: string, title: string): Promise<Checklist> {
-  const id = `cl-${Date.now()}`;
-  const checklist: Checklist = { id, title, cardId, items: [] };
-  const lists = getChecklistsForCard(cardId);
-  setChecklistsForCard(cardId, [...lists, checklist]);
-  return Promise.resolve(checklist);
-}
-
-function addChecklistItem(
-  checklistId: string,
-  title: string
-): Promise<ChecklistItem> {
-  const id = `ci-${Date.now()}`;
-  const item: ChecklistItem = { id, title, isCompleted: false, checklistId };
-  const cardId = Object.keys(MOCK_CHECKLISTS).find((cid) =>
-    MOCK_CHECKLISTS[cid].some((c) => c.id === checklistId)
-  );
-  if (!cardId) return Promise.reject(new Error('Checklist not found'));
-  const lists = getChecklistsForCard(cardId).map((c) =>
-    c.id === checklistId ? { ...c, items: [...c.items, item] } : c
-  );
-  setChecklistsForCard(cardId, lists);
-  return Promise.resolve(item);
-}
-
-function toggleItemState(itemId: string): Promise<ChecklistItem> {
-  for (const lists of Object.values(MOCK_CHECKLISTS)) {
-    for (const checklist of lists) {
-      const item = checklist.items.find((i) => i.id === itemId);
-      if (item) {
-        const updated = { ...item, isCompleted: !item.isCompleted };
-        const newItems = checklist.items.map((i) =>
-          i.id === itemId ? updated : i
-        );
-        const cardId = checklist.cardId;
-        const newLists = getChecklistsForCard(cardId).map((c) =>
-          c.id === checklist.id ? { ...c, items: newItems } : c
-        );
-        setChecklistsForCard(cardId, newLists);
-        return Promise.resolve(updated);
-      }
-    }
-  }
-  return Promise.reject(new Error('Item not found'));
-}
-
-function deleteChecklist(checklistId: string): Promise<void> {
-  const cardId = Object.keys(MOCK_CHECKLISTS).find((cid) =>
-    MOCK_CHECKLISTS[cid].some((c) => c.id === checklistId)
-  );
-  if (!cardId) return Promise.reject(new Error('Checklist not found'));
-  const lists = getChecklistsForCard(cardId).filter(
-    (c) => c.id !== checklistId
-  );
-  setChecklistsForCard(cardId, lists);
-  return Promise.resolve();
-}
-
-function deleteItem(itemId: string): Promise<void> {
-  for (const lists of Object.values(MOCK_CHECKLISTS)) {
-    for (const checklist of lists) {
-      const item = checklist.items.find((i) => i.id === itemId);
-      if (item) {
-        const newItems = checklist.items.filter((i) => i.id !== itemId);
-        const cardId = checklist.cardId;
-        const newLists = getChecklistsForCard(cardId).map((c) =>
-          c.id === checklist.id ? { ...c, items: newItems } : c
-        );
-        setChecklistsForCard(cardId, newLists);
-        return Promise.resolve();
-      }
-    }
-  }
-  return Promise.reject(new Error('Item not found'));
-}
+const checklistsApi = {
+  getByCard: async (cardId: string): Promise<Checklist[]> => {
+    const response = await apiClient.get(`/cards/${cardId}/checklists`);
+    return response.data.data;
+  },
+  create: async (cardId: string, title: string): Promise<Checklist> => {
+    const response = await apiClient.post(`/cards/${cardId}/checklists`, { title });
+    return response.data.data;
+  },
+  update: async (id: string, title: string): Promise<Checklist> => {
+    const response = await apiClient.patch(`/checklists/${id}`, { title });
+    return response.data.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/checklists/${id}`);
+  },
+  createItem: async (checklistId: string, content: string): Promise<ChecklistItem> => {
+    const response = await apiClient.post(`/checklists/${checklistId}/items`, { content: content });
+    return response.data.data;
+  },
+  updateItem: async (itemId: string, payload: { isDone?: boolean; content?: string }): Promise<ChecklistItem> => {
+    const response = await apiClient.patch(`/checklists/items/${itemId}`, payload);
+    return response.data.data;
+  },
+  deleteItem: async (itemId: string): Promise<void> => {
+    await apiClient.delete(`/checklists/items/${itemId}`);
+  },
+};
 
 // ── Query keys ────────────────────────────────────────────────────────
 
-const checklistKeys = {
+export const checklistKeys = {
   all: ['checklists'] as const,
   byCard: (cardId: string) => [...checklistKeys.all, cardId] as const,
 };
@@ -107,41 +49,21 @@ const checklistKeys = {
 export function useChecklists(cardId: string | undefined) {
   return useQuery({
     queryKey: checklistKeys.byCard(cardId ?? ''),
-    queryFn: () => getChecklistsForCard(cardId ?? ''),
+    queryFn: () => checklistsApi.getByCard(cardId ?? ''),
     enabled: !!cardId,
   });
 }
 
-/** Optimistic: instantly appends a new checklist */
 export function useAddChecklistMutation(cardId: string | undefined) {
   const queryClient = useQueryClient();
   const key = checklistKeys.byCard(cardId ?? '');
 
   return useMutation({
-    mutationFn: (title: string) => addChecklist(cardId ?? '', title),
-    onMutate: async (title) => {
-      await queryClient.cancelQueries({ queryKey: key });
-      const prev = queryClient.getQueryData<Checklist[]>(key);
-      const optimistic: Checklist = {
-        id: `cl-opt-${Date.now()}`,
-        title,
-        cardId: cardId ?? '',
-        items: [],
-      };
-      queryClient.setQueryData<Checklist[]>(key, (old) => [
-        ...(old ?? []),
-        optimistic,
-      ]);
-      return { prev };
-    },
-    onError: (_err, _title, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+    mutationFn: (title: string) => checklistsApi.create(cardId ?? '', title),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }
 
-/** Optimistic: instantly appends a new item */
 export function useAddChecklistItemMutation(
   cardId: string | undefined,
   checklistId: string
@@ -150,102 +72,54 @@ export function useAddChecklistItemMutation(
   const key = checklistKeys.byCard(cardId ?? '');
 
   return useMutation({
-    mutationFn: (title: string) => addChecklistItem(checklistId, title),
-    onMutate: async (title) => {
-      await queryClient.cancelQueries({ queryKey: key });
-      const prev = queryClient.getQueryData<Checklist[]>(key);
-      const optimisticItem: ChecklistItem = {
-        id: `ci-opt-${Date.now()}`,
-        title,
-        isCompleted: false,
-        checklistId,
-      };
-      queryClient.setQueryData<Checklist[]>(key, (old) =>
-        (old ?? []).map((c) =>
-          c.id === checklistId
-            ? { ...c, items: [...c.items, optimisticItem] }
-            : c
-        )
-      );
-      return { prev };
-    },
-    onError: (_err, _title, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+    mutationFn: (content: string) => checklistsApi.createItem(checklistId, content),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }
 
-/** Optimistic toggle — instant strikethrough + progress update */
-export function useToggleItemStateMutation(cardId: string | undefined) {
+export function useUpdateItemMutation(cardId: string | undefined) {
   const queryClient = useQueryClient();
   const key = checklistKeys.byCard(cardId ?? '');
 
   return useMutation({
-    mutationFn: (itemId: string) => toggleItemState(itemId),
-    onMutate: async (itemId) => {
+    mutationFn: ({ itemId, isDone, content }: { itemId: string; isDone?: boolean; content?: string }) =>
+      checklistsApi.updateItem(itemId, { isDone, content }),
+    onMutate: async ({ itemId, isDone, content }) => {
       await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData<Checklist[]>(key);
       queryClient.setQueryData<Checklist[]>(key, (old) =>
         (old ?? []).map((c) => ({
           ...c,
           items: c.items.map((i) =>
-            i.id === itemId ? { ...i, isCompleted: !i.isCompleted } : i
+            i.id === itemId ? { ...i, ...(isDone !== undefined ? { isDone } : {}), ...(content !== undefined ? { content } : {}) } : i
           ),
         }))
       );
       return { prev };
     },
-    onError: (_err, _itemId, ctx) => {
+    onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }
 
-/** Optimistic delete checklist */
 export function useDeleteChecklistMutation(cardId: string | undefined) {
   const queryClient = useQueryClient();
   const key = checklistKeys.byCard(cardId ?? '');
 
   return useMutation({
-    mutationFn: (checklistId: string) => deleteChecklist(checklistId),
-    onMutate: async (checklistId) => {
-      await queryClient.cancelQueries({ queryKey: key });
-      const prev = queryClient.getQueryData<Checklist[]>(key);
-      queryClient.setQueryData<Checklist[]>(key, (old) =>
-        (old ?? []).filter((c) => c.id !== checklistId)
-      );
-      return { prev };
-    },
-    onError: (_err, _id, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+    mutationFn: (checklistId: string) => checklistsApi.delete(checklistId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }
 
-/** Optimistic delete item */
 export function useDeleteItemMutation(cardId: string | undefined) {
   const queryClient = useQueryClient();
   const key = checklistKeys.byCard(cardId ?? '');
 
   return useMutation({
-    mutationFn: (itemId: string) => deleteItem(itemId),
-    onMutate: async (itemId) => {
-      await queryClient.cancelQueries({ queryKey: key });
-      const prev = queryClient.getQueryData<Checklist[]>(key);
-      queryClient.setQueryData<Checklist[]>(key, (old) =>
-        (old ?? []).map((c) => ({
-          ...c,
-          items: c.items.filter((i) => i.id !== itemId),
-        }))
-      );
-      return { prev };
-    },
-    onError: (_err, _id, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+    mutationFn: (itemId: string) => checklistsApi.deleteItem(itemId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }

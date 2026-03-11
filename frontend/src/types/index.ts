@@ -1,6 +1,7 @@
 export interface User {
   id: string;
-  name: string;
+  name?: string;
+  username?: string;
   email: string;
   avatarUrl?: string;
 }
@@ -59,7 +60,7 @@ export interface Card {
 export interface Label {
   id: string;
   name: string;
-  color: string;
+  colorCode: string;
 }
 
 export interface Checklist {
@@ -71,8 +72,8 @@ export interface Checklist {
 
 export interface ChecklistItem {
   id: string;
-  title: string;
-  isCompleted: boolean;
+  content: string;
+  isDone: boolean;
   checklistId: string;
 }
 

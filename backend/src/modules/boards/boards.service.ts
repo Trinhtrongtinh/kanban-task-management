@@ -1,10 +1,11 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Board, Workspace, BoardMember } from '../../database/entities';
+import { Board, Workspace, BoardMember, WorkspaceMember } from '../../database/entities';
 import { CreateBoardDto, UpdateBoardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode, BoardRole } from '../../common/enums';
+import { ErrorCode, BoardRole, MemberStatus } from '../../common/enums';
+import { User } from '../../database/entities';
 
 @Injectable()
 export class BoardsService {
@@ -15,7 +16,7 @@ export class BoardsService {
     private readonly workspaceRepository: Repository<Workspace>,
     @InjectRepository(BoardMember)
     private readonly boardMemberRepository: Repository<BoardMember>,
-  ) {}
+  ) { }
 
   /**
    * Generate slug from title
@@ -177,15 +178,31 @@ export class BoardsService {
     return savedBoard;
   }
 
-  async findAllByWorkspace(workspaceId: string): Promise<Board[]> {
-    // Validate workspace exists
-    await this.validateWorkspaceExists(workspaceId);
-
-    return this.boardRepository.find({
-      where: { workspaceId },
-      relations: ['workspace'],
-      order: { createdAt: 'DESC' },
+  async findAllByWorkspace(workspaceId: string, userId: string): Promise<Board[]> {
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
     });
+
+    if (!workspace) {
+      throw new BusinessException(
+        ErrorCode.WORKSPACE_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const query = this.boardRepository
+      .createQueryBuilder('board')
+      .leftJoinAndSelect('board.workspace', 'workspace')
+      .where('board.workspace_id = :workspaceId', { workspaceId });
+
+    // If not owner, only show boards where user is a member
+    if (workspace.ownerId !== userId) {
+      query
+        .innerJoin('board_members', 'bm', 'bm.board_id = board.id')
+        .andWhere('bm.user_id = :userId', { userId });
+    }
+
+    return query.orderBy('board.created_at', 'DESC').getMany();
   }
 
   async findOne(id: string): Promise<Board> {
@@ -237,5 +254,59 @@ export class BoardsService {
   async remove(id: string): Promise<void> {
     const board = await this.findOne(id);
     await this.boardRepository.remove(board);
+  }
+
+  async getMembers(boardId: string): Promise<User[]> {
+    const boardMembers = await this.boardMemberRepository.find({
+      where: { boardId },
+      relations: ['user'],
+    });
+    return boardMembers.map(bm => bm.user);
+  }
+
+  async addMember(boardId: string, userId: string): Promise<BoardMember> {
+    const board = await this.findOne(boardId);
+
+    // Check if user is in workspace
+    const workspaceMember = await this.boardRepository.manager.findOne(WorkspaceMember, {
+      where: { workspaceId: board.workspaceId, userId, status: MemberStatus.ACTIVE },
+    });
+
+    if (!workspaceMember) {
+      throw new BusinessException(
+        ErrorCode.FORBIDDEN,
+        HttpStatus.FORBIDDEN,
+        'Thành viên phải thuộc Workspace mới có thể thêm vào bảng'
+      );
+    }
+
+    const existing = await this.boardMemberRepository.findOne({
+      where: { boardId, userId }
+    });
+
+    if (existing) {
+      throw new BusinessException(
+        ErrorCode.USER_ALREADY_EXISTS,
+        HttpStatus.BAD_REQUEST,
+        'Người dùng đã ở trong bảng này'
+      );
+    }
+
+    const newMember = this.boardMemberRepository.create({
+      boardId,
+      userId,
+      role: BoardRole.EDITOR
+    });
+
+    return this.boardMemberRepository.save(newMember);
+  }
+
+  async removeMember(boardId: string, userId: string): Promise<void> {
+    const existing = await this.boardMemberRepository.findOne({
+      where: { boardId, userId }
+    });
+    if (existing) {
+      await this.boardMemberRepository.remove(existing);
+    }
   }
 }

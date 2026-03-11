@@ -76,7 +76,13 @@ export class ListsService {
     return this.listRepository.find({
       where: { boardId },
       order: { position: 'ASC' },
-      relations: ['cards', 'cards.labels', 'cards.assignee'],
+      relations: [
+        'cards',
+        'cards.labels',
+        'cards.assignee',
+        'cards.members',
+        'cards.attachments',
+      ],
     });
   }
 

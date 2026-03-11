@@ -1,6 +1,7 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
-import { User } from '@/types';
+import { io, Socket } from 'socket.io-client';
 
 export interface Comment {
     id: string;
@@ -20,8 +21,11 @@ export const commentsApi = {
         const response = await apiClient.get<{ data: Comment[] }>(`/cards/${cardId}/comments`);
         return response.data.data;
     },
-    create: async (cardId: string, content: string): Promise<Comment> => {
-        const response = await apiClient.post<{ data: Comment }>(`/cards/${cardId}/comments`, { content });
+    create: async (
+        cardId: string,
+        payload: { content: string; mentionedUserIds?: string[] },
+    ): Promise<Comment> => {
+        const response = await apiClient.post<{ data: Comment }>(`/cards/${cardId}/comments`, payload);
         return response.data.data;
     },
     update: async (id: string, content: string): Promise<Comment> => {
@@ -38,12 +42,59 @@ export const commentKeys = {
     byCard: (cardId: string) => [...commentKeys.all, cardId] as const,
 };
 
+function sortCommentsByTime(comments: Comment[]): Comment[] {
+    return [...comments].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+}
+
 export function useComments(cardId: string | undefined) {
-    return useQuery({
+    const queryClient = useQueryClient();
+
+    const query = useQuery({
         queryKey: commentKeys.byCard(cardId ?? ''),
         queryFn: () => commentsApi.getByCard(cardId ?? ''),
         enabled: !!cardId,
     });
+
+    useEffect(() => {
+        if (!cardId) return;
+
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        const socket: Socket = io(`${backendUrl}/comments`, {
+            transports: ['websocket'],
+        });
+
+        socket.on('connect', () => {
+            socket.emit('joinCard', cardId);
+        });
+
+        socket.on('comment:created', (comment: Comment) => {
+            queryClient.setQueryData<Comment[]>(commentKeys.byCard(cardId), (old = []) => {
+                if (old.some((c) => c.id === comment.id)) return old;
+                return sortCommentsByTime([...old, comment]);
+            });
+        });
+
+        socket.on('comment:updated', (comment: Comment) => {
+            queryClient.setQueryData<Comment[]>(commentKeys.byCard(cardId), (old = []) =>
+                sortCommentsByTime(old.map((item) => (item.id === comment.id ? comment : item)))
+            );
+        });
+
+        socket.on('comment:deleted', ({ commentId }: { commentId: string }) => {
+            queryClient.setQueryData<Comment[]>(commentKeys.byCard(cardId), (old = []) =>
+                old.filter((item) => item.id !== commentId)
+            );
+        });
+
+        return () => {
+            socket.emit('leaveCard', cardId);
+            socket.disconnect();
+        };
+    }, [cardId, queryClient]);
+
+    return query;
 }
 
 export function useCreateCommentMutation(cardId: string | undefined) {
@@ -51,8 +102,14 @@ export function useCreateCommentMutation(cardId: string | undefined) {
     const key = commentKeys.byCard(cardId ?? '');
 
     return useMutation({
-        mutationFn: (content: string) => commentsApi.create(cardId ?? '', content),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+        mutationFn: (payload: { content: string; mentionedUserIds: string[] }) =>
+            commentsApi.create(cardId ?? '', payload),
+        onSuccess: (createdComment) => {
+            queryClient.setQueryData<Comment[]>(key, (old = []) => {
+                if (old.some((item) => item.id === createdComment.id)) return old;
+                return sortCommentsByTime([...old, createdComment]);
+            });
+        },
     });
 }
 

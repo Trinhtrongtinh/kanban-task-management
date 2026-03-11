@@ -147,7 +147,7 @@ export class DeadlineReminderService {
         'FRONTEND_URL',
         'http://localhost:3000',
       );
-      const cardLink = `${frontendUrl}/boards/${card.list?.boardId}/cards/${card.id}`;
+      const cardLink = `${frontendUrl}/b/${card.list?.boardId}?cardId=${card.id}&focus=activity`;
 
       // 1. Create notification in database
       const notification = await this.createNotificationInTransaction(

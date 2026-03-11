@@ -41,6 +41,14 @@ export class Card {
   @JoinColumn({ name: 'assignee_id' })
   assignee: User;
 
+  @ManyToMany(() => User)
+  @JoinTable({
+    name: 'card_members',
+    joinColumn: { name: 'card_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  })
+  members: User[];
+
   @Column({ length: 255 })
   title: string;
 

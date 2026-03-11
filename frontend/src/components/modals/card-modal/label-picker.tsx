@@ -14,14 +14,14 @@ export function LabelPicker() {
   const cardId = useCardModal((state) => state.id);
   const boardCtx = useBoardSafe();
   const lists = boardCtx?.lists ?? [];
-  
+
   const currentCard = lists
     .flatMap((l: BoardList) => l.cards)
     .find((c: BoardCard) => c.id === cardId);
-  
+
   const cardLabels = currentCard?.labels || [];
-  
-  const boardId = 'board-1';
+
+  const boardId = boardCtx?.boardId;
 
   const { data: boardLabels = [] } = useBoardLabels(boardId);
   const toggleLabel = useToggleCardLabel();
@@ -34,20 +34,21 @@ export function LabelPicker() {
 
   // Suggested Trello-like colors
   const presetColors = [
-    '#22c55e', '#facc15', '#f97316', '#ef4444', 
-    '#a855f7', '#3b82f6', '#06b6d4', '#10b981', 
+    '#22c55e', '#facc15', '#f97316', '#ef4444',
+    '#a855f7', '#3b82f6', '#06b6d4', '#10b981',
     '#f43f5e', '#64748b'
   ];
 
   const handleToggle = (label: Label) => {
     if (!cardId) return;
-    toggleLabel.mutate({ cardId, label });
+    const isAssigned = cardLabels.some((cl: Label) => cl.id === label.id);
+    toggleLabel.mutate({ cardId, label, action: isAssigned ? 'remove' : 'add' });
   };
 
   const handleCreate = () => {
     if (!newTitle.trim()) return;
     createLabel.mutate(
-      { title: newTitle, color: newColor.startsWith('#') ? newColor : presetColors[0] },
+      { name: newTitle, colorCode: newColor.startsWith('#') ? newColor : presetColors[0] },
       {
         onSuccess: () => {
           setNewTitle('');
@@ -77,16 +78,16 @@ export function LabelPicker() {
                 {boardLabels.map((lbl: Label) => {
                   const isAssigned = cardLabels.some((cl: Label) => cl.id === lbl.id);
                   return (
-                    <div 
-                      key={lbl.id} 
+                    <div
+                      key={lbl.id}
                       className="group flex cursor-pointer items-center gap-x-2 rounded-sm p-1 hover:bg-muted"
                       onClick={() => handleToggle(lbl)}
                     >
-                      <div 
+                      <div
                         className="flex h-8 w-full items-center rounded-sm px-3 text-sm font-bold text-white transition hover:opacity-80"
-                        style={{ backgroundColor: lbl.color }}
+                        style={{ backgroundColor: lbl.colorCode }}
                       >
-                        {lbl.title}
+                        {lbl.name}
                       </div>
                       {isAssigned && (
                         <div className="flex h-8 w-8 items-center justify-center shrink-0 text-muted-foreground">
@@ -118,11 +119,11 @@ export function LabelPicker() {
           <div className="flex flex-col gap-y-3">
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Title</label>
-              <Input 
+              <Input
                 autoFocus
-                className="mt-1 h-8 text-sm" 
-                value={newTitle} 
-                onChange={(e) => setNewTitle(e.target.value)} 
+                className="mt-1 h-8 text-sm"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="Label name"
               />
             </div>

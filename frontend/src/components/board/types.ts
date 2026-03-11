@@ -3,14 +3,16 @@ import type { User } from '@/types';
 export interface Label {
   id: string;
   boardId: string;
-  title: string;
-  color: string;
+  name: string;
+  colorCode: string;
 }
 
 export interface BoardCard {
   id: string;
   title: string;
   description?: string | null;
+  assigneeId?: string | null;
+  assignee?: User | null;
   boardId?: string;
   members?: User[];
   labels?: Label[];
@@ -19,9 +21,9 @@ export interface BoardCard {
   isArchived?: boolean;
   attachments?: {
     id: string;
-    url: string;
+    fileUrl: string;
     fileName: string;
-    type: string;
+    fileType: string;
     createdAt: string;
   }[];
 }

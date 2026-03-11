@@ -1,33 +1,22 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import type { User } from '@/types';
 
-// ── Types ────────────────────────────────────────────────────────────
-
-export interface Comment {
-  id: string;
-  cardId: string;
-  author: User;
-  content: string;
-  createdAt: string; // ISO string
-}
+import type { Comment } from '@/api/comments';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-/** Human-readable time-ago string (e.g. "3 minutes ago"). */
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-
-  if (diffSec < 60) return 'just now';
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} minute${diffMin !== 1 ? 's' : ''} ago`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `${diffH} hour${diffH !== 1 ? 's' : ''} ago`;
-  const diffD = Math.floor(diffH / 24);
-  return `${diffD} day${diffD !== 1 ? 's' : ''} ago`;
+function formatCommentTime(iso: string): string {
+  return new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour12: false,
+  }).format(new Date(iso));
 }
 
 /**
@@ -67,9 +56,19 @@ interface CommentListProps {
   comments: Comment[];
   /** Full set of board member names used for mention highlighting */
   memberNames: Set<string>;
+  highlightedCommentId?: string | null;
 }
 
-export function CommentList({ comments, memberNames }: CommentListProps) {
+export function CommentList({ comments, memberNames, highlightedCommentId }: CommentListProps) {
+  useEffect(() => {
+    if (!highlightedCommentId) return;
+
+    const element = document.querySelector(`[data-comment-id="${highlightedCommentId}"]`);
+    if (!element) return;
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [highlightedCommentId, comments]);
+
   if (comments.length === 0) {
     return (
       <p className="text-sm text-muted-foreground italic">No comments yet.</p>
@@ -79,24 +78,28 @@ export function CommentList({ comments, memberNames }: CommentListProps) {
   return (
     <ul className="space-y-4">
       {comments.map((comment) => (
-        <li key={comment.id} className="flex gap-3">
+        <li
+          key={comment.id}
+          data-comment-id={comment.id}
+          className={`flex gap-3 rounded-lg px-2 py-1 transition-colors ${highlightedCommentId === comment.id ? 'bg-primary/5 ring-1 ring-primary/20' : ''}`}
+        >
           {/* Avatar */}
           <Avatar className="h-8 w-8 shrink-0 mt-0.5">
             <AvatarImage
-              src={comment.author.avatarUrl}
-              alt={comment.author.name}
+              src={comment.user.avatarUrl || undefined}
+              alt={comment.user.username}
             />
             <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
-              {comment.author.name.substring(0, 2).toUpperCase()}
+              {comment.user.username.substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
 
           {/* Body */}
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-sm font-semibold">{comment.author.name}</span>
+              <span className="text-sm font-semibold">{comment.user.username}</span>
               <span className="text-xs text-muted-foreground">
-                {timeAgo(comment.createdAt)}
+                {formatCommentTime(comment.createdAt)}
               </span>
             </div>
 

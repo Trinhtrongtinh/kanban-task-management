@@ -1,6 +1,7 @@
-import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
-import { ResponseMessage } from '../../common/decorators';
+import { CurrentUser, ResponseMessage } from '../../common/decorators';
+import { JwtAuthGuard } from '../auth/guards';
 
 @Controller()
 export class ActivitiesController {
@@ -24,5 +25,12 @@ export class ActivitiesController {
   @ResponseMessage('Card activities retrieved successfully')
   findAllByCard(@Param('cardId', ParseUUIDPipe) cardId: string) {
     return this.activitiesService.findAllByCard(cardId);
+  }
+
+  @Get('activities/me')
+  @UseGuards(JwtAuthGuard)
+  @ResponseMessage('User activities retrieved successfully')
+  findRecentByUser(@CurrentUser('userId') userId: string) {
+    return this.activitiesService.findRecentByUser(userId);
   }
 }

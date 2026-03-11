@@ -18,8 +18,8 @@ export function WorkspaceSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
   const onOpenWorkspaceModal = useWorkspaceModal((s) => s.onOpen);
-  // Try to determine active workspace from URL (e.g. /workspaces/ws-1)
-  const match = pathname.match(/\/workspaces\/(ws-[^\/]+)/);
+  // Try to determine active workspace from URL (e.g. /workspaces/:workspaceId)
+  const match = pathname.match(/\/workspaces\/([^\/]+)/);
   const activeWorkspaceId = match ? match[1] : null;
 
   const { data: workspaces = [], isLoading } = useWorkspaces();
@@ -54,14 +54,14 @@ export function WorkspaceSwitcher() {
             )}
           </DropdownMenuItem>
         ))}
-        {workspaces.length === 0 && !isLoading && (
-          <>
-            <div className="py-2 text-center text-xs text-muted-foreground">Không có workspace định sẵn</div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onOpenWorkspaceModal} className="cursor-pointer gap-2">
-              <Plus className="h-4 w-4" /> Tạo Workspace mới
-            </DropdownMenuItem>
-          </>
+        {!isLoading && workspaces.length === 0 && (
+          <div className="py-2 text-center text-xs text-muted-foreground">Không có workspace định sẵn</div>
+        )}
+        {!isLoading && <DropdownMenuSeparator />}
+        {!isLoading && (
+          <DropdownMenuItem onSelect={onOpenWorkspaceModal} className="cursor-pointer gap-2">
+            <Plus className="h-4 w-4" /> Tạo Workspace mới
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

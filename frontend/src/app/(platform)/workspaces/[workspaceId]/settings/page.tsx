@@ -8,12 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Zap, Check, Upload, Link2, Users, Bell, Blocks, CreditCard, Settings, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Zap, Check, Upload, Link2, Users, Bell, Blocks, CreditCard, Settings, Loader2, Trash2 } from 'lucide-react';
 import { useProModal } from '@/hooks/use-pro-modal';
 import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers } from '@/hooks/use-workspaces';
+import { useAuthStore } from '@/stores/authStore';
+import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember, useRemoveWorkspaceMember } from '@/hooks/use-workspaces';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 export default function WorkspaceSettingsPage({
   params
@@ -22,9 +24,18 @@ export default function WorkspaceSettingsPage({
 }) {
   const router = useRouter();
   const { workspaceId } = use(params);
+  const { user } = useAuthStore();
 
   const { data: workspace, isLoading: isLoadingWs } = useWorkspace(workspaceId);
   const { data: members = [], isLoading: isLoadingMembers } = useWorkspaceMembers(workspaceId);
+
+  // Redirect if not owner
+  useEffect(() => {
+    if (!isLoadingWs && workspace && user && workspace.ownerId !== user.id) {
+      toast.error("Bạn không có quyền truy cập vào cài đặt của Workspace này.");
+      router.push(`/workspaces/${workspaceId}`);
+    }
+  }, [workspace, user, isLoadingWs, router, workspaceId]);
 
   const updateMutation = useUpdateWorkspace();
 
@@ -42,11 +53,64 @@ export default function WorkspaceSettingsPage({
     }
   }, [workspace]);
 
+  const inviteMutation = useInviteMember();
+  const removeMemberMutation = useRemoveWorkspaceMember();
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+
   const handleUpdate = () => {
     updateMutation.mutate({
       id: workspaceId,
       payload: { name, slug }
     });
+  };
+
+  const handleInvite = () => {
+    if (!inviteEmail) return;
+    inviteMutation.mutate({
+      id: workspaceId,
+      payload: { email: inviteEmail }
+    }, {
+      onSuccess: () => {
+        toast.success("Đã gửi lời mời thành công! Người tham gia sẽ có quyền Member.");
+        setInviteEmail('');
+        setIsInviteOpen(false);
+      },
+      onError: (err: any) => {
+        const rawMessage = err?.response?.data?.message;
+        const errorMessage = Array.isArray(rawMessage)
+          ? rawMessage.join(', ')
+          : rawMessage || err?.message || "Email không chính xác hoặc không tồn tại trong hệ thống";
+        toast.error(errorMessage);
+      }
+    });
+  };
+
+  const handleRemoveMember = (memberUserId: string, memberName?: string) => {
+    const confirmRemove = window.confirm(
+      `Bạn có chắc muốn xóa ${memberName || 'thành viên này'} khỏi workspace?`,
+    );
+
+    if (!confirmRemove) return;
+
+    removeMemberMutation.mutate(
+      { id: workspaceId, memberId: memberUserId },
+      {
+        onSuccess: () => {
+          toast.success('Đã xóa thành viên khỏi workspace');
+        },
+        onError: (err: any) => {
+          toast.error(err.response?.data?.message || 'Không thể xóa thành viên');
+        },
+      },
+    );
+  };
+
+  const roleLabelMap: Record<string, string> = {
+    OWNER: 'Owner',
+    MEMBER: 'Member',
+    ADMIN: 'Admin',
+    OBSERVER: 'Observer',
   };
 
   return (
@@ -163,10 +227,46 @@ export default function WorkspaceSettingsPage({
                       Manage who has access to this workspace.
                     </CardDescription>
                   </div>
-                  <Button className="gap-2 w-full sm:w-auto">
-                    <Users className="w-4 h-4" />
-                    Invite User
-                  </Button>
+
+                  <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="gap-2 w-full sm:w-auto">
+                        <Users className="w-4 h-4" />
+                        Thêm thành viên
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Mời thành viên</DialogTitle>
+                        <DialogDescription>
+                          Họ sẽ nhận được email chứa đường dẫn để tham gia Workspace này.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <Input
+                            value={inviteEmail}
+                            onChange={(e) => setInviteEmail(e.target.value)}
+                            placeholder="user@example.com"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Người tham gia mới sẽ luôn được gán quyền <span className="font-medium text-foreground">Member</span>.
+                        </p>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          onClick={handleInvite}
+                          disabled={inviteMutation.isPending || !inviteEmail}
+                        >
+                          {inviteMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                          Gửi lời mời
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
                 </CardHeader>
                 <CardContent>
                   {isLoadingMembers ? (
@@ -188,20 +288,20 @@ export default function WorkspaceSettingsPage({
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Select defaultValue={member.role.toLowerCase()}>
-                              <SelectTrigger className="w-[110px] h-8 text-xs hidden sm:flex">
-                                <SelectValue placeholder="Role" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="owner">Owner</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="member">Member</SelectItem>
-                                <SelectItem value="guest">Guest</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
+                            <Badge variant={member.role === 'OWNER' ? 'default' : 'secondary'}>
+                              {roleLabelMap[member.role] || member.role}
+                            </Badge>
+                            {member.role !== 'OWNER' && member.userId !== workspace?.ownerId && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleRemoveMember(member.userId, member.user?.username)}
+                                disabled={removeMemberMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       ))}

@@ -1,12 +1,18 @@
 import { Injectable, HttpStatus, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Comment, Card, BoardMember } from '../../database/entities';
+import { In, Repository } from 'typeorm';
+import {
+  Comment,
+  Card,
+  BoardMember,
+  NotificationType,
+} from '../../database/entities';
 import { CreateCommentDto, UpdateCommentDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode, BoardRole } from '../../common/enums';
 import { CommentsGateway } from './comments.gateway';
 import { ActivitiesService } from '../activities/activities.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class CommentsService {
@@ -19,6 +25,7 @@ export class CommentsService {
     private readonly boardMemberRepository: Repository<BoardMember>,
     private readonly commentsGateway: CommentsGateway,
     private readonly activitiesService: ActivitiesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -78,16 +85,57 @@ export class CommentsService {
     // Return with user info
     const commentWithUser = await this.findOne(savedComment.id);
 
+    const requestedMentionIds = createCommentDto.mentionedUserIds || [];
+    const candidateMentionIds = requestedMentionIds.filter(
+      (mentionedUserId) => mentionedUserId !== userId,
+    );
+
+    let mentionedBoardMembers: BoardMember[] = [];
+    if (candidateMentionIds.length > 0) {
+      mentionedBoardMembers = await this.boardMemberRepository.find({
+        where: {
+          boardId: card.list.boardId,
+          userId: In(candidateMentionIds),
+        },
+        relations: ['user'],
+      });
+
+      for (const mentionedMember of mentionedBoardMembers) {
+        await this.notificationsService
+          .create({
+            userId: mentionedMember.userId,
+            cardId,
+            type: NotificationType.MENTION,
+            title: 'Bạn được nhắc đến trong bình luận',
+            message: `${commentWithUser.user.username} đã nhắc đến bạn trong thẻ "${card.title}"`,
+            link: `/b/${card.list.boardId}?cardId=${cardId}&focus=activity&commentId=${commentWithUser.id}`,
+            metadata: {
+              boardId: card.list.boardId,
+              cardId,
+              commentId: commentWithUser.id,
+              fromUserId: userId,
+            },
+          })
+          .catch(() => null);
+      }
+    }
+
     // Emit real-time event
     this.commentsGateway.emitCommentCreated(cardId, commentWithUser);
 
     // Log activity
+    const mentionText = mentionedBoardMembers.length
+      ? ` (nhắc đến ${mentionedBoardMembers
+          .map((member) => `@${member.user?.username || member.userId}`)
+          .join(', ')})`
+      : '';
+
     await this.activitiesService.createLog({
       userId,
       boardId: card.list.boardId,
       cardId: card.id,
       action: 'ADD_COMMENT',
-      content: `Đã thêm một bình luận vào Card "${card.title}"`,
+      content: `Đã thêm một bình luận vào Card "${card.title}"${mentionText}`,
     });
 
     return commentWithUser;
@@ -103,7 +151,7 @@ export class CommentsService {
     return this.commentRepository.find({
       where: { cardId },
       relations: ['user'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'ASC' },
       select: {
         id: true,
         cardId: true,

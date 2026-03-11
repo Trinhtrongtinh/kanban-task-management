@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useAuthStore } from '@/stores/authStore';
 
 // ── Shared Constants ──────────────────────────────────────────────────
 
@@ -146,6 +147,7 @@ export default function WorkspaceDashboardPage({
   params: Promise<{ workspaceId: string }>
 }) {
   const { workspaceId } = use(params);
+  const { user } = useAuthStore();
   const { data: workspace, isLoading: isWorkspaceLoading } = useWorkspace(workspaceId);
   const { data: boardsData, isLoading: isBoardsLoading } = useBoardsByWorkspace(workspaceId);
   const boards = Array.isArray(boardsData) ? boardsData : [];
@@ -176,12 +178,14 @@ export default function WorkspaceDashboardPage({
               </div>
             </div>
 
-            <Link href={`/workspaces/${workspaceId}/settings`}>
-              <Button variant="outline" className="gap-2">
-                <Settings className="w-4 h-4" />
-                Cài đặt Workspace
-              </Button>
-            </Link>
+            {workspace?.ownerId === user?.id && (
+              <Link href={`/workspaces/${workspaceId}/settings`}>
+                <Button variant="outline" className="gap-2">
+                  <Settings className="w-4 h-4" />
+                  Cài đặt Workspace
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* ── Boards section label ────────────────────────── */}

@@ -1,17 +1,29 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useEffect } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { BoardProvider } from '@/components/board/board-context';
 import { ListContainer } from '@/components/board/list-container';
 import { BoardNavbar } from '@/components/board/board-navbar';
 import { ModalProvider } from '@/components/providers/modal-provider';
 import { useBoardById } from '@/hooks/use-boards';
+import { useCardModal } from '@/hooks/use-card-modal';
 import { Loader2 } from 'lucide-react';
 
 export default function BoardDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const boardId = params.boardId as string;
   const { data: board, isLoading } = useBoardById(boardId);
+  const { onOpen, id: openedCardId, isOpen } = useCardModal();
+
+  useEffect(() => {
+    const cardId = searchParams.get('cardId');
+    if (!cardId) return;
+    if (isOpen && openedCardId === cardId) return;
+
+    onOpen(cardId, boardId);
+  }, [searchParams, boardId, onOpen, openedCardId, isOpen]);
 
   if (isLoading) {
     return (

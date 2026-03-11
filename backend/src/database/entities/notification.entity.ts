@@ -15,6 +15,7 @@ export enum NotificationType {
   COMMENT_ADDED = 'COMMENT_ADDED',
   CARD_MOVED = 'CARD_MOVED',
   MENTION = 'MENTION',
+  WORKSPACE_INVITE = 'WORKSPACE_INVITE',
 }
 
 @Entity('notifications')
@@ -59,6 +60,9 @@ export class Notification {
 
   @Column({ type: 'boolean', default: false, name: 'is_read' })
   isRead: boolean;
+
+  @Column({ type: 'json', nullable: true })
+  metadata: Record<string, any> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

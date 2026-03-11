@@ -71,3 +71,15 @@ export function useInviteMember() {
     },
   });
 }
+
+export function useRemoveWorkspaceMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, memberId }: { id: string; memberId: string }) =>
+      workspacesApi.removeMember(id, memberId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.members(variables.id) });
+    },
+  });
+}

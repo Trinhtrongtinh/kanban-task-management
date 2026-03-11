@@ -2,6 +2,12 @@ import { apiClient } from './client';
 
 export type WorkspaceType = 'Business' | 'Education' | 'Personal';
 
+export interface WorkspaceBoard {
+  id: string;
+  title: string;
+  backgroundUrl?: string | null;
+}
+
 export interface Workspace {
   id: string;
   name: string;
@@ -9,6 +15,7 @@ export interface Workspace {
   description: string | null;
   type: WorkspaceType;
   ownerId: string;
+  boards?: WorkspaceBoard[];
   createdAt: string;
   updatedAt: string;
 }
@@ -17,7 +24,7 @@ export interface WorkspaceMember {
   id: string;
   workspaceId: string;
   userId: string;
-  role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
+  role: 'OWNER' | 'MEMBER' | 'ADMIN' | 'OBSERVER';
   joinedAt: string;
   user?: {
     id: string;
@@ -43,7 +50,6 @@ export interface UpdateWorkspacePayload {
 
 export interface InviteMemberPayload {
   email: string;
-  role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
 }
 
 export const workspacesApi = {
@@ -85,6 +91,11 @@ export const workspacesApi = {
   inviteMember: async (id: string, payload: InviteMemberPayload): Promise<WorkspaceMember> => {
     const res = await apiClient.post<{ data: WorkspaceMember }>(`/workspaces/${id}/invite`, payload);
     return res.data.data;
+  },
+
+  /** DELETE /workspaces/:id/members/:memberId - Remove a member from workspace */
+  removeMember: async (id: string, memberId: string): Promise<void> => {
+    await apiClient.delete(`/workspaces/${id}/members/${memberId}`);
   },
 
   /** GET /workspaces/:id/accept-invite?token=... - Accept an invitation */

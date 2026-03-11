@@ -109,4 +109,16 @@ export class WorkspacesController {
   ): Promise<WorkspaceMember[]> {
     return this.workspacesService.getMembers(workspaceId);
   }
+
+  @Delete(':id/members/:memberId')
+  @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
+  @RequireWorkspaceRole(WorkspaceRole.OWNER)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeMember(
+    @Param('id', ParseUUIDPipe) workspaceId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
+    @CurrentUser('userId') requesterId: string,
+  ): Promise<void> {
+    return this.workspacesService.removeMember(workspaceId, memberId, requesterId);
+  }
 }

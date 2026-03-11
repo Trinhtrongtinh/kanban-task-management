@@ -12,16 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { User } from '@/types';
 
-// ── Shared mock board members (same list as CardMemberPicker) ────────
-export const BOARD_MEMBERS: User[] = [
-  { id: 'u1', name: 'Alice Nguyen', email: 'alice@example.com' },
-  { id: 'u2', name: 'Bob Tran', email: 'bob@example.com' },
-  { id: 'u3', name: 'Charlie Le', email: 'charlie@example.com' },
-  { id: 'u4', name: 'Diana Pham', email: 'diana@example.com' },
-  { id: 'u5', name: 'Edward Vo', email: 'edward@example.com' },
-];
-
 interface CommentEditorProps {
+  members: User[];
   /** Called when the user saves a comment */
   onSave: (payload: { content: string; mentionedUserIds: string[] }) => void;
   /** Optional — show a loading spinner on Save */
@@ -44,7 +36,7 @@ function getMentionQuery(
   return { query: match[1], atIndex };
 }
 
-export function CommentEditor({ onSave, isLoading }: CommentEditorProps) {
+export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps) {
   const [content, setContent] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
 
@@ -57,8 +49,8 @@ export function CommentEditor({ onSave, isLoading }: CommentEditorProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Filtered member list based on the query typed after @
-  const filteredMembers = BOARD_MEMBERS.filter((m) =>
-    m.name.toLowerCase().includes(mentionQuery.toLowerCase())
+  const filteredMembers = members.filter((m) =>
+    (m.username || m.name || '').toLowerCase().includes(mentionQuery.toLowerCase())
   );
 
   const closeMentionMenu = useCallback(() => {
@@ -67,23 +59,25 @@ export function CommentEditor({ onSave, isLoading }: CommentEditorProps) {
     setMentionAtIndex(-1);
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Close on Escape
-      if (e.key === 'Escape' && mentionOpen) {
-        e.preventDefault();
-        closeMentionMenu();
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Close on Escape
+    if (e.key === 'Escape' && mentionOpen) {
+      e.preventDefault();
+      closeMentionMenu();
+      return;
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+
+      if (mentionOpen && filteredMembers.length > 0) {
+        selectMember(filteredMembers[0]);
         return;
       }
-      // Submit on Ctrl/Cmd + Enter
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleSave();
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mentionOpen, closeMentionMenu]
-  );
+
+      handleSave();
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -123,7 +117,7 @@ export function CommentEditor({ onSave, isLoading }: CommentEditorProps) {
       const after = content.slice(
         mentionAtIndex + 1 + mentionQuery.length // skip '@' + typed query
       );
-      const inserted = `@${member.name} `;
+      const inserted = `@${member.username || member.name || 'user'} `;
       const newContent = before + inserted + after;
 
       setContent(newContent);
@@ -180,18 +174,18 @@ export function CommentEditor({ onSave, isLoading }: CommentEditorProps) {
                 {filteredMembers.map((member) => (
                   <CommandItem
                     key={member.id}
-                    value={member.name}
+                    value={member.username || member.name}
                     onSelect={() => selectMember(member)}
                     className="flex cursor-pointer items-center gap-2 px-2 py-1.5"
                   >
                     <Avatar className="h-6 w-6 shrink-0">
-                      <AvatarImage src={member.avatarUrl} alt={member.name} />
+                      <AvatarImage src={member.avatarUrl} alt={member.username || member.name || ''} />
                       <AvatarFallback className="text-[9px] font-medium">
-                        {member.name.substring(0, 2).toUpperCase()}
+                        {(member.username || member.name || 'U').substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{member.name}</p>
+                      <p className="truncate text-sm font-medium">{member.username || member.name}</p>
                       <p className="truncate text-xs text-muted-foreground">{member.email}</p>
                     </div>
                   </CommandItem>
@@ -205,7 +199,7 @@ export function CommentEditor({ onSave, isLoading }: CommentEditorProps) {
       {/* Actions row */}
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-muted-foreground select-none">
-          <kbd className="rounded border px-1 font-mono text-[9px]">Ctrl↵</kbd> send · <span className="font-medium text-foreground">@</span> mention
+          <kbd className="rounded border px-1 font-mono text-[9px]">Enter</kbd> gửi · <kbd className="rounded border px-1 font-mono text-[9px]">Shift+Enter</kbd> xuống dòng · <span className="font-medium text-foreground">@</span> mention
         </p>
         <Button
           size="sm"

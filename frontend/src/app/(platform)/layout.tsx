@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 
 
 import { GlobalModalProvider } from '@/components/providers/global-modal-provider';
+import { SocketProvider } from '@/components/providers/socket-provider';
 
 const queryClient = new QueryClient();
 
@@ -43,19 +44,21 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <GlobalModalProvider />
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <Header onMenuClick={handleMenuClick} />
+      <SocketProvider>
+        <GlobalModalProvider />
+        <div className="min-h-screen bg-background">
+          {/* Header */}
+          <Header onMenuClick={handleMenuClick} />
 
-        {/* Sidebar */}
-        <Sidebar isOpen={sidebarOpen} onClose={handleSidebarClose} />
+          {/* Sidebar */}
+          <Sidebar isOpen={sidebarOpen} onClose={handleSidebarClose} />
 
-        {/* Main Content */}
-        <main className="pt-14 md:pl-60">
-          <div className="container mx-auto p-6">{children}</div>
-        </main>
-      </div>
+          {/* Main Content */}
+          <main className="pt-14 md:pl-60">
+            <div className="container mx-auto p-6">{children}</div>
+          </main>
+        </div>
+      </SocketProvider>
     </QueryClientProvider>
   );
 }

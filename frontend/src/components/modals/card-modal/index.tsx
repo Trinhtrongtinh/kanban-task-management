@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -31,12 +32,16 @@ import { useCardModal } from '@/hooks/use-card-modal';
 import { useBoardSafe } from '@/components/board/board-context';
 import { useUpdateCard, useDeleteCard } from '@/hooks/use-cards';
 import { useAddChecklistMutation } from '@/api/checklists';
+import { attachmentsApi } from '@/api/attachments';
+import { BASE_URL } from '@/api/client';
 import { ChecklistsContainer } from './checklists-container';
-import { CommentEditor, BOARD_MEMBERS } from './comment-editor';
+import { CommentEditor } from './comment-editor';
 import { CommentList } from './comment-list';
-import type { Comment } from './comment-list';
+import { useComments, useCreateCommentMutation } from '@/api/comments';
 import { CardMemberPicker } from './card-member-picker';
 import { LabelPicker } from './label-picker';
+import { useGetBoardMembers } from '@/api/board-members';
+import { useAssignMember, useUnassignMember } from '@/api/card-members';
 import {
   Users,
   Calendar as CalendarIcon,
@@ -59,24 +64,7 @@ import {
 } from '@/lib/due-date-utils';
 import type { User } from '@/types';
 import { cn } from '@/lib/utils';
-
-// ── Seeded comments ───────────────────────────────────────────────────
-const SEED_COMMENTS: Comment[] = [
-  {
-    id: 'c-seed-1',
-    cardId: 'any',
-    author: BOARD_MEMBERS[1],
-    content: 'Hey @Alice Nguyen can you review this before tomorrow?',
-    createdAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-  },
-  {
-    id: 'c-seed-2',
-    cardId: 'any',
-    author: BOARD_MEMBERS[0],
-    content: "Sure @Bob Tran, I'll take a look right now!",
-    createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-  },
-];
+import { useAuthStore } from '@/stores/authStore';
 
 // ── Collapsible Section ───────────────────────────────────────────────
 function CollapsibleSection({
@@ -114,17 +102,16 @@ function CollapsibleSection({
 // ── Main Modal ────────────────────────────────────────────────────────
 export function CardModal() {
   const { id, isOpen, onClose } = useCardModal();
-  const [assignedMembers, setAssignedMembers] = useState<User[]>([]);
+  const { user } = useAuthStore();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   // ── Comments ──────────────────────────────────────────────────────
-  const [comments, setComments] = useState<Comment[]>(SEED_COMMENTS);
+  const { data: comments = [] } = useComments(id);
+  const createComment = useCreateCommentMutation(id);
   const [isPostingComment, setIsPostingComment] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
-
-  const memberNames = useMemo(
-    () => new Set(BOARD_MEMBERS.map((m) => m.name)),
-    []
-  );
 
   const handleCreateComment = useCallback(
     ({
@@ -134,25 +121,21 @@ export function CardModal() {
       content: string;
       mentionedUserIds: string[];
     }) => {
-      void mentionedUserIds;
       setIsPostingComment(true);
-      setTimeout(() => {
-        const newComment: Comment = {
-          id: `c-${Date.now()}`,
-          cardId: id ?? '',
-          author: BOARD_MEMBERS[0],
-          content,
-          createdAt: new Date().toISOString(),
-        };
-        setComments((prev) => [...prev, newComment]);
-        setIsPostingComment(false);
-        // Scroll feed to bottom
-        requestAnimationFrame(() => {
-          feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' });
-        });
-      }, 400);
+      createComment.mutate({ content, mentionedUserIds }, {
+        onSuccess: () => {
+          setIsPostingComment(false);
+          // Scroll feed to bottom
+          requestAnimationFrame(() => {
+            feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' });
+          });
+        },
+        onError: () => {
+          setIsPostingComment(false);
+        }
+      });
     },
-    [id]
+    [createComment]
   );
 
   // ── Checklist popover ─────────────────────────────────────────────
@@ -173,23 +156,119 @@ export function CardModal() {
   const setLists = boardCtx?.setLists;
 
   const currentCard = lists.flatMap((l) => l.cards).find((c) => c.id === id);
+  const currentList = lists.find((l) => l.cards.some((c) => c.id === id));
+  const currentBoardId = boardCtx?.boardId || currentCard?.boardId || currentList?.boardId;
+  const { data: boardMembers = [] } = useGetBoardMembers(currentBoardId || '');
+  const assignMemberMutation = useAssignMember(id || '', currentBoardId || '');
+  const unassignMemberMutation = useUnassignMember(id || '');
   const updateCardApi = useUpdateCard();
   const deleteCardApi = useDeleteCard();
 
+  const memberNames = useMemo(
+    () =>
+      new Set(
+        boardMembers
+          .map((member) => member.username || member.name)
+          .filter(Boolean) as string[],
+      ),
+    [boardMembers]
+  );
+  const highlightedCommentId = searchParams.get('commentId');
+
+  const assignedMembers = currentCard?.members?.length
+    ? currentCard.members
+    : currentCard?.assignee
+      ? [currentCard.assignee]
+      : [];
+
   const handleOpenChange = (open: boolean) => {
     if (!open) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('cardId');
+      params.delete('commentId');
+      params.delete('focus');
+
+      const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+      router.replace(nextUrl, { scroll: false });
       onClose();
-      setAssignedMembers([]);
     }
   };
 
-  const toggleMember = useCallback((user: User) => {
-    setAssignedMembers((prev) => {
-      const exists = prev.some((m) => m.id === user.id);
-      if (exists) return prev.filter((m) => m.id !== user.id);
-      return [...prev, user];
-    });
-  }, []);
+  const updateCard = useCallback(
+    (updates: {
+      deadline?: string | null;
+      isArchived?: boolean;
+      title?: string;
+      description?: string;
+      assigneeId?: string | null;
+      assignee?: User | null;
+      attachments?: {
+        id: string;
+        fileUrl: string;
+        fileName: string;
+        fileType: string;
+        createdAt: string;
+      }[];
+    }) => {
+      if (!id) return;
+
+      // Update DB
+      if ('deadline' in updates || 'isArchived' in updates || 'title' in updates || 'description' in updates || 'assigneeId' in updates) {
+        // Strip out 'assignee' object when sending to backend
+        const { assignee, ...payload } = updates;
+        updateCardApi.mutate({ id, payload: payload as any });
+      }
+
+      // Optimistic update (only when board context is available)
+      if (setLists) {
+        setLists((prev) =>
+          prev.map((list) => ({
+            ...list,
+            cards: list.cards.map((card) =>
+              card.id === id ? { ...card, ...updates } : card
+            ),
+          }))
+        );
+      }
+    },
+    [id, setLists, updateCardApi]
+  );
+
+  const toggleMember = useCallback((selectedUser: User) => {
+    if (!id || !currentBoardId) return;
+
+    const isAssigned = assignedMembers.some((member) => member.id === selectedUser.id);
+
+    if (setLists) {
+      setLists((prev) =>
+        prev.map((list) => ({
+          ...list,
+          cards: list.cards.map((card) => {
+            if (card.id !== id) return card;
+
+            const currentMembers = card.members || [];
+            if (isAssigned) {
+              return {
+                ...card,
+                members: currentMembers.filter((member) => member.id !== selectedUser.id),
+              };
+            }
+
+            const exists = currentMembers.some((member) => member.id === selectedUser.id);
+            return exists
+              ? card
+              : { ...card, members: [...currentMembers, selectedUser] };
+          }),
+        }))
+      );
+    }
+
+    if (isAssigned) {
+      unassignMemberMutation.mutate({ cardId: id, userId: selectedUser.id });
+    } else {
+      assignMemberMutation.mutate({ cardId: id, userId: selectedUser.id });
+    }
+  }, [id, currentBoardId, assignedMembers, assignMemberMutation, unassignMemberMutation, setLists]);
 
   const handleAddChecklist = useCallback(() => {
     const name = checklistName.trim();
@@ -198,40 +277,6 @@ export function CardModal() {
     setChecklistName('Checklist');
     setChecklistPopoverOpen(false);
   }, [checklistName, addChecklist]);
-
-  const updateCard = useCallback(
-    (updates: {
-      deadline?: string | null;
-      isArchived?: boolean;
-      title?: string;
-      description?: string;
-      attachments?: {
-        id: string;
-        url: string;
-        fileName: string;
-        type: string;
-        createdAt: string;
-      }[];
-    }) => {
-      if (!id || !setLists) return;
-
-      // Update DB
-      if ('deadline' in updates || 'isArchived' in updates || 'title' in updates || 'description' in updates) {
-        updateCardApi.mutate({ id, payload: updates as any });
-      }
-
-      // Optimistic update
-      setLists((prev) =>
-        prev.map((list) => ({
-          ...list,
-          cards: list.cards.map((card) =>
-            card.id === id ? { ...card, ...updates } : card
-          ),
-        }))
-      );
-    },
-    [id, setLists, updateCardApi]
-  );
 
   const handleDateSelect = useCallback(
     (date: Date | undefined) => {
@@ -248,35 +293,42 @@ export function CardModal() {
   }, [updateCard]);
 
   const handleAttachmentUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file || !currentCard) return;
+      if (!file || !currentCard || !id) return;
       setIsUploading(true);
-      setTimeout(() => {
-        const newAttachment = {
-          id: `att-${Date.now()}`,
-          url: URL.createObjectURL(file),
-          fileName: file.name,
-          type: file.type,
-          createdAt: new Date().toISOString(),
-        };
+      try {
+        const newAttachment = await attachmentsApi.upload(id, file);
         const existingAttachments = currentCard.attachments || [];
         updateCard({ attachments: [...existingAttachments, newAttachment] });
+      } catch (error) {
+        console.error('Failed to upload attachment:', error);
+      } finally {
         setIsUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
-      }, 1000);
+      }
     },
-    [currentCard, updateCard]
+    [currentCard, updateCard, id]
   );
 
   const handleDeleteAttachment = useCallback(
-    (attachmentId: string) => {
+    async (attachmentId: string) => {
       if (!currentCard?.attachments) return;
+
+      // Optimistic update
+      const prevAttachments = currentCard.attachments;
       updateCard({
         attachments: currentCard.attachments.filter(
           (a) => a.id !== attachmentId
         ),
       });
+
+      try {
+        await attachmentsApi.delete(attachmentId);
+      } catch (error) {
+        // Rollback
+        updateCard({ attachments: prevAttachments });
+      }
     },
     [currentCard, updateCard]
   );
@@ -303,7 +355,6 @@ export function CardModal() {
     : undefined;
 
   const cardTitle = currentCard?.title || 'Card';
-  const currentList = lists.find((l) => l.cards.some((c) => c.id === id));
 
   // Local state for title / description to handle forms smoothly
   const [descValue, setDescValue] = useState(currentCard?.description || '');
@@ -378,6 +429,7 @@ export function CardModal() {
             <CollapsibleSection
               title="Checklists"
               icon={<CheckSquare className="h-4 w-4" />}
+              defaultOpen={false}
             >
               <ChecklistsContainer />
             </CollapsibleSection>
@@ -391,7 +443,10 @@ export function CardModal() {
               >
                 <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
                   {currentCard.attachments.map((attachment) => {
-                    const isImage = attachment.type.includes('image');
+                    const isImage = attachment.fileType.includes('image');
+                    const fileUrl = attachment.fileUrl.startsWith('http')
+                      ? attachment.fileUrl
+                      : `${BASE_URL}${attachment.fileUrl}`;
                     const addedDate = new Date(
                       attachment.createdAt
                     ).toLocaleDateString(undefined, {
@@ -405,14 +460,14 @@ export function CardModal() {
                         className="flex items-center gap-3 rounded-md border p-2 hover:bg-muted/50 transition-colors group"
                       >
                         <a
-                          href={attachment.url}
+                          href={fileUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded bg-muted"
                         >
                           {isImage ? (
                             <img
-                              src={attachment.url}
+                              src={fileUrl}
                               alt={attachment.fileName}
                               className="h-full w-full object-cover"
                             />
@@ -429,7 +484,7 @@ export function CardModal() {
                           </p>
                           <div className="flex gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <a
-                              href={attachment.url}
+                              href={fileUrl}
                               target="_blank"
                               rel="noreferrer"
                               className="text-xs underline text-muted-foreground hover:text-foreground"
@@ -467,8 +522,10 @@ export function CardModal() {
             {/* Members */}
             <div className="space-y-1.5">
               <CardMemberPicker
+                boardId={currentBoardId}
                 assignedMembers={assignedMembers}
                 onToggleMember={toggleMember}
+                isPending={assignMemberMutation.isPending || unassignMemberMutation.isPending}
               >
                 <Button
                   variant="secondary"
@@ -476,7 +533,7 @@ export function CardModal() {
                   className="w-full justify-start text-xs"
                 >
                   <Users className="mr-1.5 h-3.5 w-3.5" />
-                  Members
+                  Thêm
                 </Button>
               </CardMemberPicker>
               {assignedMembers.length > 0 && (
@@ -486,14 +543,14 @@ export function CardModal() {
                       <Tooltip key={m.id}>
                         <TooltipTrigger asChild>
                           <Avatar className="h-6 w-6 ring-2 ring-background cursor-pointer hover:scale-110 transition-transform">
-                            <AvatarImage src={m.avatarUrl} alt={m.name} />
+                            <AvatarImage src={m.avatarUrl} alt={m.name || m.username} />
                             <AvatarFallback className="text-[9px] font-medium bg-primary/10 text-primary">
-                              {m.name.substring(0, 2).toUpperCase()}
+                              {(m.name || m.username || 'Un').substring(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="text-xs">
-                          {m.name}
+                          {m.name || m.username}
                         </TooltipContent>
                       </Tooltip>
                     ))}
@@ -511,9 +568,9 @@ export function CardModal() {
                     <Badge
                       key={label.id}
                       className="h-4 rounded-sm px-1.5 text-[10px] font-semibold text-white"
-                      style={{ backgroundColor: label.color }}
+                      style={{ backgroundColor: label.colorCode }}
                     >
-                      {label.title}
+                      {label.name}
                     </Badge>
                   ))}
                 </div>
@@ -659,7 +716,7 @@ export function CardModal() {
             <div className="flex items-center gap-2 border-b px-4 py-3">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
               <h3 className="text-sm font-semibold">Activity</h3>
-              <Badge variant="secondary" className="ml-auto text-[10px] h-5">
+              <Badge variant="secondary" className="text-[10px] h-5">
                 {comments.length}
               </Badge>
             </div>
@@ -669,19 +726,25 @@ export function CardModal() {
               ref={feedRef}
               className="flex-1 overflow-y-auto px-4 py-3"
             >
-              <CommentList comments={comments} memberNames={memberNames} />
+              <CommentList
+                comments={comments}
+                memberNames={memberNames}
+                highlightedCommentId={highlightedCommentId}
+              />
             </div>
 
             {/* Sticky comment input */}
             <div className="border-t bg-background px-4 py-3 space-y-2">
               <div className="flex items-start gap-2">
                 <Avatar className="h-7 w-7 shrink-0 mt-0.5">
+                  <AvatarImage src={user?.avatarUrl} alt={user?.username || 'Me'} />
                   <AvatarFallback className="bg-primary/10 text-[9px] font-semibold text-primary">
-                    {BOARD_MEMBERS[0].name.substring(0, 2).toUpperCase()}
+                    {(user?.username || 'Me').substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <CommentEditor
+                    members={boardMembers}
                     onSave={handleCreateComment}
                     isLoading={isPostingComment}
                   />

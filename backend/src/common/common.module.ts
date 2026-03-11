@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   BoardMember,
+  Board,
   Card,
   List,
   WorkspaceMember,
@@ -18,6 +19,7 @@ import {
   imports: [
     TypeOrmModule.forFeature([
       BoardMember,
+      Board,
       WorkspaceMember,
       Card,
       List,
@@ -38,4 +40,4 @@ import {
     TypeOrmModule,
   ],
 })
-export class CommonModule {}
+export class CommonModule { }

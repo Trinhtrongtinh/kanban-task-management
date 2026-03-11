@@ -61,7 +61,15 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
     if (fetchedLists) {
       const mappedLists = fetchedLists.map(list => ({
         ...list,
-        cards: list.cards || [],
+        cards: (list.cards || []).map((card: any) => ({
+          ...card,
+          // Normalize: convert single `assignee` to `members` array
+          members: card.members?.length
+            ? card.members
+            : card.assignee
+              ? [card.assignee]
+              : [],
+        })),
       }));
       setLists(mappedLists as BoardList[]);
     }

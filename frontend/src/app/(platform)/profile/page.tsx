@@ -1,6 +1,10 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import {
   Tabs,
   TabsContent,
@@ -21,241 +25,249 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
-  User,
-  Shield,
   Activity,
   Camera,
+  CheckCircle2,
+  CreditCard,
+  LayoutDashboard,
+  Loader2,
   Lock,
   Mail,
-  CheckCircle2,
-  LayoutDashboard,
-  Columns,
-  CreditCard,
-  Trash2,
   PenLine,
+  Shield,
+  Trash2,
+  User,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { usersApi, type RecentActivity } from '@/api/users';
 import { useAuthStore } from '@/stores/authStore';
-
-// ── Types ─────────────────────────────────────────────────────────────
-
-interface ActivityLog {
-  id: string;
-  action: string;
-  entity: string;
-  entityType: 'card' | 'board' | 'list' | 'workspace' | 'account';
-  createdAt: string;
-}
-
-// ── Mock data ─────────────────────────────────────────────────────────
-
-const MOCK_ACTIVITIES: ActivityLog[] = [
-  {
-    id: 'a1',
-    action: 'Updated card',
-    entity: 'Login UI Redesign',
-    entityType: 'card',
-    createdAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
-  },
-  {
-    id: 'a2',
-    action: 'Created board',
-    entity: 'Project X – Q2',
-    entityType: 'board',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-  },
-  {
-    id: 'a3',
-    action: 'Moved card',
-    entity: 'API Integration',
-    entityType: 'card',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-  },
-  {
-    id: 'a4',
-    action: 'Added comment to',
-    entity: 'Database Schema v2',
-    entityType: 'card',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-  },
-  {
-    id: 'a5',
-    action: 'Renamed list',
-    entity: 'In Progress → Review',
-    entityType: 'list',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-  },
-  {
-    id: 'a6',
-    action: 'Created workspace',
-    entity: 'Dự án cá nhân',
-    entityType: 'workspace',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-  },
-  {
-    id: 'a7',
-    action: 'Archived card',
-    entity: 'Old Feature Spec',
-    entityType: 'card',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-  },
-];
-
-// ── Helpers ───────────────────────────────────────────────────────────
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min}m ago`;
-  const hrs = Math.floor(min / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
-}
-
-const ENTITY_ICON: Record<ActivityLog['entityType'], React.ElementType> = {
-  card: PenLine,
-  board: LayoutDashboard,
-  list: Columns,
-  workspace: CreditCard,
-  account: User,
-};
-
-const ENTITY_COLOR: Record<ActivityLog['entityType'], string> = {
-  card: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
-  board: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400',
-  list: 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400',
-  workspace: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400',
-  account: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-};
-
-// ── Shared form feedback state ────────────────────────────────────────
+import { cn } from '@/lib/utils';
 
 function SaveFeedback({ saved }: { saved: boolean }) {
   if (!saved) return null;
+
   return (
     <span className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-left-2">
       <CheckCircle2 className="h-4 w-4" />
-      Saved!
+      Đã lưu
     </span>
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────
+type ActivityKind = 'card' | 'board' | 'account';
+
+const ENTITY_ICON: Record<ActivityKind, React.ElementType> = {
+  card: PenLine,
+  board: LayoutDashboard,
+  account: CreditCard,
+};
+
+const ENTITY_COLOR: Record<ActivityKind, string> = {
+  card: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
+  board: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400',
+  account: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400',
+};
+
+function getActivityKind(activity: RecentActivity): ActivityKind {
+  if (activity.cardId) return 'card';
+  if (activity.boardId) return 'board';
+  return 'account';
+}
 
 export default function ProfilePage() {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
-
-  // ── Profile form ──────────────────────────────────────────────────
-  const [fullName, setFullName] = useState(user?.fullName || user?.username || '');
-  const [avatarSrc, setAvatarSrc] = useState(user?.avatarUrl || `https://i.pravatar.cc/150?u=${user?.id || 'guest'}`);
+  const setUser = useAuthStore((s) => s.setUser);
+  const logout = useAuthStore((s) => s.logout);
+  const [username, setUsername] = useState(user?.username || '');
+  const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || '');
   const [profileSaved, setProfileSaved] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAvatarSrc(URL.createObjectURL(file));
-  };
-
-  const handleSaveProfile = () => {
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 3000);
-  };
-
-  // ── Security form ─────────────────────────────────────────────────
+  const [pwSaved, setPwSaved] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
-  const [pwSaved, setPwSaved] = useState(false);
-  const [pwError, setPwError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpdatePassword = () => {
+  useEffect(() => {
+    setUsername(user?.username || '');
+    setAvatarPreview(user?.avatarUrl || '');
+  }, [user?.username, user?.avatarUrl]);
+
+  const { data: activities = [], isLoading: isLoadingActivities } = useQuery({
+    queryKey: ['profile', 'activities'],
+    queryFn: usersApi.getRecentActivity,
+    refetchInterval: 15000,
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: usersApi.updateProfile,
+    onSuccess: (updatedUser) => {
+      setUser(updatedUser);
+      setProfileSaved(true);
+      toast.success('Đã cập nhật username');
+      window.setTimeout(() => setProfileSaved(false), 2500);
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Không thể cập nhật hồ sơ');
+    },
+  });
+
+  const uploadAvatarMutation = useMutation({
+    mutationFn: usersApi.uploadAvatar,
+    onSuccess: (updatedUser) => {
+      setUser(updatedUser);
+      setAvatarPreview(updatedUser.avatarUrl || '');
+      toast.success('Đã cập nhật ảnh đại diện');
+    },
+    onError: (error: any) => {
+      setAvatarPreview(user?.avatarUrl || '');
+      toast.error(error?.response?.data?.message || 'Không thể cập nhật ảnh đại diện');
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: usersApi.changePassword,
+    onSuccess: () => {
+      setCurrentPw('');
+      setNewPw('');
+      setConfirmPw('');
+      setPwSaved(true);
+      toast.success('Đổi mật khẩu thành công');
+      window.setTimeout(() => setPwSaved(false), 2500);
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Không thể đổi mật khẩu');
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: usersApi.deleteAccount,
+    onSuccess: () => {
+      logout();
+      toast.success('Tài khoản đã được xóa');
+      router.push('/login');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Không thể xóa tài khoản');
+    },
+  });
+
+  const strength = useMemo(
+    () =>
+      Math.min(
+        4,
+        [/[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/, /.{8}/].filter((rx) => rx.test(newPw)).length,
+      ),
+    [newPw],
+  );
+
+  const displayName = user?.username || 'Người dùng';
+
+  const handleSaveProfile = () => {
+    const trimmed = username.trim();
+    if (!trimmed) {
+      toast.error('Username không được để trống');
+      return;
+    }
+
+    updateProfileMutation.mutate({ username: trimmed });
+  };
+
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setAvatarPreview(URL.createObjectURL(file));
+    uploadAvatarMutation.mutate(file);
+  };
+
+  const handleChangePassword = () => {
     if (!currentPw || !newPw || !confirmPw) {
-      setPwError('Please fill in all fields.');
+      toast.error('Vui lòng nhập đầy đủ thông tin mật khẩu');
       return;
     }
+
     if (newPw !== confirmPw) {
-      setPwError('New passwords do not match.');
+      toast.error('Mật khẩu mới và xác nhận mật khẩu chưa khớp');
       return;
     }
-    if (newPw.length < 8) {
-      setPwError('New password must be at least 8 characters.');
+
+    changePasswordMutation.mutate({
+      currentPassword: currentPw,
+      newPassword: newPw,
+    });
+  };
+
+  const handleDeleteAccount = () => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa tài khoản? Hành động này không thể hoàn tác.')) {
       return;
     }
-    setPwError('');
-    setPwSaved(true);
-    setCurrentPw('');
-    setNewPw('');
-    setConfirmPw('');
-    setTimeout(() => setPwSaved(false), 3000);
+
+    deleteAccountMutation.mutate();
   };
 
   return (
-    <div className="mx-auto max-w-3xl mt-10 pb-16 px-4">
-      {/* ── Header ─────────────────────────────────────────── */}
+    <div className="mx-auto mt-10 max-w-3xl px-4 pb-16">
       <div className="mb-8 flex items-center gap-4">
         <Avatar className="h-16 w-16 ring-4 ring-primary/20 shadow-md">
-          <AvatarImage src={avatarSrc} alt={fullName} />
+          <AvatarImage src={avatarPreview || undefined} alt={displayName} />
           <AvatarFallback className="text-xl font-semibold bg-primary/10 text-primary">
-            {fullName.substring(0, 2).toUpperCase()}
+            {displayName.substring(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{fullName || 'Chưa cập nhật tên'}</h1>
-          <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+          <h1 className="text-2xl font-bold tracking-tight">{displayName}</h1>
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
             <Mail className="h-3.5 w-3.5" />
             {user?.email || 'user@example.com'}
           </p>
         </div>
       </div>
 
-      {/* ── Tabs ───────────────────────────────────────────── */}
       <Tabs defaultValue="profile">
         <TabsList className="mb-6 grid w-full grid-cols-3">
           <TabsTrigger value="profile" className="gap-2">
             <User className="h-4 w-4" />
-            Profile
+            Hồ sơ
           </TabsTrigger>
           <TabsTrigger value="security" className="gap-2">
             <Shield className="h-4 w-4" />
-            Security
+            Bảo mật
           </TabsTrigger>
           <TabsTrigger value="activity" className="gap-2">
             <Activity className="h-4 w-4" />
-            Activity
+            Hoạt động
           </TabsTrigger>
         </TabsList>
 
-        {/* ══════════════════════════════════════════════════
-            TAB 1 — Profile
-        ══════════════════════════════════════════════════ */}
         <TabsContent value="profile" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
+              <CardTitle>Thông tin cá nhân</CardTitle>
               <CardDescription>
-                Update your display name and avatar.
+                Cập nhật username và ảnh đại diện của bạn.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Avatar row */}
               <div className="flex items-center gap-5">
                 <div className="relative">
                   <Avatar className="h-24 w-24 shadow-sm">
-                    <AvatarImage src={avatarSrc} alt={fullName} />
+                    <AvatarImage src={avatarPreview || undefined} alt={displayName} />
                     <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
-                      {fullName.substring(0, 2).toUpperCase()}
+                      {displayName.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors"
-                    aria-label="Change avatar"
+                    aria-label="Đổi ảnh đại diện"
                   >
-                    <Camera className="h-4 w-4" />
+                    {uploadAvatarMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Camera className="h-4 w-4" />
+                    )}
                   </button>
                   <input
                     ref={fileInputRef}
@@ -265,51 +277,44 @@ export default function ProfilePage() {
                     className="hidden"
                   />
                 </div>
+
                 <div className="space-y-1">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadAvatarMutation.isPending}
                   >
-                    Change Avatar
+                    {uploadAvatarMutation.isPending ? 'Đang tải ảnh...' : 'Đổi ảnh đại diện'}
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    JPG, GIF or PNG · max 2MB
+                    JPG, PNG, GIF, WEBP · tối đa 2MB
                   </p>
                 </div>
               </div>
 
-              {/* Name */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="fullname">Full Name</Label>
+                  <Label htmlFor="username">Username</Label>
                   <Input
-                    id="fullname"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Your full name"
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Nhập username"
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="email">
                     Email
                     <Badge variant="secondary" className="ml-2 text-[10px]">
-                      read-only
+                      chỉ đọc
                     </Badge>
                   </Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      value={user?.email || ''}
-                      disabled
-                      className="pl-9"
-                    />
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="email" type="email" value={user?.email || ''} disabled className="pl-9" />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Contact support to change your email.
-                  </p>
                 </div>
               </div>
             </CardContent>
@@ -317,164 +322,118 @@ export default function ProfilePage() {
               <SaveFeedback saved={profileSaved} />
               <Button
                 onClick={handleSaveProfile}
-                disabled={!fullName.trim()}
+                disabled={!username.trim() || updateProfileMutation.isPending}
                 className="ml-auto"
               >
-                Save Changes
+                {updateProfileMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
               </Button>
             </CardFooter>
           </Card>
 
-          {/* Danger zone */}
           <Card className="border-destructive/40">
             <CardHeader>
-              <CardTitle className="text-destructive flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-destructive">
                 <Trash2 className="h-4 w-4" />
-                Danger Zone
+                Vùng nguy hiểm
               </CardTitle>
               <CardDescription>
-                Permanently delete your account and all associated data. This action cannot be undone.
+                Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu liên quan.
               </CardDescription>
             </CardHeader>
             <CardFooter className="border-t bg-destructive/5 py-4">
-              <Button variant="destructive" size="sm">
-                Delete Account
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteAccount}
+                disabled={deleteAccountMutation.isPending}
+              >
+                {deleteAccountMutation.isPending ? 'Đang xóa...' : 'Xóa tài khoản'}
               </Button>
             </CardFooter>
           </Card>
         </TabsContent>
 
-        {/* ══════════════════════════════════════════════════
-            TAB 2 — Security
-        ══════════════════════════════════════════════════ */}
         <TabsContent value="security" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Lock className="h-5 w-5" />
-                Change Password
+                Đổi mật khẩu
               </CardTitle>
               <CardDescription>
-                Use a strong password of at least 8 characters.
+                Sử dụng mật khẩu mạnh với ít nhất 8 ký tự.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="current-pw">Current Password</Label>
+                <Label htmlFor="current-pw">Mật khẩu hiện tại</Label>
                 <Input
                   id="current-pw"
                   type="password"
                   value={currentPw}
                   onChange={(e) => setCurrentPw(e.target.value)}
-                  placeholder="••••••••"
                   autoComplete="current-password"
                 />
               </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="new-pw">New Password</Label>
+                  <Label htmlFor="new-pw">Mật khẩu mới</Label>
                   <Input
                     id="new-pw"
                     type="password"
                     value={newPw}
                     onChange={(e) => setNewPw(e.target.value)}
-                    placeholder="••••••••"
                     autoComplete="new-password"
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-pw">Confirm New Password</Label>
+                  <Label htmlFor="confirm-pw">Xác nhận mật khẩu mới</Label>
                   <Input
                     id="confirm-pw"
                     type="password"
                     value={confirmPw}
                     onChange={(e) => setConfirmPw(e.target.value)}
-                    placeholder="••••••••"
                     autoComplete="new-password"
                   />
                 </div>
               </div>
 
-              {/* Password strength indicator */}
               {newPw && (
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground">Password strength</p>
+                  <p className="text-xs text-muted-foreground">Độ mạnh mật khẩu</p>
                   <div className="flex gap-1">
-                    {[1, 2, 3, 4].map((level) => {
-                      const strength = Math.min(
-                        4,
-                        [/[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/, /.{8}/].filter(
-                          (rx) => rx.test(newPw)
-                        ).length
-                      );
-                      return (
-                        <div
-                          key={level}
-                          className={cn(
-                            'h-1.5 flex-1 rounded-full transition-colors',
-                            level <= strength
-                              ? strength <= 1
-                                ? 'bg-red-500'
-                                : strength === 2
+                    {[1, 2, 3, 4].map((level) => (
+                      <div
+                        key={level}
+                        className={cn(
+                          'h-1.5 flex-1 rounded-full transition-colors',
+                          level <= strength
+                            ? strength <= 1
+                              ? 'bg-red-500'
+                              : strength === 2
                                 ? 'bg-amber-500'
                                 : strength === 3
-                                ? 'bg-yellow-400'
-                                : 'bg-green-500'
-                              : 'bg-muted'
-                          )}
-                        />
-                      );
-                    })}
+                                  ? 'bg-yellow-400'
+                                  : 'bg-green-500'
+                            : 'bg-muted',
+                        )}
+                      />
+                    ))}
                   </div>
                 </div>
-              )}
-
-              {pwError && (
-                <p className="text-sm text-destructive">{pwError}</p>
               )}
             </CardContent>
             <CardFooter className="flex items-center justify-between border-t bg-muted/20 py-4">
               <SaveFeedback saved={pwSaved} />
-              <Button onClick={handleUpdatePassword} className="ml-auto">
-                Update Password
+              <Button onClick={handleChangePassword} disabled={changePasswordMutation.isPending} className="ml-auto">
+                {changePasswordMutation.isPending ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
               </Button>
             </CardFooter>
           </Card>
-
-          {/* Active sessions card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Active Sessions</CardTitle>
-              <CardDescription>
-                Devices currently signed in to your account.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="divide-y">
-              {[
-                { device: 'MacBook Pro — Chrome', location: 'Ho Chi Minh City, VN', current: true },
-                { device: 'iPhone 15 — Safari', location: 'Ho Chi Minh City, VN', current: false },
-              ].map((session, i) => (
-                <div key={i} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium">{session.device}</p>
-                    <p className="text-xs text-muted-foreground">{session.location}</p>
-                  </div>
-                  {session.current ? (
-                    <Badge variant="secondary" className="text-[10px]">Current</Badge>
-                  ) : (
-                    <Button variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive">
-                      Revoke
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
         </TabsContent>
 
-        {/* ══════════════════════════════════════════════════
-            TAB 3 — Activity
-        ══════════════════════════════════════════════════ */}
         <TabsContent value="activity">
           <Card>
             <CardHeader>
@@ -483,46 +442,55 @@ export default function ProfilePage() {
                 Recent Activity
               </CardTitle>
               <CardDescription>
-                Your last {MOCK_ACTIVITIES.length} actions across all workspaces.
+                Các hoạt động gần đây của bạn được cập nhật theo dữ liệu thực tế.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ol className="relative border-l border-border/60 ml-3 space-y-0">
-                {MOCK_ACTIVITIES.map((log, i) => {
-                  const Icon = ENTITY_ICON[log.entityType];
-                  const colorCls = ENTITY_COLOR[log.entityType];
-                  const isLast = i === MOCK_ACTIVITIES.length - 1;
-                  return (
-                    <li
-                      key={log.id}
-                      className={cn('relative pl-7', !isLast && 'pb-6')}
-                    >
-                      {/* Timeline dot */}
-                      <span
-                        className={cn(
-                          'absolute -left-[18px] flex h-8 w-8 items-center justify-center rounded-full ring-4 ring-background',
-                          colorCls
-                        )}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                      </span>
+              {isLoadingActivities ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : activities.length === 0 ? (
+                <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+                  Chưa có hoạt động nào gần đây.
+                </div>
+              ) : (
+                <ol className="relative ml-3 space-y-0 border-l border-border/60">
+                  {activities.map((activity, index) => {
+                    const kind = getActivityKind(activity);
+                    const Icon = ENTITY_ICON[kind];
+                    const colorCls = ENTITY_COLOR[kind];
+                    const target = activity.card?.title || activity.board?.title;
+                    const isLast = index === activities.length - 1;
 
-                      {/* Content */}
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <p className="text-sm">
-                          <span className="font-medium">{log.action}</span>{' '}
-                          <span className="font-semibold text-foreground">
-                            &ldquo;{log.entity}&rdquo;
-                          </span>
-                        </p>
-                        <time className="text-xs text-muted-foreground shrink-0">
-                          {timeAgo(log.createdAt)}
-                        </time>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
+                    return (
+                      <li key={activity.id} className={cn('relative pl-7', !isLast && 'pb-6')}>
+                        <span
+                          className={cn(
+                            'absolute -left-[18px] flex h-8 w-8 items-center justify-center rounded-full ring-4 ring-background',
+                            colorCls,
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <p className="text-sm text-foreground">
+                            <span className="font-medium">{activity.content}</span>
+                            {target ? <span className="font-semibold"> · {target}</span> : null}
+                          </p>
+                          <time className="shrink-0 text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(activity.createdAt), {
+                              addSuffix: true,
+                              locale: vi,
+                            })}
+                          </time>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import {
   useAddChecklistItemMutation,
-  useToggleItemStateMutation,
+  useUpdateItemMutation,
   useDeleteChecklistMutation,
   useDeleteItemMutation,
 } from '@/api/checklists';
@@ -26,13 +26,13 @@ interface ChecklistProps {
 
 export function ChecklistComponent({ checklist, cardId }: ChecklistProps) {
   const [newItemTitle, setNewItemTitle] = useState('');
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const addItem = useAddChecklistItemMutation(cardId, checklist.id);
-  const toggleItem = useToggleItemStateMutation(cardId);
+  const updateItem = useUpdateItemMutation(cardId);
   const deleteChecklist = useDeleteChecklistMutation(cardId);
   const deleteItem = useDeleteItemMutation(cardId);
 
-  const completed = checklist.items.filter((i) => i.isCompleted).length;
+  const completed = checklist.items.filter((i) => i.isDone).length;
   const total = checklist.items.length;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -74,7 +74,7 @@ export function ChecklistComponent({ checklist, cardId }: ChecklistProps) {
               <ChecklistItemComponent
                 key={item.id}
                 item={item}
-                onToggle={toggleItem.mutate}
+                onUpdate={updateItem.mutate}
                 onDelete={deleteItem.mutate}
               />
             ))}

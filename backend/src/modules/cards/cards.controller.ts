@@ -30,7 +30,7 @@ export class CardsController {
     private readonly cardsService: CardsService,
     private readonly labelsService: LabelsService,
     private readonly checklistsService: ChecklistsService,
-  ) {}
+  ) { }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -127,4 +127,28 @@ export class CardsController {
   ): Promise<Checklist[]> {
     return this.checklistsService.findAllByCard(cardId);
   }
+
+  // Card member (assignee) endpoints
+  @Post(':cardId/members')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR, BoardRole.VIEWER)
+  @ResponseMessage('Member assigned to card successfully')
+  async assignMember(
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Body('userId') userId: string,
+  ): Promise<Card> {
+    return this.cardsService.addMember(cardId, userId);
+  }
+
+  @Delete(':cardId/members/:userId')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR, BoardRole.VIEWER)
+  @ResponseMessage('Member unassigned from card successfully')
+  async unassignMember(
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ): Promise<Card> {
+    return this.cardsService.removeMember(cardId, userId);
+  }
 }
+

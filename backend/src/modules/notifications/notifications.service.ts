@@ -13,6 +13,7 @@ export interface CreateNotificationDto {
   title: string;
   message: string;
   link?: string;
+  metadata?: Record<string, any>;
 }
 
 @Injectable()
@@ -21,7 +22,7 @@ export class NotificationsService {
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     private readonly notificationsGateway: NotificationsGateway,
-  ) {}
+  ) { }
 
   /**
    * Create a new notification and emit via WebSocket
@@ -35,6 +36,7 @@ export class NotificationsService {
       message: dto.message,
       link: dto.link || null,
       isRead: false,
+      metadata: dto.metadata || null,
     });
 
     const savedNotification =

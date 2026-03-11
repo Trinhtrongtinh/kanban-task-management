@@ -1,12 +1,13 @@
 import { Injectable, HttpStatus, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Not } from 'typeorm';
-import { Card, List } from '../../database/entities';
+import { Card, List, BoardMember, NotificationType, User } from '../../database/entities';
 import { CreateCardDto, UpdateCardDto, MoveCardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode } from '../../common/enums';
 import { ActivitiesService } from '../activities/activities.service';
 import { CardsGateway } from './cards.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 // Default position increment for new cards
 const POSITION_GAP = 65535;
@@ -18,10 +19,43 @@ export class CardsService {
     private readonly cardRepository: Repository<Card>,
     @InjectRepository(List)
     private readonly listRepository: Repository<List>,
+    @InjectRepository(BoardMember)
+    private readonly boardMemberRepository: Repository<BoardMember>,
     private readonly dataSource: DataSource,
     private readonly activitiesService: ActivitiesService,
     private readonly cardsGateway: CardsGateway,
-  ) {}
+    private readonly notificationsService: NotificationsService,
+  ) { }
+
+  private async validateAssigneeInBoard(listId: string, userId: string): Promise<void> {
+    const list = await this.listRepository.findOne({
+      where: { id: listId },
+      relations: ['board'],
+    });
+
+    if (!list) {
+      throw new BusinessException(
+        ErrorCode.LIST_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const boardMember = await this.boardMemberRepository.findOne({
+      where: { boardId: list.boardId, userId },
+    });
+
+    if (!boardMember) {
+      throw new BusinessException(
+        ErrorCode.FORBIDDEN,
+        HttpStatus.FORBIDDEN,
+        'Người được gán phải là thành viên của board',
+      );
+    }
+  }
+
+  private async validateMemberInBoard(listId: string, userId: string): Promise<void> {
+    await this.validateAssigneeInBoard(listId, userId);
+  }
 
   /**
    * Validate list exists
@@ -57,7 +91,7 @@ export class CardsService {
   }
 
   async create(createCardDto: CreateCardDto): Promise<Card> {
-    const { title, listId, deadline, ...rest } = createCardDto;
+    const { title, listId, deadline, assigneeId, ...rest } = createCardDto;
 
     // Validate list exists
     await this.validateListExists(listId);
@@ -65,15 +99,30 @@ export class CardsService {
     // Calculate position automatically
     const position = await this.calculateNewPosition(listId);
 
+    if (assigneeId) {
+      await this.validateAssigneeInBoard(listId, assigneeId);
+    }
+
     const card = this.cardRepository.create({
       title,
       listId,
       position,
       deadline: deadline ? new Date(deadline) : null,
+      assigneeId: assigneeId || null,
       ...rest,
     });
 
-    return this.cardRepository.save(card);
+    const savedCard = await this.cardRepository.save(card);
+
+    if (assigneeId) {
+      await this.cardRepository
+        .createQueryBuilder()
+        .relation(Card, 'members')
+        .of(savedCard.id)
+        .add(assigneeId);
+    }
+
+    return this.findOne(savedCard.id);
   }
 
   async findAllByList(listId: string): Promise<Card[]> {
@@ -82,7 +131,7 @@ export class CardsService {
 
     return this.cardRepository.find({
       where: { listId, isArchived: false },
-      relations: ['labels'],
+      relations: ['labels', 'attachments', 'assignee', 'members'],
       order: { position: 'ASC' },
     });
   }
@@ -90,7 +139,7 @@ export class CardsService {
   async findOne(id: string): Promise<Card> {
     const card = await this.cardRepository.findOne({
       where: { id },
-      relations: ['list', 'labels'],
+      relations: ['list', 'labels', 'attachments', 'assignee', 'members'],
     });
 
     if (!card) {
@@ -105,8 +154,10 @@ export class CardsService {
 
   async update(id: string, updateCardDto: UpdateCardDto): Promise<Card> {
     const card = await this.findOne(id);
+    const previousAssigneeId = card.assigneeId;
 
     const { listId, deadline, ...rest } = updateCardDto;
+    const targetListId = listId || card.listId;
 
     // If moving to another list, validate target list exists
     if (listId && listId !== card.listId) {
@@ -124,9 +175,107 @@ export class CardsService {
       card.deadline = deadline ? new Date(deadline) : null;
     }
 
+    if (rest.assigneeId !== undefined && rest.assigneeId !== null) {
+      await this.validateAssigneeInBoard(targetListId, rest.assigneeId);
+    }
+
     Object.assign(card, rest);
 
-    return this.cardRepository.save(card);
+    if (rest.assigneeId !== undefined) {
+      if (rest.assigneeId === null) {
+        card.members = (card.members || []).filter((m) => m.id !== previousAssigneeId);
+      } else {
+        const existed = (card.members || []).some((m) => m.id === rest.assigneeId);
+        if (!existed) {
+          const user = await this.cardRepository.manager.findOne(User, {
+            where: { id: rest.assigneeId },
+          });
+          if (user) {
+            card.members = [...(card.members || []), user];
+          }
+        }
+      }
+    }
+    const updatedCard = await this.cardRepository.save(card);
+
+    if (
+      rest.assigneeId !== undefined &&
+      rest.assigneeId !== null &&
+      rest.assigneeId !== previousAssigneeId
+    ) {
+      const boardId = card.list?.boardId;
+      this.notificationsService.create({
+        userId: rest.assigneeId,
+        cardId: updatedCard.id,
+        type: NotificationType.CARD_ASSIGNED,
+        title: 'Bạn được giao một thẻ mới',
+        message: `Bạn được giao thẻ "${updatedCard.title}"`,
+        link: boardId
+          ? `/b/${boardId}?cardId=${updatedCard.id}&focus=activity`
+          : undefined,
+        metadata: {
+          boardId,
+          cardId: updatedCard.id,
+          listId: updatedCard.listId,
+        },
+      }).catch(() => null);
+    }
+
+    return updatedCard;
+  }
+
+  async addMember(cardId: string, userId: string): Promise<Card> {
+    const card = await this.findOne(cardId);
+    await this.validateMemberInBoard(card.listId, userId);
+
+    const hasMember = (card.members || []).some((member) => member.id === userId);
+    if (!hasMember) {
+      await this.cardRepository
+        .createQueryBuilder()
+        .relation(Card, 'members')
+        .of(cardId)
+        .add(userId);
+    }
+
+    if (!card.assigneeId) {
+      await this.cardRepository.update(cardId, { assigneeId: userId });
+    }
+
+    this.notificationsService.create({
+      userId,
+      cardId,
+      type: NotificationType.CARD_ASSIGNED,
+      title: 'Bạn được thêm vào thẻ',
+      message: `Bạn vừa được thêm vào thẻ "${card.title}"`,
+      link: card.list?.boardId
+        ? `/b/${card.list.boardId}?cardId=${cardId}&focus=activity`
+        : undefined,
+      metadata: {
+        boardId: card.list?.boardId,
+        cardId,
+      },
+    }).catch(() => null);
+
+    return this.findOne(cardId);
+  }
+
+  async removeMember(cardId: string, userId: string): Promise<Card> {
+    const card = await this.findOne(cardId);
+
+    const hasMember = (card.members || []).some((member) => member.id === userId);
+    if (hasMember) {
+      await this.cardRepository
+        .createQueryBuilder()
+        .relation(Card, 'members')
+        .of(cardId)
+        .remove(userId);
+    }
+
+    if (card.assigneeId === userId) {
+      await this.cardRepository.update(cardId, { assigneeId: null });
+    }
+
+    return this.findOne(cardId);
   }
 
   async remove(id: string): Promise<void> {

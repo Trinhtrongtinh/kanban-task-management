@@ -1,17 +1,21 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpStatus, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import { Workspace, WorkspaceMember, User } from '../../database/entities';
+import { NotificationType } from '../../database/entities/notification.entity';
 import { CreateWorkspaceDto, UpdateWorkspaceDto, InviteMemberDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode, WorkspaceRole, MemberStatus } from '../../common/enums';
 import { UsersService } from '../users/users.service';
 import { MailerService } from '../notifications/mailer.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
-export class WorkspacesService {
+export class WorkspacesService implements OnModuleInit {
+  private readonly logger = new Logger(WorkspacesService.name);
+
   constructor(
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
@@ -23,7 +27,29 @@ export class WorkspacesService {
     private readonly usersService: UsersService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
-  ) {}
+    private readonly notificationsService: NotificationsService,
+  ) { }
+
+  async onModuleInit(): Promise<void> {
+    try {
+      const result = await this.workspaceMemberRepository
+        .createQueryBuilder()
+        .update(WorkspaceMember)
+        .set({ role: WorkspaceRole.MEMBER })
+        .where('role != :ownerRole', { ownerRole: WorkspaceRole.OWNER })
+        .execute();
+
+      if ((result.affected ?? 0) > 0) {
+        this.logger.log(
+          `Normalized ${(result.affected ?? 0)} workspace member role(s) to MEMBER`,
+        );
+      }
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to normalize workspace member roles: ${error?.message || error}`,
+      );
+    }
+  }
 
   /**
    * Generate slug from name
@@ -185,7 +211,21 @@ export class WorkspacesService {
       relations: ['workspace', 'workspace.owner'],
     });
 
-    return memberships.map((m) => m.workspace);
+    const workspaceIds = memberships.map((m) => m.workspaceId);
+    if (workspaceIds.length === 0) {
+      return [];
+    }
+
+    const workspaces = await this.workspaceRepository.find({
+      where: { id: In(workspaceIds) },
+      relations: ['owner', 'boards'],
+      order: { createdAt: 'ASC' },
+    });
+
+    const workspaceOrder = new Map(workspaceIds.map((id, index) => [id, index]));
+    return workspaces.sort(
+      (a, b) => (workspaceOrder.get(a.id) ?? 0) - (workspaceOrder.get(b.id) ?? 0),
+    );
   }
 
   async findAll(): Promise<Workspace[]> {
@@ -251,7 +291,8 @@ export class WorkspacesService {
     inviteMemberDto: InviteMemberDto,
     inviterId: string,
   ): Promise<WorkspaceMember> {
-    const { email, role } = inviteMemberDto;
+    const { email } = inviteMemberDto;
+    const role = WorkspaceRole.MEMBER;
 
     // Start transaction
     const queryRunner = this.dataSource.createQueryRunner();
@@ -274,11 +315,11 @@ export class WorkspacesService {
         workspaceId,
         invitedUser.id,
       );
-      if (existingMember) {
+      if (existingMember && existingMember.status === MemberStatus.ACTIVE) {
         throw new BusinessException(
           ErrorCode.USER_ALREADY_EXISTS,
           HttpStatus.BAD_REQUEST,
-          'Người dùng này đã có trong Workspace',
+          'Người dùng này đã là thành viên của Workspace',
         );
       }
 
@@ -325,6 +366,21 @@ export class WorkspacesService {
 
       // Commit transaction
       await queryRunner.commitTransaction();
+
+      // Step 7: Create notification for the invited user
+      await this.notificationsService.create({
+        userId: invitedUser.id,
+        type: NotificationType.WORKSPACE_INVITE,
+        title: 'Lời mời tham gia Workspace',
+        message: `${inviter?.username || 'Ai đó'} đã mời bạn tham gia workspace "${workspace.name}"`,
+        metadata: {
+          workspaceId,
+          workspaceName: workspace.name,
+          inviterName: inviter?.username || 'Ai đó',
+          inviteToken,
+          role,
+        },
+      });
 
       return workspaceMember;
     } catch (error) {
@@ -423,6 +479,44 @@ export class WorkspacesService {
     return members;
   }
 
+  async removeMember(
+    workspaceId: string,
+    memberId: string,
+    requesterId: string,
+  ): Promise<void> {
+    const workspace = await this.findOne(workspaceId);
+
+    if (workspace.ownerId !== requesterId) {
+      throw new BusinessException(
+        ErrorCode.FORBIDDEN,
+        HttpStatus.FORBIDDEN,
+        'Chỉ chủ sở hữu workspace mới có thể xóa thành viên',
+      );
+    }
+
+    if (memberId === workspace.ownerId) {
+      throw new BusinessException(
+        ErrorCode.FORBIDDEN,
+        HttpStatus.BAD_REQUEST,
+        'Không thể xóa chủ sở hữu khỏi workspace',
+      );
+    }
+
+    const membership = await this.workspaceMemberRepository.findOne({
+      where: { workspaceId, userId: memberId },
+    });
+
+    if (!membership) {
+      throw new BusinessException(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+        'Không tìm thấy thành viên trong workspace',
+      );
+    }
+
+    await this.workspaceMemberRepository.remove(membership);
+  }
+
   // ============ PRIVATE HELPER METHODS ============
 
   private async findUserByEmail(email: string): Promise<User | null> {
@@ -457,13 +551,25 @@ export class WorkspacesService {
     role: WorkspaceRole,
     inviteToken: string,
   ): Promise<WorkspaceMember> {
-    const workspaceMember = this.workspaceMemberRepository.create({
-      workspaceId,
-      userId,
-      role,
-      status: MemberStatus.PENDING,
-      inviteToken,
+    // Check if there's an existing row (could be PENDING)
+    let workspaceMember = await queryRunner.manager.findOne(WorkspaceMember, {
+      where: { workspaceId, userId },
     });
+
+    if (workspaceMember) {
+      workspaceMember.role = role;
+      workspaceMember.status = MemberStatus.PENDING;
+      workspaceMember.inviteToken = inviteToken;
+    } else {
+      workspaceMember = this.workspaceMemberRepository.create({
+        workspaceId,
+        userId,
+        role,
+        status: MemberStatus.PENDING,
+        inviteToken,
+      });
+    }
+
     return workspaceMember;
   }
 

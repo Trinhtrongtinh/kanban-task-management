@@ -1,16 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { User } from '@/types';
 import type { BoardCard } from '@/components/board/types';
-import { api } from '@/services/api';
+import { apiClient } from '@/api/client';
 
 // ── API calls ────────────────────────────────────────────────────────
 
 async function assignMemberApi(params: { cardId: string; userId: string }): Promise<void> {
-  await api.post(`/cards/${params.cardId}/members`, { userId: params.userId });
+  await apiClient.post(`/cards/${params.cardId}/members`, { userId: params.userId });
 }
 
 async function unassignMemberApi(params: { cardId: string; userId: string }): Promise<void> {
-  await api.delete(`/cards/${params.cardId}/members/${params.userId}`);
+  await apiClient.delete(`/cards/${params.cardId}/members/${params.userId}`);
 }
 
 // ── Cache helpers ────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ export function useAssignMember(cardId: string, boardId: string) {
 
       // Resolve full user object from board members cache
       const boardMembers =
-        queryClient.getQueryData<User[]>(['boards', boardId, 'members']) ?? [];
+        queryClient.getQueryData<User[]>(['boardMembers', boardId]) ?? [];
       const userToAdd: User = boardMembers.find((u) => u.id === userId) ?? {
         id: userId,
         name: 'User',

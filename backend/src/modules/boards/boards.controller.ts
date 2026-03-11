@@ -8,6 +8,7 @@ import {
   Delete,
   ParseUUIDPipe,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import { CreateBoardDto, UpdateBoardDto } from './dto';
@@ -24,7 +25,7 @@ import { BoardRole, WorkspaceRole } from '../../common/enums';
 
 @Controller('boards')
 export class BoardsController {
-  constructor(private readonly boardsService: BoardsService) {}
+  constructor(private readonly boardsService: BoardsService) { }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -41,8 +42,9 @@ export class BoardsController {
   @ResponseMessage('Boards retrieved successfully')
   async findAllByWorkspace(
     @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<Board[]> {
-    return this.boardsService.findAllByWorkspace(workspaceId);
+    return this.boardsService.findAllByWorkspace(workspaceId, userId);
   }
 
   @Get(':id')
@@ -70,4 +72,37 @@ export class BoardsController {
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.boardsService.remove(id);
   }
+
+  @Get(':id/members')
+  @UseGuards(JwtAuthGuard, BoardMemberGuard)
+  @ResponseMessage('Board members retrieved successfully')
+  async getMembers(@Param('id', ParseUUIDPipe) id: string) {
+    return this.boardsService.getMembers(id);
+  }
+
+  @Post(':id/members')
+  @UseGuards(JwtAuthGuard, BoardMemberGuard)
+  @RequireBoardRole(BoardRole.ADMIN)
+  @ResponseMessage('Member added to board successfully')
+  async addMember(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('userId') memberId: string,
+  ) {
+    if (!memberId) {
+      throw new BadRequestException('Yêu cầu phải có userId');
+    }
+    return this.boardsService.addMember(id, memberId);
+  }
+
+  @Delete(':id/members/:userId')
+  @UseGuards(JwtAuthGuard, BoardMemberGuard)
+  @RequireBoardRole(BoardRole.ADMIN)
+  @ResponseMessage('Member removed from board successfully')
+  async removeMember(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) memberId: string,
+  ) {
+    return this.boardsService.removeMember(id, memberId);
+  }
 }
+

@@ -4,6 +4,7 @@ import { Search, Menu, LogOut, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { WorkspaceSwitcher } from '@/components/workspaces/workspace-switcher';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -79,6 +80,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Right: User menu */}
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
