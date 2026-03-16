@@ -35,24 +35,7 @@ import {
 import { searchApi, type SearchEntityType } from '@/api/search';
 import { cn, resolveAvatarUrl } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-
-const SEARCH_FILTERS: Array<{ type: SearchEntityType; label: string }> = [
-  { type: 'all', label: 'Tất cả' },
-  { type: 'workspace', label: 'Không gian' },
-  { type: 'board', label: 'Bảng' },
-  { type: 'list', label: 'Danh sách' },
-  { type: 'card', label: 'Thẻ' },
-  { type: 'comment', label: 'Bình luận' },
-];
-
-const SEARCH_EMPTY_LABEL: Record<SearchEntityType, string> = {
-  all: 'kết quả',
-  workspace: 'không gian làm việc',
-  board: 'bảng',
-  list: 'danh sách',
-  card: 'thẻ',
-  comment: 'bình luận',
-};
+import { useI18n } from '@/hooks/use-i18n';
 
 function getBreadcrumb(parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(' > ');
@@ -80,6 +63,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const { user, logout } = useAuthStore();
   const [query, setQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -124,6 +108,24 @@ export function Header({ onMenuClick }: HeaderProps) {
   const hasResults = counts[selectedType] > 0;
 
   const showSearchPopover = isSearchFocused && query.trim().length > 0;
+
+  const SEARCH_FILTERS: Array<{ type: SearchEntityType; label: string }> = [
+    { type: 'all', label: t('search.all') },
+    { type: 'workspace', label: t('search.workspace') },
+    { type: 'board', label: t('search.board') },
+    { type: 'list', label: t('search.list') },
+    { type: 'card', label: t('search.card') },
+    { type: 'comment', label: t('search.comment') },
+  ];
+
+  const SEARCH_EMPTY_LABEL: Record<SearchEntityType, string> = {
+    all: t('search.all').toLowerCase(),
+    workspace: t('search.workspace').toLowerCase(),
+    board: t('search.board').toLowerCase(),
+    list: t('search.list').toLowerCase(),
+    card: t('search.card').toLowerCase(),
+    comment: t('search.comment').toLowerCase(),
+  };
 
   useEffect(() => {
     if (!query.trim()) {
@@ -173,7 +175,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             onClick={onMenuClick}
           >
             <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle menu</span>
+            <span className="sr-only">{t('common.toggleMenu')}</span>
           </Button>
 
           <Link href="/dashboard" className="flex items-center gap-2">
@@ -193,7 +195,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Tìm kiếm không gian làm việc, bảng, danh sách, thẻ, bình luận..."
+              placeholder={t('common.searchPlaceholder')}
               className="w-full pl-9"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -228,28 +230,28 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                 {!isSearchEnabled ? (
                   <div className="px-3 py-4 text-sm text-muted-foreground">
-                    Nhập ít nhất 2 ký tự để tìm kiếm.
+                    {t('common.searchMinChars')}
                   </div>
                 ) : isSearchError ? (
                   <div className="px-3 py-4 text-sm text-destructive">
-                    Không thể tìm kiếm lúc này, vui lòng thử lại.
+                    {t('common.searchError')}
                   </div>
                 ) : isSearching ? (
                   <div className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Đang tìm kiếm...
+                    {t('common.searchLoading')}
                   </div>
                 ) : !hasResults ? (
                   <div className="px-3 py-4 text-sm text-muted-foreground">
                     {selectedType === 'all'
-                      ? 'Không tìm thấy kết quả phù hợp.'
-                      : `Không tìm thấy ${SEARCH_EMPTY_LABEL[selectedType]} phù hợp.`}
+                      ? t('common.searchNoResult')
+                      : `${t('common.searchNoResult')} (${SEARCH_EMPTY_LABEL[selectedType]})`}
                   </div>
                 ) : (
                   <div className="max-h-[360px] space-y-2 overflow-y-auto">
                     {(selectedType === 'all' || selectedType === 'workspace') && visibleWorkspaces.length > 0 && (
                       <div>
-                        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Không gian làm việc</p>
+                        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{t('search.workspace')}</p>
                         {visibleWorkspaces.map((workspace) => (
                           <button
                             key={workspace.id}
@@ -260,7 +262,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                             <Briefcase className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                             <span className="min-w-0">
                               <span className="block truncate font-medium">{workspace.name}</span>
-                              <span className="block truncate text-xs text-muted-foreground">Loại: {workspace.type}</span>
+                              <span className="block truncate text-xs text-muted-foreground">{t('search.workspaceType')}: {workspace.type}</span>
                             </span>
                           </button>
                         ))}
@@ -269,7 +271,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                     {(selectedType === 'all' || selectedType === 'board') && visibleBoards.length > 0 && (
                     <div>
-                      <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Bảng</p>
+                      <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{t('search.board')}</p>
                         {visibleBoards.map((board) => (
                           <button
                             key={board.id}
@@ -289,7 +291,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                     {(selectedType === 'all' || selectedType === 'list') && visibleLists.length > 0 && (
                       <div>
-                        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Danh sách</p>
+                        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{t('search.list')}</p>
                         {visibleLists.map((list) => (
                           <button
                             key={list.id}
@@ -311,7 +313,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                     {(selectedType === 'all' || selectedType === 'card') && visibleCards.length > 0 && (
                     <div>
-                      <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Thẻ</p>
+                      <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{t('search.card')}</p>
                         {visibleCards.map((card) => (
                           <button
                             key={card.id}
@@ -335,7 +337,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                     {(selectedType === 'all' || selectedType === 'comment') && visibleComments.length > 0 && (
                       <div>
-                        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Bình luận</p>
+                        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{t('search.comment')}</p>
                         {visibleComments.map((comment) => (
                           <button
                             key={comment.id}
@@ -380,7 +382,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 'h-6 text-xs font-semibold flex items-center gap-1',
                 user.planType === 'PRO'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white border border-amber-400/50 shadow-lg shadow-amber-500/20'
-                  : 'bg-slate-200 text-slate-700'
+                  : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-100'
               )}
             >
               {user.planType === 'PRO' && <Zap className="h-3 w-3" />}
@@ -411,19 +413,19 @@ export function Header({ onMenuClick }: HeaderProps) {
               <DropdownMenuItem asChild>
                 <Link href="/profile" className="flex items-center">
                   <User className="mr-2 h-4 w-4" />
-                  <span>Hồ sơ</span>
+                  <span>{t('common.profile')}</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/settings" className="flex items-center">
                   <Settings className="mr-2 h-4 w-4" />
-                  <span>Cài đặt</span>
+                  <span>{t('common.settings')}</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Đăng xuất</span>
+                <span>{t('common.logout')}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

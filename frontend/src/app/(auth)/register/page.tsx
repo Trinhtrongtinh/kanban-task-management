@@ -30,6 +30,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { authApi } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
+import { useI18n } from '@/hooks/use-i18n';
 
 // Backend RegisterDto: { username, email, password }
 // Frontend dùng "fullName" → map sang username khi gửi
@@ -52,6 +53,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const login = useAuthStore((s) => s.login);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -75,7 +77,7 @@ export default function RegisterPage() {
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message
-        ?? 'Đăng ký thất bại, vui lòng thử lại.';
+        ?? 'Registration failed. Please try again.';
       setServerError(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
@@ -86,8 +88,8 @@ export default function RegisterPage() {
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
           <span className="text-2xl font-bold text-primary-foreground">K</span>
         </div>
-        <CardTitle className="text-2xl font-bold">Tạo tài khoản</CardTitle>
-        <CardDescription>Nhập thông tin để đăng ký tài khoản mới</CardDescription>
+        <CardTitle className="text-2xl font-bold">{t('auth.registerTitle')}</CardTitle>
+        <CardDescription>{t('auth.registerDescription')}</CardDescription>
       </CardHeader>
 
       <CardContent>
@@ -105,7 +107,7 @@ export default function RegisterPage() {
               name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Họ và tên</FormLabel>
+                  <FormLabel>{t('auth.fullName')}</FormLabel>
                   <FormControl>
                     <Input
                       type="text"
@@ -145,7 +147,7 @@ export default function RegisterPage() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Mật khẩu</FormLabel>
+                  <FormLabel>{t('auth.password')}</FormLabel>
                   <FormControl>
                     <Input
                       type="password"
@@ -164,10 +166,10 @@ export default function RegisterPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang xử lý...
+                  {t('auth.processing')}
                 </>
               ) : (
-                'Đăng ký'
+                t('auth.register')
               )}
             </Button>
           </form>
@@ -176,9 +178,9 @@ export default function RegisterPage() {
 
       <CardFooter className="flex justify-center">
         <p className="text-sm text-muted-foreground">
-          Đã có tài khoản?{' '}
+          {t('auth.haveAccount')}{' '}
           <Link href="/login" className="font-medium text-primary hover:underline">
-            Đăng nhập
+            {t('auth.login')}
           </Link>
         </p>
       </CardFooter>

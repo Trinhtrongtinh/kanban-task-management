@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Label } from '@/components/board/types';
 import { useBoardSafe } from '@/components/board/board-context';
 import { apiClient } from './client';
+import { QUERY_STALE_TIME } from '@/lib/cache-ttl';
 
 export const labelsApi = {
   getBoardLabels: async (boardId: string): Promise<Label[]> => {
@@ -30,6 +31,7 @@ export function useBoardLabels(boardId: string | undefined) {
     queryKey: labelKeys.byBoard(boardId ?? ''),
     queryFn: () => labelsApi.getBoardLabels(boardId ?? ''),
     enabled: !!boardId,
+    staleTime: QUERY_STALE_TIME.LABELS_BY_BOARD_MS,
   });
 }
 

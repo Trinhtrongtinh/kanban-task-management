@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
-import { Workspace, WorkspaceMember, User, PlanType } from '../../database/entities';
+import { Workspace, WorkspaceMember, User } from '../../database/entities';
 import { NotificationType } from '../../database/entities/notification.entity';
 import { CreateWorkspaceDto, UpdateWorkspaceDto, InviteMemberDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
@@ -11,6 +11,7 @@ import { ErrorCode, WorkspaceRole, MemberStatus } from '../../common/enums';
 import { UsersService } from '../users/users.service';
 import { MailerService } from '../notifications/mailer.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AppCacheService, CACHE_TTL, CacheKeys } from '../../common/cache';
 
 @Injectable()
 export class WorkspacesService implements OnModuleInit {
@@ -28,7 +29,23 @@ export class WorkspacesService implements OnModuleInit {
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
+    private readonly cacheService: AppCacheService,
   ) { }
+
+  private async invalidateWorkspaceLists(userIds: string[]): Promise<void> {
+    const keys = Array.from(new Set(userIds)).map((userId) =>
+      CacheKeys.workspacesByUser(userId),
+    );
+    await this.cacheService.delMany(keys);
+  }
+
+  private async getActiveMemberUserIds(workspaceId: string): Promise<string[]> {
+    const members = await this.workspaceMemberRepository.find({
+      where: { workspaceId, status: MemberStatus.ACTIVE },
+      select: ['userId'],
+    });
+    return Array.from(new Set(members.map((member) => member.userId)));
+  }
 
   async onModuleInit(): Promise<void> {
     try {
@@ -168,7 +185,7 @@ export class WorkspacesService implements OnModuleInit {
     createWorkspaceDto: CreateWorkspaceDto,
     userId: string,
   ): Promise<Workspace> {
-    // Get user to check plan
+    // Validate user
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new BusinessException(
@@ -177,18 +194,16 @@ export class WorkspacesService implements OnModuleInit {
       );
     }
 
-    // Check FREE plan workspace limit (1 workspace per FREE user)
-    if (user.planType === PlanType.FREE) {
-      const workspaceCount = await this.workspaceRepository.count({
-        where: { ownerId: userId },
-      });
-      if (workspaceCount >= 1) {
-        throw new BusinessException(
-          ErrorCode.PLAN_LIMIT_EXCEEDED,
-          HttpStatus.FORBIDDEN,
-          'Gói Free chỉ cho phép tối đa 1 workspace. Nâng cấp lên Pro để tạo không giới hạn.',
-        );
-      }
+    // System rule: each account can only own 1 workspace
+    const workspaceCount = await this.workspaceRepository.count({
+      where: { ownerId: userId },
+    });
+    if (workspaceCount >= 1) {
+      throw new BusinessException(
+        ErrorCode.PLAN_LIMIT_EXCEEDED,
+        HttpStatus.FORBIDDEN,
+        'Mỗi tài khoản chỉ có thể tạo tối đa 1 workspace.',
+      );
     }
 
     const { name, slug, ...rest } = createWorkspaceDto;
@@ -213,10 +228,18 @@ export class WorkspacesService implements OnModuleInit {
     });
     await this.workspaceMemberRepository.save(workspaceMember);
 
+    await this.invalidateWorkspaceLists([userId]);
+
     return savedWorkspace;
   }
 
   async findAllByUser(userId: string): Promise<Workspace[]> {
+    const cacheKey = CacheKeys.workspacesByUser(userId);
+    const cached = await this.cacheService.get<Workspace[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Find workspaces where user is an ACTIVE member
     const memberships = await this.workspaceMemberRepository.find({
       where: { userId, status: MemberStatus.ACTIVE },
@@ -225,6 +248,7 @@ export class WorkspacesService implements OnModuleInit {
 
     const workspaceIds = memberships.map((m) => m.workspaceId);
     if (workspaceIds.length === 0) {
+      await this.cacheService.set(cacheKey, [], CACHE_TTL.WORKSPACES_BY_USER_SECONDS);
       return [];
     }
 
@@ -235,9 +259,17 @@ export class WorkspacesService implements OnModuleInit {
     });
 
     const workspaceOrder = new Map(workspaceIds.map((id, index) => [id, index]));
-    return workspaces.sort(
+    const sortedWorkspaces = workspaces.sort(
       (a, b) => (workspaceOrder.get(a.id) ?? 0) - (workspaceOrder.get(b.id) ?? 0),
     );
+
+    await this.cacheService.set(
+      cacheKey,
+      sortedWorkspaces,
+      CACHE_TTL.WORKSPACES_BY_USER_SECONDS,
+    );
+
+    return sortedWorkspaces;
   }
 
   async findAll(): Promise<Workspace[]> {
@@ -292,7 +324,26 @@ export class WorkspacesService implements OnModuleInit {
 
     Object.assign(workspace, rest);
 
-    return this.workspaceRepository.save(workspace);
+    const updatedWorkspace = await this.workspaceRepository.save(workspace);
+    const memberIds = await this.getActiveMemberUserIds(id);
+    await this.invalidateWorkspaceLists(memberIds);
+    return updatedWorkspace;
+  }
+
+  async remove(id: string, requesterId: string): Promise<void> {
+    const workspace = await this.findOne(id);
+
+    if (workspace.ownerId !== requesterId) {
+      throw new BusinessException(
+        ErrorCode.FORBIDDEN,
+        HttpStatus.FORBIDDEN,
+        'Chỉ chủ sở hữu workspace mới có thể xóa workspace',
+      );
+    }
+
+    const memberIds = await this.getActiveMemberUserIds(id);
+    await this.workspaceRepository.delete(id);
+    await this.invalidateWorkspaceLists(memberIds);
   }
 
   /**
@@ -394,6 +445,8 @@ export class WorkspacesService implements OnModuleInit {
         },
       });
 
+      await this.invalidateWorkspaceLists([invitedUser.id]);
+
       return workspaceMember;
     } catch (error) {
       // Only rollback if transaction is still active (might have been rolled back already)
@@ -443,7 +496,9 @@ export class WorkspacesService implements OnModuleInit {
     member.status = MemberStatus.ACTIVE;
     member.inviteToken = null;
 
-    return this.workspaceMemberRepository.save(member);
+    const savedMember = await this.workspaceMemberRepository.save(member);
+    await this.invalidateWorkspaceLists([userId]);
+    return savedMember;
   }
 
   /**
@@ -527,6 +582,7 @@ export class WorkspacesService implements OnModuleInit {
     }
 
     await this.workspaceMemberRepository.remove(membership);
+    await this.invalidateWorkspaceLists([memberId]);
   }
 
   // ============ PRIVATE HELPER METHODS ============

@@ -55,15 +55,32 @@ export class ListsService {
 
   async create(createListDto: CreateListDto): Promise<List> {
     const { title, boardId } = createListDto;
+    const normalizedTitle = title.trim();
 
     // Validate board exists
     await this.validateBoardExists(boardId);
+
+    const existingListWithSameTitle = await this.listRepository
+      .createQueryBuilder('list')
+      .where('list.board_id = :boardId', { boardId })
+      .andWhere('LOWER(TRIM(list.title)) = LOWER(TRIM(:title))', {
+        title: normalizedTitle,
+      })
+      .getOne();
+
+    if (existingListWithSameTitle) {
+      throw new BusinessException(
+        ErrorCode.LIST_TITLE_EXISTS,
+        HttpStatus.CONFLICT,
+        'Tên danh sách đã tồn tại trong bảng này',
+      );
+    }
 
     // Calculate position automatically
     const position = await this.calculateNewPosition(boardId);
 
     const list = this.listRepository.create({
-      title,
+      title: normalizedTitle,
       boardId,
       position,
     });
@@ -108,6 +125,28 @@ export class ListsService {
 
   async update(id: string, updateListDto: UpdateListDto): Promise<List> {
     const list = await this.findOne(id);
+
+    if (updateListDto.title) {
+      const normalizedTitle = updateListDto.title.trim();
+      const existingListWithSameTitle = await this.listRepository
+        .createQueryBuilder('l')
+        .where('l.board_id = :boardId', { boardId: list.boardId })
+        .andWhere('l.id != :id', { id: list.id })
+        .andWhere('LOWER(TRIM(l.title)) = LOWER(TRIM(:title))', {
+          title: normalizedTitle,
+        })
+        .getOne();
+
+      if (existingListWithSameTitle) {
+        throw new BusinessException(
+          ErrorCode.LIST_TITLE_EXISTS,
+          HttpStatus.CONFLICT,
+          'Tên danh sách đã tồn tại trong bảng này',
+        );
+      }
+
+      updateListDto.title = normalizedTitle;
+    }
 
     Object.assign(list, updateListDto);
 

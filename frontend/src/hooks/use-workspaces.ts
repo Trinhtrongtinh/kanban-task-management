@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { workspacesApi, type CreateWorkspacePayload, type UpdateWorkspacePayload, type InviteMemberPayload } from '@/api/workspaces';
+import { QUERY_STALE_TIME } from '@/lib/cache-ttl';
 
 export const workspaceKeys = {
   all: ['workspaces'] as const,
@@ -15,6 +16,7 @@ export function useWorkspaces() {
   return useQuery({
     queryKey: workspaceKeys.lists(),
     queryFn: workspacesApi.getAll,
+    staleTime: QUERY_STALE_TIME.WORKSPACES_MS,
   });
 }
 
@@ -55,6 +57,19 @@ export function useUpdateWorkspace() {
       workspacesApi.update(id, payload),
     onSuccess: (updatedWorkspace) => {
       queryClient.setQueryData(workspaceKeys.detail(updatedWorkspace.id), updatedWorkspace);
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
+    },
+  });
+}
+
+export function useDeleteWorkspace() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => workspacesApi.delete(id),
+    onSuccess: (_, id) => {
+      queryClient.removeQueries({ queryKey: workspaceKeys.detail(id) });
+      queryClient.removeQueries({ queryKey: workspaceKeys.members(id) });
       queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
     },
   });

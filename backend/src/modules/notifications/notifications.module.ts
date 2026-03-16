@@ -7,11 +7,13 @@ import { NotificationsGateway } from './notifications.gateway';
 import { DeadlineReminderService } from './deadline-reminder.service';
 import { MailerService } from './mailer.service';
 import { Notification, Card, User } from '../../database/entities';
+import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Notification, Card, User]),
     ScheduleModule.forRoot(),
+    CommonModule,
   ],
   controllers: [NotificationsController],
   providers: [

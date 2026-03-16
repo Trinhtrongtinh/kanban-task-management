@@ -26,10 +26,12 @@ export enum ErrorCode {
   BOARD_NOT_FOUND = 'BOARD_NOT_FOUND',
   BOARD_ACCESS_DENIED = 'BOARD_ACCESS_DENIED',
   BOARD_SLUG_EXISTS = 'BOARD_SLUG_EXISTS',
+  BOARD_TITLE_EXISTS = 'BOARD_TITLE_EXISTS',
   PLAN_LIMIT_EXCEEDED = 'PLAN_LIMIT_EXCEEDED',
 
   // List (for future use)
   LIST_NOT_FOUND = 'LIST_NOT_FOUND',
+  LIST_TITLE_EXISTS = 'LIST_TITLE_EXISTS',
 
   // Card (for future use)
   CARD_NOT_FOUND = 'CARD_NOT_FOUND',
@@ -93,10 +95,12 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.BOARD_NOT_FOUND]: 'Board not found',
   [ErrorCode.BOARD_ACCESS_DENIED]: 'You do not have access to this board',
   [ErrorCode.BOARD_SLUG_EXISTS]: 'Board slug is already taken',
+  [ErrorCode.BOARD_TITLE_EXISTS]: 'Board name already exists in this workspace',
   [ErrorCode.PLAN_LIMIT_EXCEEDED]: 'Bạn đã đạt giới hạn gói Free. Nâng cấp lên Pro để tiếp tục.',
 
   // List
   [ErrorCode.LIST_NOT_FOUND]: 'List not found',
+  [ErrorCode.LIST_TITLE_EXISTS]: 'List name already exists in this board',
 
   // Card
   [ErrorCode.CARD_NOT_FOUND]: 'Card not found',

@@ -21,11 +21,11 @@ export function getDueDateStatus(
 export function getDueDateColor(status: DueDateStatus): string {
   switch (status) {
     case 'completed':
-      return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
+      return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-300';
     case 'overdue':
-      return 'bg-red-500/15 text-red-700 border-red-500/30';
+      return 'bg-red-500/15 text-red-700 border-red-500/30 dark:text-red-300';
     case 'due-soon':
-      return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
+      return 'bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300';
     default:
       return 'bg-muted text-muted-foreground border-border';
   }

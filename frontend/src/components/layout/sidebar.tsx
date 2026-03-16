@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/sheet';
 import { useProModal } from '@/hooks/use-pro-modal';
 import { useAuthStore } from '@/stores/authStore';
+import { useI18n } from '@/hooks/use-i18n';
 
 // ── Nav structure ────────────────────────────────────────────────────
 
@@ -32,34 +33,6 @@ interface NavGroup {
   label: string;
   items: NavItem[];
 }
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Ứng dụng',
-    items: [
-      {
-        title: 'Bảng điều khiển',
-        href: '/dashboard',
-        icon: LayoutDashboard,
-      },
-    ],
-  },
-  {
-    label: 'Tài khoản',
-    items: [
-      {
-        title: 'Hồ sơ cá nhân',
-        href: '/profile',
-        icon: UserCircle,
-      },
-      {
-        title: 'Cài đặt ứng dụng',
-        href: '/settings',
-        icon: Settings,
-      },
-    ],
-  },
-];
 
 // ── Shared components ────────────────────────────────────────────────
 
@@ -118,6 +91,34 @@ function DesktopSidebar() {
   const onOpen = useProModal((state) => state.onOpen);
   const user = useAuthStore((state) => state.user);
   const isProUser = user?.planType === 'PRO';
+  const { t } = useI18n();
+  const NAV_GROUPS: NavGroup[] = [
+    {
+      label: t('sidebar.appGroup'),
+      items: [
+        {
+          title: t('common.dashboard'),
+          href: '/dashboard',
+          icon: LayoutDashboard,
+        },
+      ],
+    },
+    {
+      label: t('sidebar.accountGroup'),
+      items: [
+        {
+          title: t('common.profile'),
+          href: '/profile',
+          icon: UserCircle,
+        },
+        {
+          title: t('common.appSettings'),
+          href: '/settings',
+          icon: Settings,
+        },
+      ],
+    },
+  ];
 
   return (
     <aside className="fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-60 border-r bg-background md:flex flex-col">
@@ -136,14 +137,14 @@ function DesktopSidebar() {
             className="w-full justify-start gap-2 bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white shadow-md border-0 text-sm"
           >
             <Zap className="h-4 w-4 fill-white shrink-0" />
-            Upgrade to Pro
+            {t('common.upgradeToPro')}
           </Button>
         </div>
       )}
 
       {/* Footer */}
       <div className="border-t px-3 py-3">
-        <p className="text-[11px] text-muted-foreground">© 2026 Kanban App</p>
+        <p className="text-[11px] text-muted-foreground">{t('sidebar.copyright')}</p>
       </div>
     </aside>
   );
@@ -155,6 +156,34 @@ function MobileSidebar({ isOpen, onClose }: SidebarProps) {
   const onOpen = useProModal((state) => state.onOpen);
   const user = useAuthStore((state) => state.user);
   const isProUser = user?.planType === 'PRO';
+  const { t } = useI18n();
+  const NAV_GROUPS: NavGroup[] = [
+    {
+      label: t('sidebar.appGroup'),
+      items: [
+        {
+          title: t('common.dashboard'),
+          href: '/dashboard',
+          icon: LayoutDashboard,
+        },
+      ],
+    },
+    {
+      label: t('sidebar.accountGroup'),
+      items: [
+        {
+          title: t('common.profile'),
+          href: '/profile',
+          icon: UserCircle,
+        },
+        {
+          title: t('common.appSettings'),
+          href: '/settings',
+          icon: Settings,
+        },
+      ],
+    },
+  ];
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -192,7 +221,7 @@ function MobileSidebar({ isOpen, onClose }: SidebarProps) {
               className="w-full justify-start gap-2 bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white shadow-md border-0 text-sm"
             >
               <Zap className="h-4 w-4 fill-white shrink-0" />
-              Upgrade to Pro
+              {t('common.upgradeToPro')}
             </Button>
           </div>
         )}

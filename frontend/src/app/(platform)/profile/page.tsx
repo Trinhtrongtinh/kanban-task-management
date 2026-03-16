@@ -360,7 +360,7 @@ export default function ProfilePage() {
                 'px-3 py-1 font-semibold',
                 user?.planType === 'PRO'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20'
-                  : 'bg-slate-200 text-slate-700'
+                  : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-100'
               )}
             >
               {user?.planType}
@@ -378,8 +378,14 @@ export default function ProfilePage() {
             </div>
             {user?.planType === 'PRO' && user?.expiredAt && (
               <div>
-                <p className="text-muted-foreground">Hết hạn</p>
-                <p className="font-semibold mt-1">{new Date(user.expiredAt).toLocaleDateString('vi-VN')}</p>
+                <p className="text-muted-foreground">Thời hạn Pro</p>
+                <p className="font-semibold mt-1">{formatDateTimeVN(user.expiredAt)}</p>
+              </div>
+            )}
+            {user?.planType === 'PRO' && !user?.expiredAt && (
+              <div>
+                <p className="text-muted-foreground">Thời hạn Pro</p>
+                <p className="font-semibold mt-1">Đang cập nhật</p>
               </div>
             )}
           </div>

@@ -5,6 +5,7 @@ import { Notification, NotificationType } from '../../database/entities';
 import { NotificationsGateway } from './notifications.gateway';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode } from '../../common/enums';
+import { AppCacheService, CACHE_TTL, CacheKeys } from '../../common/cache';
 
 export interface CreateNotificationDto {
   userId: string;
@@ -22,7 +23,15 @@ export class NotificationsService {
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     private readonly notificationsGateway: NotificationsGateway,
+    private readonly cacheService: AppCacheService,
   ) { }
+
+  private async invalidateNotificationCache(userId: string): Promise<void> {
+    await this.cacheService.delMany([
+      CacheKeys.notificationsByUser(userId),
+      CacheKeys.notificationUnreadByUser(userId),
+    ]);
+  }
 
   /**
    * Create a new notification and emit via WebSocket
@@ -42,6 +51,8 @@ export class NotificationsService {
     const savedNotification =
       await this.notificationRepository.save(notification);
 
+    await this.invalidateNotificationCache(dto.userId);
+
     // Emit real-time notification if user is online
     this.notificationsGateway.emitNotification(dto.userId, savedNotification);
 
@@ -52,20 +63,48 @@ export class NotificationsService {
    * Get all notifications for a user
    */
   async findAllByUser(userId: string): Promise<Notification[]> {
-    return this.notificationRepository.find({
+    const cacheKey = CacheKeys.notificationsByUser(userId);
+    const cached = await this.cacheService.get<Notification[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const notifications = await this.notificationRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
       take: 50, // Limit to last 50 notifications
     });
+
+    await this.cacheService.set(
+      cacheKey,
+      notifications,
+      CACHE_TTL.NOTIFICATIONS_BY_USER_SECONDS,
+    );
+
+    return notifications;
   }
 
   /**
    * Get unread notifications count for a user
    */
   async getUnreadCount(userId: string): Promise<number> {
-    return this.notificationRepository.count({
+    const cacheKey = CacheKeys.notificationUnreadByUser(userId);
+    const cachedCount = await this.cacheService.get<number>(cacheKey);
+    if (cachedCount !== null) {
+      return cachedCount;
+    }
+
+    const count = await this.notificationRepository.count({
       where: { userId, isRead: false },
     });
+
+    await this.cacheService.set(
+      cacheKey,
+      count,
+      CACHE_TTL.NOTIFICATION_UNREAD_COUNT_SECONDS,
+    );
+
+    return count;
   }
 
   /**
@@ -89,6 +128,8 @@ export class NotificationsService {
     notification.isRead = true;
     const updated = await this.notificationRepository.save(notification);
 
+    await this.invalidateNotificationCache(userId);
+
     // Emit read status update
     this.notificationsGateway.emitNotificationRead(userId, notificationId);
 
@@ -104,6 +145,8 @@ export class NotificationsService {
       { isRead: true },
     );
 
+    await this.invalidateNotificationCache(userId);
+
     // Emit all read status update
     this.notificationsGateway.emitAllNotificationsRead(userId);
   }
@@ -113,6 +156,7 @@ export class NotificationsService {
    */
   async removeAll(userId: string): Promise<void> {
     await this.notificationRepository.delete({ userId });
+    await this.invalidateNotificationCache(userId);
   }
 
   /**
@@ -131,5 +175,6 @@ export class NotificationsService {
     }
 
     await this.notificationRepository.remove(notification);
+    await this.invalidateNotificationCache(userId);
   }
 }

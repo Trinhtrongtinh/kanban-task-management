@@ -30,6 +30,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { authApi } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
+import { useI18n } from '@/hooks/use-i18n';
 
 const loginSchema = z.object({
   email: z
@@ -43,6 +44,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const login = useAuthStore((s) => s.login);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -65,7 +67,7 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? 'Email hoặc mật khẩu không đúng.';
+        ?? t('common.searchError');
       setServerError(Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
@@ -78,7 +80,7 @@ export default function LoginPage() {
         </div>
         <CardTitle className="text-2xl font-bold">Đăng nhập</CardTitle>
         <CardDescription>
-          Nhập thông tin để truy cập vào tài khoản của bạn
+          {t('auth.loginDescription')}
         </CardDescription>
       </CardHeader>
 
@@ -117,7 +119,7 @@ export default function LoginPage() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Mật khẩu</FormLabel>
+                  <FormLabel>{t('auth.password')}</FormLabel>
                   <FormControl>
                     <Input
                       type="password"
@@ -136,10 +138,10 @@ export default function LoginPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang xử lý...
+                  {t('auth.processing')}
                 </>
               ) : (
-                'Đăng nhập'
+                t('auth.login')
               )}
             </Button>
           </form>
@@ -148,9 +150,9 @@ export default function LoginPage() {
 
       <CardFooter className="flex justify-center">
         <p className="text-sm text-muted-foreground">
-          Chưa có tài khoản?{' '}
+          {t('auth.noAccount')}{' '}
           <Link href="/register" className="font-medium text-primary hover:underline">
-            Đăng ký ngay
+            {t('auth.registerNow')}
           </Link>
         </p>
       </CardFooter>

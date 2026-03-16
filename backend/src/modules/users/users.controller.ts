@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Delete,
-  Get,
   HttpCode,
   HttpStatus,
   Patch,
@@ -22,20 +21,6 @@ import { ChangePasswordDto, UpdateProfileDto } from './dto';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
-  @Post()
-  @ResponseMessage('User created successfully')
-  async create(
-    @Body() body: { username: string; email: string },
-  ): Promise<User> {
-    return this.usersService.create(body.username, body.email);
-  }
-
-  @Get()
-  @ResponseMessage('Users retrieved successfully')
-  async findAll(): Promise<User[]> {
-    return this.usersService.findAll();
-  }
 
   @Patch('me')
   @UseGuards(JwtAuthGuard)

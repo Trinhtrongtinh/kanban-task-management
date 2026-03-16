@@ -8,22 +8,28 @@ import {
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BoardMember, Board, List } from '../../database/entities';
+import {
+  BoardMember,
+  Board,
+  Checklist,
+  ChecklistItem,
+  Card,
+} from '../../database/entities';
 import { BoardRole } from '../enums';
 import { BOARD_ROLES_KEY } from '../decorators';
 
-/**
- * Guard that checks board membership based on listId parameter
- * Used for list-related operations where we need to check board permissions
- */
 @Injectable()
-export class ListBoardGuard implements CanActivate {
+export class ChecklistBoardGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     @InjectRepository(BoardMember)
     private boardMemberRepository: Repository<BoardMember>,
-    @InjectRepository(List)
-    private listRepository: Repository<List>,
+    @InjectRepository(Checklist)
+    private checklistRepository: Repository<Checklist>,
+    @InjectRepository(ChecklistItem)
+    private checklistItemRepository: Repository<ChecklistItem>,
+    @InjectRepository(Card)
+    private cardRepository: Repository<Card>,
     @InjectRepository(Board)
     private boardRepository: Repository<Board>,
   ) {}
@@ -41,38 +47,63 @@ export class ListBoardGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    // Get listId from params or body (create-card flow)
-    const listId =
-      request.params.listId || request.params.id || request.body?.listId;
+    const checklistIdFromParams = request.params.checklistId;
+    let checklistId: string | undefined;
 
-    if (!listId) {
+    if (checklistIdFromParams) {
+      checklistId = checklistIdFromParams;
+    } else if (request.route?.path?.startsWith('items/')) {
+      const itemId = request.params.id;
+      if (!itemId) {
+        return true;
+      }
+
+      const item = await this.checklistItemRepository.findOne({
+        where: { id: itemId },
+      });
+
+      if (!item) {
+        throw new NotFoundException('Checklist item not found');
+      }
+
+      checklistId = item.checklistId;
+    } else {
+      checklistId = request.params.id;
+    }
+
+    if (!checklistId) {
       return true;
     }
 
-    // Get list to find boardId
-    const list = await this.listRepository.findOne({
-      where: { id: listId },
+    const checklist = await this.checklistRepository.findOne({
+      where: { id: checklistId },
     });
 
-    if (!list) {
-      throw new NotFoundException('List not found');
+    if (!checklist) {
+      throw new NotFoundException('Checklist not found');
     }
 
-    const boardId = list.boardId;
+    const card = await this.cardRepository.findOne({
+      where: { id: checklist.cardId },
+      relations: ['list'],
+    });
 
-    // Check if user is the workspace owner — full access
+    if (!card) {
+      throw new NotFoundException('Card not found');
+    }
+
+    const boardId = card.list.boardId;
+
     const board = await this.boardRepository.findOne({
       where: { id: boardId },
       relations: ['workspace'],
     });
+
     if (board && board.workspace?.ownerId === userId) {
       request.boardMembership = { userId, boardId, role: BoardRole.ADMIN };
-      request.list = list;
-      request.boardId = boardId;
       return true;
     }
 
-    // Find user's membership in the board
     const membership = await this.boardMemberRepository.findOne({
       where: { boardId, userId },
     });
@@ -81,17 +112,12 @@ export class ListBoardGuard implements CanActivate {
       throw new ForbiddenException('You are not a member of this board');
     }
 
-    // Attach info to request for later use
     request.boardMembership = membership;
-    request.list = list;
-    request.boardId = boardId;
 
-    // If no specific roles required, just being a member is enough
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
-    // Check if user has one of the required roles
     if (!requiredRoles.includes(membership.role)) {
       throw new ForbiddenException(
         `Insufficient permissions. Required roles: ${requiredRoles.join(', ')}`,

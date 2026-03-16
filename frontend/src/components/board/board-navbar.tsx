@@ -31,6 +31,7 @@ import type { User } from '@/types';
 import { useWorkspaceMembers } from '@/hooks/use-workspaces';
 import { useGetBoardMembers, useAddMemberToBoard, useRemoveMemberFromBoard } from '@/api/board-members';
 import { resolveAvatarUrl } from '@/lib/utils';
+import { useI18n } from '@/hooks/use-i18n';
 
 // ── Shared Constants ────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ interface BoardNavbarProps {
 }
 
 export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: BoardNavbarProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: boardMembers = [] } = useGetBoardMembers(boardId);
@@ -114,17 +116,17 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
   }, [boardMemberIds, addMemberMutation, removeMemberMutation, boardId]);
 
   return (
-    <div className="mb-2 flex w-full items-center justify-between rounded-lg border bg-white/60 px-4 py-2 shadow-sm backdrop-blur-sm">
+    <div className="mb-2 flex w-full items-center justify-between rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm">
       <div className="flex items-center gap-x-4">
-        <Button variant="ghost" size="sm" asChild className="text-neutral-600 hover:bg-neutral-200">
+        <Button variant="ghost" size="sm" asChild className="text-foreground/80 hover:bg-accent">
           <Link href={workspaceId ? `/workspaces/${workspaceId}` : '/workspaces'}>
             <ChevronLeft className="mr-1 h-4 w-4" />
-            <span className="font-semibold">Workspaces</span>
+            <span className="font-semibold">{t('board.backToWorkspaces')}</span>
           </Link>
         </Button>
-        <div className="h-6 w-px bg-neutral-300" />
-        <h2 className="text-lg font-bold text-neutral-700">{title}</h2>
-        <div className="h-6 w-px bg-neutral-300" />
+        <div className="h-6 w-px bg-border" />
+        <h2 className="text-lg font-bold text-foreground">{title}</h2>
+        <div className="h-6 w-px bg-border" />
 
         {/* ── Facepile: overlapping avatars ────────────── */}
         <div className="flex items-center">
@@ -154,10 +156,10 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
               <Button
                 variant="ghost"
                 size="sm"
-                className="ml-3 flex h-8 items-center gap-2 rounded-md border bg-white px-3 text-neutral-600 transition hover:bg-neutral-100"
+                className="ml-3 flex h-8 items-center gap-2 rounded-md border bg-background px-3 text-foreground/80 transition hover:bg-accent"
               >
                 <UserPlus className="h-4 w-4" />
-                <span className="text-sm font-medium">Thêm</span>
+                <span className="text-sm font-medium">{t('board.addMember')}</span>
               </Button>
             </PopoverTrigger>
 
@@ -168,14 +170,14 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
               sideOffset={8}
             >
               <Command>
-                <CommandInput placeholder="Tìm thành viên để thêm..." />
+                <CommandInput placeholder={t('board.findMember')} />
                 <CommandList>
-                  <CommandEmpty>Không tìm thấy thành viên phù hợp.</CommandEmpty>
+                  <CommandEmpty>{t('board.noMemberFound')}</CommandEmpty>
 
-                  <CommandGroup heading="Có thể thêm vào Board">
+                  <CommandGroup heading={t('board.canAddToBoard')}>
                     {invitableUsers.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-muted-foreground">
-                        Tất cả thành viên workspace đã có trong board.
+                        {t('board.allInBoard')}
                       </div>
                     ) : (
                       invitableUsers.map((user) => (
@@ -199,16 +201,16 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
                               {user.email}
                             </span>
                           </div>
-                          <span className="ml-auto text-[11px] text-primary">Thêm</span>
+                          <span className="ml-auto text-[11px] text-primary">{t('board.addMember')}</span>
                         </CommandItem>
                       ))
                     )}
                   </CommandGroup>
 
-                  <CommandGroup heading="Đã ở trong Board">
+                  <CommandGroup heading={t('board.alreadyInBoard')}>
                     {invitedUsers.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-muted-foreground">
-                        Chưa có thành viên nào trong board.
+                        {t('board.noBoardMembers')}
                       </div>
                     ) : (
                       invitedUsers.map((user) => (
@@ -248,7 +250,7 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
               <Button
                 variant="ghost"
                 size="sm"
-                className="ml-2 flex h-8 w-8 p-0 items-center justify-center rounded-md border bg-white text-neutral-600 transition hover:bg-neutral-100"
+                className="ml-2 flex h-8 w-8 p-0 items-center justify-center rounded-md border bg-background text-foreground/80 transition hover:bg-accent"
               >
                 <Settings className="h-4 w-4" />
               </Button>
@@ -261,23 +263,23 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
               sideOffset={8}
             >
               <div className="space-y-4">
-                <h4 className="font-medium leading-none">Cài đặt bảng</h4>
+                <h4 className="font-medium leading-none">{t('board.boardSettings')}</h4>
                 <p className="text-sm text-muted-foreground">
-                  Thay đổi tên hiển thị và màu nền của bảng.
+                  {t('board.boardSettingsDesc')}
                 </p>
                 <form onSubmit={handleUpdateBoard} className="space-y-3">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Tên bảng</label>
+                    <label className="text-sm font-medium">{t('board.boardName')}</label>
                     <Input
                       value={editedTitle}
                       onChange={(e) => setEditedTitle(e.target.value)}
-                      placeholder="Nhập tên bảng..."
+                      placeholder={t('board.boardNamePlaceholder')}
                       disabled={updateBoardMutation.isPending}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Màu nền</label>
+                    <label className="text-sm font-medium">{t('board.backgroundColor')}</label>
                     <div className="grid grid-cols-4 gap-2">
                       {GRADIENT_PRESETS.map((g, idx) => (
                         <div
@@ -298,7 +300,7 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
                     className="w-full mt-2"
                     disabled={updateBoardMutation.isPending || !editedTitle.trim()}
                   >
-                    {updateBoardMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lưu lại'}
+                    {updateBoardMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('board.save')}
                   </Button>
                 </form>
               </div>

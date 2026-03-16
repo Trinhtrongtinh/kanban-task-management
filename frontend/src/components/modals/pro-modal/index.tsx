@@ -28,7 +28,7 @@ export function ProModal() {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl p-0 overflow-hidden border-0 bg-transparent shadow-none">
-        <div className="bg-white rounded-xl overflow-hidden text-center p-6 space-y-6">
+        <div className="bg-card rounded-xl overflow-hidden text-center p-6 space-y-6 border">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 mb-2">
               <Zap className="h-4 w-4" /> Nâng cấp tài khoản

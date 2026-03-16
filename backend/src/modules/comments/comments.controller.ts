@@ -14,13 +14,14 @@ import { CreateCommentDto, UpdateCommentDto } from './dto';
 import { Comment } from '../../database/entities';
 import { ResponseMessage, CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
+import { CardBoardGuard } from '../../common/guards';
 
 @Controller()
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
   @Post('cards/:cardId/comments')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
   @ResponseMessage('Comment created successfully')
   async create(
     @Param('cardId', ParseUUIDPipe) cardId: string,
@@ -31,6 +32,7 @@ export class CommentsController {
   }
 
   @Get('cards/:cardId/comments')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
   @ResponseMessage('Comments retrieved successfully')
   async findAllByCard(
     @Param('cardId', ParseUUIDPipe) cardId: string,

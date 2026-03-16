@@ -6,6 +6,7 @@ import { CreateBoardDto, UpdateBoardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode, BoardRole, MemberStatus } from '../../common/enums';
 import { User, PlanType } from '../../database/entities';
+import { AppCacheService, CACHE_TTL, CacheKeys } from '../../common/cache';
 
 const FREE_PLAN_BOARD_LIMIT = 3;
 
@@ -20,7 +21,36 @@ export class BoardsService {
     private readonly boardMemberRepository: Repository<BoardMember>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly cacheService: AppCacheService,
   ) { }
+
+  private async getWorkspaceAudienceUserIds(workspaceId: string): Promise<string[]> {
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: ['ownerId'],
+    });
+
+    if (!workspace) {
+      return [];
+    }
+
+    const members = await this.boardRepository.manager.find(WorkspaceMember, {
+      where: { workspaceId, status: MemberStatus.ACTIVE },
+      select: ['userId'],
+    });
+
+    return Array.from(
+      new Set([workspace.ownerId, ...members.map((member) => member.userId)]),
+    );
+  }
+
+  private async invalidateBoardsByWorkspace(workspaceId: string): Promise<void> {
+    const userIds = await this.getWorkspaceAudienceUserIds(workspaceId);
+    const keys = userIds.map((userId) =>
+      CacheKeys.boardsByWorkspaceAndUser(workspaceId, userId),
+    );
+    await this.cacheService.delMany(keys);
+  }
 
   /**
    * Generate slug from title
@@ -152,6 +182,7 @@ export class BoardsService {
 
   async create(createBoardDto: CreateBoardDto, userId: string): Promise<Board> {
     const { title, slug, workspaceId, ...rest } = createBoardDto;
+    const normalizedTitle = title.trim();
 
     // Validate workspace exists and user is the owner
     const workspace = await this.workspaceRepository.findOne({
@@ -170,6 +201,22 @@ export class BoardsService {
         ErrorCode.WORKSPACE_ACCESS_DENIED,
         HttpStatus.FORBIDDEN,
         'Chỉ người tạo workspace mới có thể tạo bảng',
+      );
+    }
+
+    const existingBoardWithSameTitle = await this.boardRepository
+      .createQueryBuilder('board')
+      .where('board.workspace_id = :workspaceId', { workspaceId })
+      .andWhere('LOWER(TRIM(board.title)) = LOWER(TRIM(:title))', {
+        title: normalizedTitle,
+      })
+      .getOne();
+
+    if (existingBoardWithSameTitle) {
+      throw new BusinessException(
+        ErrorCode.BOARD_TITLE_EXISTS,
+        HttpStatus.CONFLICT,
+        'Tên bảng đã tồn tại trong workspace này',
       );
     }
 
@@ -193,7 +240,7 @@ export class BoardsService {
     boardSlug = await this.ensureUniqueSlug(boardSlug);
 
     const board = this.boardRepository.create({
-      title,
+      title: normalizedTitle,
       slug: boardSlug,
       workspaceId,
       ...rest,
@@ -209,10 +256,18 @@ export class BoardsService {
     });
     await this.boardMemberRepository.save(boardMember);
 
+    await this.invalidateBoardsByWorkspace(workspaceId);
+
     return savedBoard;
   }
 
   async findAllByWorkspace(workspaceId: string, userId: string): Promise<Board[]> {
+    const cacheKey = CacheKeys.boardsByWorkspaceAndUser(workspaceId, userId);
+    const cached = await this.cacheService.get<Board[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
     });
@@ -236,7 +291,13 @@ export class BoardsService {
         .andWhere('bm.user_id = :userId', { userId });
     }
 
-    return query.orderBy('board.created_at', 'DESC').getMany();
+    const boards = await query.orderBy('board.created_at', 'DESC').getMany();
+    await this.cacheService.set(
+      cacheKey,
+      boards,
+      CACHE_TTL.BOARDS_BY_WORKSPACE_SECONDS,
+    );
+    return boards;
   }
 
   async findOne(id: string): Promise<Board> {
@@ -277,17 +338,38 @@ export class BoardsService {
     }
 
     if (title) {
-      board.title = title;
+      const normalizedTitle = title.trim();
+      const existingBoardWithSameTitle = await this.boardRepository
+        .createQueryBuilder('b')
+        .where('b.workspace_id = :workspaceId', { workspaceId: board.workspaceId })
+        .andWhere('b.id != :id', { id: board.id })
+        .andWhere('LOWER(TRIM(b.title)) = LOWER(TRIM(:title))', {
+          title: normalizedTitle,
+        })
+        .getOne();
+
+      if (existingBoardWithSameTitle) {
+        throw new BusinessException(
+          ErrorCode.BOARD_TITLE_EXISTS,
+          HttpStatus.CONFLICT,
+          'Tên bảng đã tồn tại trong workspace này',
+        );
+      }
+
+      board.title = normalizedTitle;
     }
 
     Object.assign(board, rest);
 
-    return this.boardRepository.save(board);
+    const updatedBoard = await this.boardRepository.save(board);
+    await this.invalidateBoardsByWorkspace(board.workspaceId);
+    return updatedBoard;
   }
 
   async remove(id: string): Promise<void> {
     const board = await this.findOne(id);
     await this.boardRepository.remove(board);
+    await this.invalidateBoardsByWorkspace(board.workspaceId);
   }
 
   async getMembers(boardId: string): Promise<User[]> {
@@ -332,15 +414,19 @@ export class BoardsService {
       role: BoardRole.EDITOR
     });
 
-    return this.boardMemberRepository.save(newMember);
+    const savedMember = await this.boardMemberRepository.save(newMember);
+    await this.invalidateBoardsByWorkspace(board.workspaceId);
+    return savedMember;
   }
 
   async removeMember(boardId: string, userId: string): Promise<void> {
+    const board = await this.findOne(boardId);
     const existing = await this.boardMemberRepository.findOne({
       where: { boardId, userId }
     });
     if (existing) {
       await this.boardMemberRepository.remove(existing);
     }
+    await this.invalidateBoardsByWorkspace(board.workspaceId);
   }
 }

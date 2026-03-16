@@ -8,22 +8,25 @@ import {
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BoardMember, Board, List } from '../../database/entities';
+import {
+  Attachment,
+  Board,
+  BoardMember,
+  Card,
+} from '../../database/entities';
 import { BoardRole } from '../enums';
 import { BOARD_ROLES_KEY } from '../decorators';
 
-/**
- * Guard that checks board membership based on listId parameter
- * Used for list-related operations where we need to check board permissions
- */
 @Injectable()
-export class ListBoardGuard implements CanActivate {
+export class AttachmentBoardGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
+    @InjectRepository(Attachment)
+    private attachmentRepository: Repository<Attachment>,
     @InjectRepository(BoardMember)
     private boardMemberRepository: Repository<BoardMember>,
-    @InjectRepository(List)
-    private listRepository: Repository<List>,
+    @InjectRepository(Card)
+    private cardRepository: Repository<Card>,
     @InjectRepository(Board)
     private boardRepository: Repository<Board>,
   ) {}
@@ -41,38 +44,40 @@ export class ListBoardGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    // Get listId from params or body (create-card flow)
-    const listId =
-      request.params.listId || request.params.id || request.body?.listId;
-
-    if (!listId) {
+    const attachmentId = request.params.id;
+    if (!attachmentId) {
       return true;
     }
 
-    // Get list to find boardId
-    const list = await this.listRepository.findOne({
-      where: { id: listId },
+    const attachment = await this.attachmentRepository.findOne({
+      where: { id: attachmentId },
     });
 
-    if (!list) {
-      throw new NotFoundException('List not found');
+    if (!attachment) {
+      throw new NotFoundException('Attachment not found');
     }
 
-    const boardId = list.boardId;
+    const card = await this.cardRepository.findOne({
+      where: { id: attachment.cardId },
+      relations: ['list'],
+    });
 
-    // Check if user is the workspace owner — full access
+    if (!card) {
+      throw new NotFoundException('Card not found');
+    }
+
+    const boardId = card.list.boardId;
+
     const board = await this.boardRepository.findOne({
       where: { id: boardId },
       relations: ['workspace'],
     });
+
     if (board && board.workspace?.ownerId === userId) {
       request.boardMembership = { userId, boardId, role: BoardRole.ADMIN };
-      request.list = list;
-      request.boardId = boardId;
       return true;
     }
 
-    // Find user's membership in the board
     const membership = await this.boardMemberRepository.findOne({
       where: { boardId, userId },
     });
@@ -81,17 +86,12 @@ export class ListBoardGuard implements CanActivate {
       throw new ForbiddenException('You are not a member of this board');
     }
 
-    // Attach info to request for later use
     request.boardMembership = membership;
-    request.list = list;
-    request.boardId = boardId;
 
-    // If no specific roles required, just being a member is enough
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
-    // Check if user has one of the required roles
     if (!requiredRoles.includes(membership.role)) {
       throw new ForbiddenException(
         `Insufficient permissions. Required roles: ${requiredRoles.join(', ')}`,

@@ -6,12 +6,14 @@ import { CommentsGateway } from './comments.gateway';
 import { Comment, Card, BoardMember } from '../../database/entities';
 import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Comment, Card, BoardMember]),
     ActivitiesModule,
     NotificationsModule,
+    CommonModule,
   ],
   controllers: [CommentsController],
   providers: [CommentsService, CommentsGateway],

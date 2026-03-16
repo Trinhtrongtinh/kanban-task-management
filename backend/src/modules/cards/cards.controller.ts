@@ -21,7 +21,7 @@ import { LabelsService } from '../labels/labels.service';
 import { ChecklistsService } from '../checklists/checklists.service';
 import { CreateChecklistDto } from '../checklists/dto';
 import { JwtAuthGuard } from '../auth/guards';
-import { CardBoardGuard } from '../../common/guards';
+import { CardBoardGuard, ListBoardGuard } from '../../common/guards';
 import { BoardRole } from '../../common/enums';
 
 @Controller('cards')
@@ -33,7 +33,8 @@ export class CardsController {
   ) { }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ListBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Card created successfully')
   async create(
     @Body() createCardDto: CreateCardDto,
@@ -46,15 +47,8 @@ export class CardsController {
     return this.cardsService.create(createCardDto);
   }
 
-  @Get('list/:listId')
-  @ResponseMessage('Cards retrieved successfully')
-  async findAllByList(
-    @Param('listId', ParseUUIDPipe) listId: string,
-  ): Promise<Card[]> {
-    return this.cardsService.findAllByList(listId);
-  }
-
   @Get(':id')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
   @ResponseMessage('Card retrieved successfully')
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Card> {
     return this.cardsService.findOne(id);
@@ -93,6 +87,8 @@ export class CardsController {
 
   // Card-Label assignment endpoints
   @Post(':cardId/labels/:labelId')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Label assigned to card successfully')
   async addLabelToCard(
     @Param('cardId', ParseUUIDPipe) cardId: string,
@@ -102,6 +98,8 @@ export class CardsController {
   }
 
   @Delete(':cardId/labels/:labelId')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Label removed from card successfully')
   async removeLabelFromCard(
     @Param('cardId', ParseUUIDPipe) cardId: string,
@@ -112,6 +110,8 @@ export class CardsController {
 
   // Card-Checklist endpoints
   @Post(':cardId/checklists')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Checklist created successfully')
   async createChecklist(
     @Param('cardId', ParseUUIDPipe) cardId: string,
@@ -121,6 +121,7 @@ export class CardsController {
   }
 
   @Get(':cardId/checklists')
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
   @ResponseMessage('Checklists retrieved successfully')
   async findChecklistsByCard(
     @Param('cardId', ParseUUIDPipe) cardId: string,

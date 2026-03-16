@@ -63,6 +63,17 @@ export class WorkspacesController {
     return this.workspacesService.update(id, updateWorkspaceDto);
   }
 
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
+  @RequireWorkspaceRole(WorkspaceRole.OWNER)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') requesterId: string,
+  ): Promise<void> {
+    return this.workspacesService.remove(id, requesterId);
+  }
+
   /**
    * Invite a member to workspace
    * Only OWNER or ADMIN can invite

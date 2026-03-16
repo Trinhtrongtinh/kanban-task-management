@@ -8,22 +8,25 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Zap, Check, Upload, Link2, Users, Bell, Blocks, CreditCard, Settings, Loader2, Trash2 } from 'lucide-react';
+import { Zap, Check, Upload, Link2, Users, Bell, Blocks, CreditCard, Settings, Loader2, Trash2, ArrowLeft } from 'lucide-react';
 import { useProModal } from '@/hooks/use-pro-modal';
 import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember, useRemoveWorkspaceMember } from '@/hooks/use-workspaces';
+import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember, useRemoveWorkspaceMember, useDeleteWorkspace } from '@/hooks/use-workspaces';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { resolveAvatarUrl } from '@/lib/utils';
 import { paymentsApi } from '@/api/payments';
+import { useI18n } from '@/hooks/use-i18n';
 export default function WorkspaceSettingsPage({
   params
 }: {
   params: Promise<{ workspaceId: string }>
 }) {
   const router = useRouter();
+  const { t, locale } = useI18n();
+  const isEn = locale === 'en';
   const { workspaceId } = use(params);
   const { user } = useAuthStore();
 
@@ -39,6 +42,7 @@ export default function WorkspaceSettingsPage({
   }, [workspace, user, isLoadingWs, router, workspaceId]);
 
   const updateMutation = useUpdateWorkspace();
+  const deleteWorkspaceMutation = useDeleteWorkspace();
 
   const onOpen = useProModal((state) => state.onOpen);
   const isPro = user?.planType === 'PRO';
@@ -72,6 +76,8 @@ export default function WorkspaceSettingsPage({
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [memberPendingRemove, setMemberPendingRemove] = useState<{ userId: string; name?: string } | null>(null);
+  const [isDeleteWorkspaceOpen, setIsDeleteWorkspaceOpen] = useState(false);
+  const [deleteWorkspaceConfirmName, setDeleteWorkspaceConfirmName] = useState('');
 
   const handleUpdate = () => {
     updateMutation.mutate({
@@ -118,6 +124,27 @@ export default function WorkspaceSettingsPage({
     );
   };
 
+  const handleDeleteWorkspace = () => {
+    if (!workspace) return;
+
+    if (deleteWorkspaceConfirmName.trim() !== workspace.name) {
+      toast.error('Vui lòng nhập đúng tên workspace để xác nhận xóa.');
+      return;
+    }
+
+    deleteWorkspaceMutation.mutate(workspaceId, {
+      onSuccess: () => {
+        toast.success(isEn ? 'Workspace deleted successfully.' : 'Đã xóa workspace thành công.');
+        setIsDeleteWorkspaceOpen(false);
+        setDeleteWorkspaceConfirmName('');
+        router.push('/workspaces');
+      },
+      onError: (err: any) => {
+        toast.error(err?.response?.data?.message || (isEn ? 'Unable to delete workspace' : 'Không thể xóa workspace'));
+      },
+    });
+  };
+
   const roleLabelMap: Record<string, string> = {
     OWNER: 'Owner',
     MEMBER: 'Member',
@@ -127,11 +154,21 @@ export default function WorkspaceSettingsPage({
 
   return (
     <div className="mx-auto mt-8 max-w-6xl space-y-8 pb-16">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Workspace Settings</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage your workspace preferences, members, and billing details.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{t('workspaceSettings.title')}</h1>
+          <p className="text-muted-foreground mt-2">
+            {t('workspaceSettings.subtitle')}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={() => router.push(`/workspaces/${workspaceId}`)}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('common.exit')}
+        </Button>
       </div>
 
       {isLoadingWs ? (
@@ -146,31 +183,31 @@ export default function WorkspaceSettingsPage({
               value="general"
               className="w-full justify-start gap-2 px-4 py-2 text-muted-foreground data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-none hover:bg-muted/40 hover:text-foreground rounded-md transition-colors"
             >
-              <Settings className="w-4 h-4 shrink-0" /> General
+              <Settings className="w-4 h-4 shrink-0" /> {t('common.general')}
             </TabsTrigger>
             <TabsTrigger
               value="members"
               className="w-full justify-start gap-2 px-4 py-2 text-muted-foreground data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-none hover:bg-muted/40 hover:text-foreground rounded-md transition-colors"
             >
-              <Users className="w-4 h-4 shrink-0" /> Members
+              <Users className="w-4 h-4 shrink-0" /> {t('common.members')}
             </TabsTrigger>
             <TabsTrigger
               value="notifications"
               className="w-full justify-start gap-2 px-4 py-2 text-muted-foreground data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-none hover:bg-muted/40 hover:text-foreground rounded-md transition-colors"
             >
-              <Bell className="w-4 h-4 shrink-0" /> Notifications
+              <Bell className="w-4 h-4 shrink-0" /> {t('common.notifications')}
             </TabsTrigger>
             <TabsTrigger
               value="integrations"
               className="w-full justify-start gap-2 px-4 py-2 text-muted-foreground data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-none hover:bg-muted/40 hover:text-foreground rounded-md transition-colors"
             >
-              <Blocks className="w-4 h-4 shrink-0" /> Integrations
+              <Blocks className="w-4 h-4 shrink-0" /> {t('common.integrations')}
             </TabsTrigger>
             <TabsTrigger
               value="billing"
               className="w-full justify-start gap-2 px-4 py-2 text-muted-foreground data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-none hover:bg-muted/40 hover:text-foreground rounded-md transition-colors"
             >
-              <CreditCard className="w-4 h-4 shrink-0" /> Billing
+              <CreditCard className="w-4 h-4 shrink-0" /> {t('common.billing')}
             </TabsTrigger>
           </TabsList>
 
@@ -181,9 +218,9 @@ export default function WorkspaceSettingsPage({
             <TabsContent value="general" className="mt-0 space-y-6 focus-visible:outline-none focus-visible:ring-0">
               <Card className="border-border/50 shadow-sm">
                 <CardHeader>
-                  <CardTitle>Workspace Info</CardTitle>
+                  <CardTitle>{isEn ? 'Workspace Info' : 'Thông tin Workspace'}</CardTitle>
                   <CardDescription>
-                    Update your workspace details and branding.
+                    {isEn ? 'Update your workspace details and branding.' : 'Cập nhật thông tin và nhận diện của workspace.'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -192,30 +229,30 @@ export default function WorkspaceSettingsPage({
                       <Upload className="w-6 h-6" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium">Workspace Logo</h4>
-                      <p className="text-sm text-muted-foreground mb-3">Recommended size: 256x256px (PNG, JPG).</p>
-                      <Button variant="outline" size="sm">Upload new image</Button>
+                      <h4 className="text-sm font-medium">{isEn ? 'Workspace Logo' : 'Logo Workspace'}</h4>
+                      <p className="text-sm text-muted-foreground mb-3">{isEn ? 'Recommended size: 256x256px (PNG, JPG).' : 'Kích thước đề xuất: 256x256px (PNG, JPG).'}</p>
+                      <Button variant="outline" size="sm">{isEn ? 'Upload new image' : 'Tải ảnh mới'}</Button>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="name">Workspace Name</Label>
+                    <Label htmlFor="name">{isEn ? 'Workspace Name' : 'Tên Workspace'}</Label>
                     <Input
                       id="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter workspace name"
+                      placeholder={isEn ? 'Enter workspace name' : 'Nhập tên workspace'}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="slug">Workspace URL (Slug)</Label>
+                    <Label htmlFor="slug">{isEn ? 'Workspace URL (Slug)' : 'Đường dẫn Workspace (Slug)'}</Label>
                     <div className="flex items-center">
                       <span className="bg-muted px-3 py-2 text-sm text-muted-foreground border border-r-0 rounded-l-md truncate">kanban.com/</span>
                       <Input
                         id="slug"
                         value={slug}
                         onChange={(e) => setSlug(e.target.value)}
-                        placeholder="workspace-slug"
+                        placeholder={isEn ? 'workspace-slug' : 'duong-dan-workspace'}
                         className="rounded-l-none"
                       />
                     </div>
@@ -223,8 +260,71 @@ export default function WorkspaceSettingsPage({
                 </CardContent>
                 <CardFooter className="bg-muted/20 border-t py-4">
                   <Button onClick={handleUpdate} disabled={updateMutation.isPending}>
-                    {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Save Changes
+                    {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {isEn ? 'Save Changes' : 'Lưu thay đổi'}
                   </Button>
+                </CardFooter>
+              </Card>
+
+              <Card className="border-destructive/40 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-destructive">{isEn ? 'Delete Workspace' : 'Xóa Workspace'}</CardTitle>
+                  <CardDescription>
+                    {isEn
+                      ? 'This action cannot be undone. All boards, lists, cards, and related data will be permanently removed.'
+                      : 'Hành động này không thể hoàn tác. Toàn bộ bảng, danh sách, thẻ và dữ liệu liên quan sẽ bị xóa vĩnh viễn.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardFooter className="bg-destructive/5 border-t py-4">
+                  <Dialog
+                    open={isDeleteWorkspaceOpen}
+                    onOpenChange={(open) => {
+                      setIsDeleteWorkspaceOpen(open);
+                      if (!open) setDeleteWorkspaceConfirmName('');
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" className="gap-2">
+                        <Trash2 className="h-4 w-4" />
+                        {isEn ? 'Delete workspace' : 'Xóa workspace'}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>{isEn ? 'Confirm workspace deletion' : 'Xác nhận xóa workspace'}</DialogTitle>
+                        <DialogDescription>
+                          {isEn
+                            ? <>Type the exact workspace name <span className="font-semibold text-foreground">{workspace?.name}</span> to confirm.</>
+                            : <>Nhập chính xác tên workspace <span className="font-semibold text-foreground">{workspace?.name}</span> để xác nhận.</>}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-2 py-2">
+                        <Label htmlFor="delete-workspace-name">{isEn ? 'Workspace name' : 'Tên workspace'}</Label>
+                        <Input
+                          id="delete-workspace-name"
+                          value={deleteWorkspaceConfirmName}
+                          onChange={(e) => setDeleteWorkspaceConfirmName(e.target.value)}
+                          placeholder={workspace?.name || (isEn ? 'Type workspace name' : 'Nhập tên workspace')}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsDeleteWorkspaceOpen(false)}
+                          disabled={deleteWorkspaceMutation.isPending}
+                        >
+                          {isEn ? 'Cancel' : 'Hủy'}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={handleDeleteWorkspace}
+                          disabled={deleteWorkspaceMutation.isPending}
+                        >
+                          {deleteWorkspaceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                          {isEn ? 'Delete permanently' : 'Xóa vĩnh viễn'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </CardFooter>
               </Card>
             </TabsContent>
@@ -234,9 +334,9 @@ export default function WorkspaceSettingsPage({
               <Card className="border-border/50 shadow-sm">
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0 pb-6">
                   <div className="space-y-1">
-                    <CardTitle>Members</CardTitle>
+                    <CardTitle>{isEn ? 'Members' : 'Thành viên'}</CardTitle>
                     <CardDescription>
-                      Manage who has access to this workspace.
+                      {isEn ? 'Manage who has access to this workspace.' : 'Quản lý quyền truy cập vào workspace này.'}
                     </CardDescription>
                   </div>
 
@@ -355,35 +455,35 @@ export default function WorkspaceSettingsPage({
             <TabsContent value="notifications" className="mt-0 space-y-6 focus-visible:outline-none focus-visible:ring-0">
               <Card className="border-border/50 shadow-sm">
                 <CardHeader>
-                  <CardTitle>Notifications</CardTitle>
+                  <CardTitle>{isEn ? 'Notifications' : 'Thông báo'}</CardTitle>
                   <CardDescription>
-                    Configure how you receive alerts and summaries.
+                    {isEn ? 'Configure how you receive alerts and summaries.' : 'Cấu hình cách bạn nhận cảnh báo và bản tóm tắt.'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
-                    <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">Email Preferences</h4>
+                    <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">{isEn ? 'Email Preferences' : 'Tùy chọn Email'}</h4>
 
                     <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm bg-card">
                       <div className="flex flex-col space-y-1">
-                        <Label htmlFor="due-date" className="font-medium">Due Date Reminders</Label>
-                        <span className="text-sm text-muted-foreground">Email me when a card is due soon (24h).</span>
+                        <Label htmlFor="due-date" className="font-medium">{isEn ? 'Due Date Reminders' : 'Nhắc hạn thẻ'}</Label>
+                        <span className="text-sm text-muted-foreground">{isEn ? 'Email me when a card is due soon (24h).' : 'Gửi email khi thẻ sắp đến hạn (24h).'}</span>
                       </div>
                       <Switch id="due-date" defaultChecked />
                     </div>
 
                     <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm bg-card">
                       <div className="flex flex-col space-y-1">
-                        <Label htmlFor="mentions" className="font-medium">Mentions</Label>
-                        <span className="text-sm text-muted-foreground">Email me when someone mentions me in a comment.</span>
+                        <Label htmlFor="mentions" className="font-medium">{isEn ? 'Mentions' : 'Đề cập'}</Label>
+                        <span className="text-sm text-muted-foreground">{isEn ? 'Email me when someone mentions me in a comment.' : 'Gửi email khi có người @nhắc đến tôi trong bình luận.'}</span>
                       </div>
                       <Switch id="mentions" defaultChecked />
                     </div>
 
                     <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm bg-card">
                       <div className="flex flex-col space-y-1">
-                        <Label htmlFor="digest" className="font-medium">Weekly Digest</Label>
-                        <span className="text-sm text-muted-foreground">Receive a weekly summary of workspace activity.</span>
+                        <Label htmlFor="digest" className="font-medium">{isEn ? 'Weekly Digest' : 'Tổng hợp tuần'}</Label>
+                        <span className="text-sm text-muted-foreground">{isEn ? 'Receive a weekly summary of workspace activity.' : 'Nhận tổng hợp hoạt động workspace theo tuần.'}</span>
                       </div>
                       <Switch id="digest" />
                     </div>
@@ -396,9 +496,9 @@ export default function WorkspaceSettingsPage({
             <TabsContent value="integrations" className="mt-0 space-y-6 focus-visible:outline-none focus-visible:ring-0">
               <Card className="border-border/50 shadow-sm">
                 <CardHeader>
-                  <CardTitle>Integrations</CardTitle>
+                  <CardTitle>{isEn ? 'Integrations' : 'Tích hợp'}</CardTitle>
                   <CardDescription>
-                    Connect your workspace with third-party tools via Webhooks.
+                    {isEn ? 'Connect your workspace with third-party tools via webhooks.' : 'Kết nối workspace với công cụ bên thứ ba qua webhook.'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -408,12 +508,12 @@ export default function WorkspaceSettingsPage({
                       <Blocks className="h-24 w-24" />
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="bg-indigo-100 p-3 rounded-xl text-indigo-600">
+                      <div className="bg-indigo-100 dark:bg-indigo-950/40 p-3 rounded-xl text-indigo-600 dark:text-indigo-300">
                         <Link2 className="h-6 w-6" />
                       </div>
                       <div className="z-10">
-                        <h4 className="text-lg font-semibold">Custom Webhooks</h4>
-                        <p className="text-sm text-muted-foreground">Send card updates directly to Discord or Slack channels.</p>
+                        <h4 className="text-lg font-semibold">{isEn ? 'Custom Webhooks' : 'Webhook tùy chỉnh'}</h4>
+                        <p className="text-sm text-muted-foreground">{isEn ? 'Send card updates directly to Discord or Slack channels.' : 'Gửi cập nhật thẻ trực tiếp đến Discord hoặc Slack.'}</p>
                       </div>
                     </div>
 
@@ -422,7 +522,7 @@ export default function WorkspaceSettingsPage({
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Endpoint URL</Label>
                         <Input placeholder="https://discord.com/api/webhooks/..." className="bg-background" />
                       </div>
-                      <Button variant="secondary" className="w-fit">Add Webhook</Button>
+                      <Button variant="secondary" className="w-fit">{isEn ? 'Add Webhook' : 'Thêm Webhook'}</Button>
                     </div>
                   </div>
                 </CardContent>
@@ -472,7 +572,7 @@ export default function WorkspaceSettingsPage({
                           disabled={isPortalLoading}
                         >
                           {isPortalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-                          Quản lý gói
+                          {isEn ? 'Manage plan' : 'Quản lý gói'}
                         </Button>
                       )}
                     </div>
@@ -481,7 +581,7 @@ export default function WorkspaceSettingsPage({
                   {!isPro && (
                     <div className="pt-2">
                       {/* Upgrade Pitch Card */}
-                      <div className="relative rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50/50 p-6 sm:p-8 shadow-sm overflow-hidden">
+                      <div className="relative rounded-2xl border border-amber-200 dark:border-amber-800/40 bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-amber-950/30 dark:to-amber-900/10 p-6 sm:p-8 shadow-sm overflow-hidden">
                         <div className="absolute top-0 right-0 -translate-y-4 translate-x-4 opacity-5 pointer-events-none">
                           <Zap className="h-64 w-64 text-amber-500 fill-amber-500" />
                         </div>
@@ -489,32 +589,32 @@ export default function WorkspaceSettingsPage({
                         <div className="relative z-10">
                           <div className="mb-6 flex items-center justify-between">
                             <div>
-                              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 mb-3">
+                              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-200 mb-3">
                                 <Zap className="h-3.5 w-3.5" /> PRO
                               </div>
-                              <h3 className="text-2xl font-bold text-amber-950">Mở khóa toàn bộ tiềm năng</h3>
-                              <p className="text-amber-800/80 mt-1">Nâng cấp lên Pro để sử dụng đầy đủ các tính năng.</p>
+                              <h3 className="text-2xl font-bold text-amber-950 dark:text-amber-100">Mở khóa toàn bộ tiềm năng</h3>
+                              <p className="text-amber-800/80 dark:text-amber-200/80 mt-1">Nâng cấp lên Pro để sử dụng đầy đủ các tính năng.</p>
                             </div>
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                            <ul className="space-y-4 text-sm text-amber-900/90">
+                            <ul className="space-y-4 text-sm text-amber-900/90 dark:text-amber-100/90">
                               <li className="flex items-center gap-x-3">
-                                <div className="bg-amber-100 rounded-full p-1"><Check className="h-3 w-3 text-amber-600" /></div>
+                                <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-1"><Check className="h-3 w-3 text-amber-600 dark:text-amber-300" /></div>
                                 <span className="font-medium">Không giới hạn</span> bảng & danh sách
                               </li>
                               <li className="flex items-center gap-x-3">
-                                <div className="bg-amber-100 rounded-full p-1"><Check className="h-3 w-3 text-amber-600" /></div>
+                                <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-1"><Check className="h-3 w-3 text-amber-600 dark:text-amber-300" /></div>
                                 Thành viên <span className="font-medium">không giới hạn</span>
                               </li>
                             </ul>
-                            <ul className="space-y-4 text-sm text-amber-900/90">
+                            <ul className="space-y-4 text-sm text-amber-900/90 dark:text-amber-100/90">
                               <li className="flex items-center gap-x-3">
-                                <div className="bg-amber-100 rounded-full p-1"><Check className="h-3 w-3 text-amber-600" /></div>
+                                <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-1"><Check className="h-3 w-3 text-amber-600 dark:text-amber-300" /></div>
                                 Tệp đính kèm tới <span className="font-medium">250MB</span>
                               </li>
                               <li className="flex items-center gap-x-3">
-                                <div className="bg-amber-100 rounded-full p-1"><Check className="h-3 w-3 text-amber-600" /></div>
+                                <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-1"><Check className="h-3 w-3 text-amber-600 dark:text-amber-300" /></div>
                                 <span className="font-medium">Hỗ trợ ưu tiên</span> 24/7
                               </li>
                             </ul>
@@ -525,7 +625,7 @@ export default function WorkspaceSettingsPage({
                             size="lg"
                             className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 font-semibold text-white shadow-md focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 border-0"
                           >
-                            Nâng cấp $9/tháng
+                            {isEn ? 'Upgrade $9/month' : 'Nâng cấp $9/tháng'}
                           </Button>
                         </div>
                       </div>

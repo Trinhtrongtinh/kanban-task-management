@@ -3,15 +3,8 @@ import {
   Post,
   Get,
   Body,
-  Req,
-  Res,
-  Headers,
   UseGuards,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
-import type { RawBodyRequest } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreateCheckoutDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
@@ -35,32 +28,6 @@ export class PaymentsController {
       createCheckoutDto,
       userId,
     );
-  }
-
-  /**
-   * Handle Stripe webhook
-   * IMPORTANT: This route must receive raw body for signature verification
-   */
-  @Post('webhook')
-  @HttpCode(HttpStatus.OK)
-  async handleWebhook(
-    @Req() req: RawBodyRequest<Request>,
-    @Headers('stripe-signature') signature: string,
-    @Res() res: Response,
-  ): Promise<void> {
-    const rawBody = req.rawBody;
-
-    if (!rawBody) {
-      res.status(400).send('Missing raw body');
-      return;
-    }
-
-    try {
-      await this.paymentsService.handleWebhook(rawBody, signature);
-      res.status(200).json({ received: true });
-    } catch (error) {
-      res.status(400).json({ error: error.message });
-    }
   }
 
   /**

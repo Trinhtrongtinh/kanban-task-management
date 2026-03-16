@@ -79,6 +79,11 @@ export const workspacesApi = {
     return res.data.data;
   },
 
+  /** DELETE /workspaces/:id - Delete workspace */
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/workspaces/${id}`);
+  },
+
   // ── Members ───────────────────────────────────────────────────────────
 
   /** GET /workspaces/:id/members - Get all members of a workspace */

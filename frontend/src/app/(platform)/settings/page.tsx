@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -19,84 +18,122 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import {
-  Moon,
-  Sun,
-  Globe,
-  Bell,
-  Monitor,
-  CheckCircle2,
-} from 'lucide-react';
+import { Moon, Sun, Globe, Monitor, CheckCircle2 } from 'lucide-react';
+import { usePreferencesStore, type AppLanguage, type AppTheme } from '@/stores/preferencesStore';
 
-function SaveFeedback({ saved }: { saved: boolean }) {
+function SaveFeedback({ saved, label }: { saved: boolean; label: string }) {
   if (!saved) return null;
   return (
     <span className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-left-2">
       <CheckCircle2 className="h-4 w-4" />
-      Saved!
+      {label}
     </span>
   );
 }
 
+const COPY: Record<
+  AppLanguage,
+  {
+    title: string;
+    description: string;
+    appearanceTitle: string;
+    appearanceDescription: string;
+    theme: string;
+    language: string;
+    density: string;
+    save: string;
+    saved: string;
+    themeOptions: Record<AppTheme, string>;
+    densityOptions: Record<'compact' | 'comfortable' | 'spacious', string>;
+  }
+> = {
+  vi: {
+    title: 'Tùy chỉnh ứng dụng',
+    description: 'Tùy chỉnh giao diện, ngôn ngữ và mật độ hiển thị cho toàn bộ ứng dụng.',
+    appearanceTitle: 'Hiển thị',
+    appearanceDescription: 'Các thay đổi được áp dụng ngay lập tức và tự động lưu.',
+    theme: 'Chế độ màu',
+    language: 'Ngôn ngữ',
+    density: 'Mật độ hiển thị',
+    save: 'Lưu tùy chỉnh',
+    saved: 'Đã lưu',
+    themeOptions: {
+      system: 'Theo hệ thống',
+      light: 'Sáng',
+      dark: 'Tối',
+    },
+    densityOptions: {
+      compact: 'Gọn',
+      comfortable: 'Tiêu chuẩn',
+      spacious: 'Rộng',
+    },
+  },
+  en: {
+    title: 'App Preferences',
+    description: 'Customize theme, language, and display density for the entire app.',
+    appearanceTitle: 'Appearance',
+    appearanceDescription: 'Changes apply instantly and are saved automatically.',
+    theme: 'Theme',
+    language: 'Language',
+    density: 'Display density',
+    save: 'Save Preferences',
+    saved: 'Saved!',
+    themeOptions: {
+      system: 'System',
+      light: 'Light',
+      dark: 'Dark',
+    },
+    densityOptions: {
+      compact: 'Compact',
+      comfortable: 'Comfortable',
+      spacious: 'Spacious',
+    },
+  },
+};
+
 export default function AppSettingsPage() {
   const [appearanceSaved, setAppearanceSaved] = useState(false);
-  const [notifSaved, setNotifSaved] = useState(false);
 
-  // Appearance state
-  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system');
-  const [language, setLanguage] = useState('vi');
-  const [density, setDensity] = useState('comfortable');
+  const theme = usePreferencesStore((s) => s.theme);
+  const language = usePreferencesStore((s) => s.language);
+  const density = usePreferencesStore((s) => s.density);
+  const setTheme = usePreferencesStore((s) => s.setTheme);
+  const setLanguage = usePreferencesStore((s) => s.setLanguage);
+  const setDensity = usePreferencesStore((s) => s.setDensity);
 
-  // Notification state
-  const [dueDateReminder, setDueDateReminder] = useState(true);
-  const [mentionAlert, setMentionAlert] = useState(true);
-  const [weeklyDigest, setWeeklyDigest] = useState(false);
-  const [boardUpdates, setBoardUpdates] = useState(true);
+  const copy = COPY[language] ?? COPY.en;
 
   const handleSaveAppearance = () => {
     setAppearanceSaved(true);
-    setTimeout(() => setAppearanceSaved(false), 3000);
-  };
-
-  const handleSaveNotif = () => {
-    setNotifSaved(true);
-    setTimeout(() => setNotifSaved(false), 3000);
+    setTimeout(() => setAppearanceSaved(false), 2500);
   };
 
   const THEME_OPTIONS = [
-    { value: 'system', label: 'System default', icon: Monitor },
-    { value: 'light', label: 'Light', icon: Sun },
-    { value: 'dark', label: 'Dark', icon: Moon },
-  ] as const;
+    { value: 'system' as const, icon: Monitor },
+    { value: 'light' as const, icon: Sun },
+    { value: 'dark' as const, icon: Moon },
+  ];
 
   return (
-    <div className="mx-auto max-w-3xl mt-10 pb-16 px-4 space-y-8">
-      {/* Page header */}
+    <div className="mx-auto mt-10 max-w-3xl space-y-8 px-4 pb-16">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">App Preferences</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Customize appearance, language, and notification behavior across the app.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{copy.title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
       </div>
 
-      {/* ── Appearance ──────────────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sun className="h-5 w-5" />
-            Appearance
+            {copy.appearanceTitle}
           </CardTitle>
-          <CardDescription>
-            Choose how the app looks and feels.
-          </CardDescription>
+          <CardDescription>{copy.appearanceDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Theme picker — visual tiles */}
           <div className="space-y-2">
-            <Label>Theme</Label>
+            <Label>{copy.theme}</Label>
             <div className="grid grid-cols-3 gap-3">
-              {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+              {THEME_OPTIONS.map(({ value, icon: Icon }) => (
                 <button
                   key={value}
                   type="button"
@@ -109,125 +146,50 @@ export default function AppSettingsPage() {
                 >
                   <Icon className={`h-6 w-6 ${theme === value ? 'text-primary' : 'text-muted-foreground'}`} />
                   <span className={`text-sm font-medium ${theme === value ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {label}
+                    {copy.themeOptions[value]}
                   </span>
-                  {theme === value && (
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                  )}
+                  {theme === value && <CheckCircle2 className="h-4 w-4 text-primary" />}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Language */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="language" className="flex items-center gap-1.5">
                 <Globe className="h-4 w-4" />
-                Language
+                {copy.language}
               </Label>
-              <Select value={language} onValueChange={setLanguage}>
+              <Select value={language} onValueChange={(v) => setLanguage(v as AppLanguage)}>
                 <SelectTrigger id="language">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="vi">🇻🇳 Tiếng Việt</SelectItem>
                   <SelectItem value="en">🇺🇸 English</SelectItem>
-                  <SelectItem value="ja">🇯🇵 日本語</SelectItem>
-                  <SelectItem value="zh">🇨🇳 中文</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="density">Display density</Label>
-              <Select value={density} onValueChange={setDensity}>
+              <Label htmlFor="density">{copy.density}</Label>
+              <Select value={density} onValueChange={(v) => setDensity(v as 'compact' | 'comfortable' | 'spacious')}>
                 <SelectTrigger id="density">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="compact">Compact</SelectItem>
-                  <SelectItem value="comfortable">Comfortable</SelectItem>
-                  <SelectItem value="spacious">Spacious</SelectItem>
+                  <SelectItem value="compact">{copy.densityOptions.compact}</SelectItem>
+                  <SelectItem value="comfortable">{copy.densityOptions.comfortable}</SelectItem>
+                  <SelectItem value="spacious">{copy.densityOptions.spacious}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </CardContent>
         <CardFooter className="flex items-center justify-between border-t bg-muted/20 py-4">
-          <SaveFeedback saved={appearanceSaved} />
+          <SaveFeedback saved={appearanceSaved} label={copy.saved} />
           <Button onClick={handleSaveAppearance} className="ml-auto">
-            Save Preferences
-          </Button>
-        </CardFooter>
-      </Card>
-
-      {/* ── Notifications ────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Notifications
-            <Badge variant="secondary" className="ml-auto text-[10px]">
-              App-level
-            </Badge>
-          </CardTitle>
-          <CardDescription>
-            Control when and how you receive alerts. Workspace-specific notifications can be
-            configured per workspace in{' '}
-            <span className="font-medium text-foreground">Workspace → Settings → Notifications</span>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="divide-y">
-          {[
-            {
-              id: 'due-date',
-              label: 'Due Date Reminders',
-              description: 'Notify me when a card I\'m assigned to is due within 24h.',
-              value: dueDateReminder,
-              onChange: setDueDateReminder,
-            },
-            {
-              id: 'mentions',
-              label: 'Mentions',
-              description: 'Notify me when someone @mentions me in a comment.',
-              value: mentionAlert,
-              onChange: setMentionAlert,
-            },
-            {
-              id: 'board-updates',
-              label: 'Board Activity',
-              description: 'Notify me when a card is moved or archived on boards I follow.',
-              value: boardUpdates,
-              onChange: setBoardUpdates,
-            },
-            {
-              id: 'digest',
-              label: 'Weekly Digest',
-              description: 'Receive a weekly email summary of workspace activity.',
-              value: weeklyDigest,
-              onChange: setWeeklyDigest,
-            },
-          ].map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-4 py-4">
-              <div className="space-y-0.5">
-                <Label htmlFor={item.id} className="text-sm font-medium cursor-pointer">
-                  {item.label}
-                </Label>
-                <p className="text-xs text-muted-foreground">{item.description}</p>
-              </div>
-              <Switch
-                id={item.id}
-                checked={item.value}
-                onCheckedChange={item.onChange}
-              />
-            </div>
-          ))}
-        </CardContent>
-        <CardFooter className="flex items-center justify-between border-t bg-muted/20 py-4">
-          <SaveFeedback saved={notifSaved} />
-          <Button onClick={handleSaveNotif} className="ml-auto">
-            Save Notifications
+            {copy.save}
           </Button>
         </CardFooter>
       </Card>

@@ -1,6 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { SearchService } from './search.service';
-import { GlobalSearchDto, AdvancedSearchDto } from './dto';
+import { GlobalSearchDto } from './dto';
 import { ResponseMessage, CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 
@@ -20,18 +20,5 @@ export class SearchController {
     @CurrentUser('userId') userId: string,
   ) {
     return this.searchService.globalSearch(dto, userId);
-  }
-
-  /* *
-   * Advanced search with filters
-   * GET /search/advanced?boardId=&labelIds=&dueDate=
-   */
-  @Get('advanced')
-  @ResponseMessage('Tìm kiếm nâng cao thành công')
-  async advancedSearch(
-    @Query() dto: AdvancedSearchDto,
-    @CurrentUser('userId') userId: string,
-  ) {
-    return this.searchService.advancedSearch(dto, userId);
   }
 }

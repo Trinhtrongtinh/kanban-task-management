@@ -3,6 +3,7 @@ import { boardsApi, CreateBoardPayload, UpdateBoardPayload } from '@/api/boards'
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useProModal } from '@/hooks/use-pro-modal';
+import { QUERY_STALE_TIME } from '@/lib/cache-ttl';
 
 export const BOARD_QUERY_KEYS = {
     all: ['boards'] as const,
@@ -15,6 +16,7 @@ export function useBoardsByWorkspace(workspaceId: string | undefined | null) {
         queryKey: BOARD_QUERY_KEYS.byWorkspace(workspaceId!),
         queryFn: () => boardsApi.getBoardsByWorkspace(workspaceId!),
         enabled: !!workspaceId,
+        staleTime: QUERY_STALE_TIME.BOARDS_BY_WORKSPACE_MS,
     });
 }
 

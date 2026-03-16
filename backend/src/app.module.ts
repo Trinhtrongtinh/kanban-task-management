@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { databaseConfig, jwtConfig } from './config';
+import { databaseConfig, jwtConfig, redisConfig } from './config';
+import { redisStore } from 'cache-manager-ioredis-yet';
 import {
   User,
   Workspace,
@@ -40,8 +42,21 @@ import { CommonModule } from './common/common.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, jwtConfig],
+      load: [databaseConfig, jwtConfig, redisConfig],
       envFilePath: ['.env', 'backend/.env'],
+    }),
+    CacheModule.registerAsync({
+      isGlobal: true,
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        store: await redisStore({
+          host: configService.get<string>('redis.host'),
+          port: configService.get<number>('redis.port'),
+          password: configService.get<string>('redis.password') || undefined,
+          ttl: 60,
+        }),
+      }),
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

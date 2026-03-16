@@ -21,6 +21,16 @@ export function useCreateList() {
     return useMutation({
         mutationFn: (payload: CreateListPayload) => listsApi.create(payload),
         onSuccess: (data) => {
+            queryClient.setQueryData(LIST_QUERY_KEYS.byBoard(data.boardId), (old: any) => {
+                if (!old) return [data];
+                if (!Array.isArray(old)) return old;
+
+                const exists = old.some((list) => list.id === data.id);
+                if (exists) return old;
+
+                return [...old, data].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+            });
+
             queryClient.invalidateQueries({
                 queryKey: LIST_QUERY_KEYS.byBoard(data.boardId),
             });

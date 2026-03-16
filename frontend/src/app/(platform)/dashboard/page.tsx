@@ -14,6 +14,8 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/authStore';
 import { parseApiDate } from '@/lib/date-time';
+import { useI18n } from '@/hooks/use-i18n';
+import { QUERY_STALE_TIME } from '@/lib/cache-ttl';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -33,10 +35,9 @@ export type WorkspaceWithNestedBoards = import('@/api/workspaces').Workspace & {
 
 export default function DashboardPage() {
   const currentUserId = useAuthStore((s) => s.user?.id);
-  const user = useAuthStore((s) => s.user);
+  const { t } = useI18n();
   const { data: workspaces = [], isLoading } = useWorkspaces();
   const onOpenWorkspaceModal = useWorkspaceModal(s => s.onOpen);
-  const isFreePlanLimitReached = user?.planType === 'FREE' && workspaces.length >= 1;
 
   const workspaceMembersQueries = useQueries({
     queries: workspaces.map((workspace) => ({
@@ -52,7 +53,7 @@ export default function DashboardPage() {
       queryKey: ['boards', 'workspace', workspace.id],
       queryFn: () => boardsApi.getBoardsByWorkspace(workspace.id),
       enabled: !!workspace.id,
-      staleTime: 30_000,
+      staleTime: QUERY_STALE_TIME.BOARDS_BY_WORKSPACE_MS,
     })),
   });
 
@@ -129,9 +130,9 @@ export default function DashboardPage() {
       {/* ── Page Header ─────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Bảng điều khiển</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
           <p className="text-muted-foreground">
-            Chào mừng bạn đến với ứng dụng quản lý công việc Kanban
+            {t('dashboard.subtitle')}
           </p>
         </div>
       </div>
@@ -140,7 +141,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng Workspaces</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('dashboard.totalWorkspaces')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{workspaces.length}</div>
@@ -152,7 +153,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng thành viên</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('dashboard.totalMembers')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalMembers}</div>
@@ -164,7 +165,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Thẻ đang làm</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('dashboard.assignedCards')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{assignedCards.length}</div>
@@ -176,7 +177,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sắp đến hạn</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('dashboard.dueSoon')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{dueSoonCardsCount}</div>
@@ -190,9 +191,9 @@ export default function DashboardPage() {
       {/* ── Workspaces Header ──────────────────────────────── */}
       <div className="flex items-center justify-between pt-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Workspaces</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t('dashboard.workspacesHeading')}</h2>
           <p className="text-muted-foreground">
-            Quản lý các workspace và bảng công việc của bạn
+            {t('dashboard.workspacesDescription')}
           </p>
         </div>
       </div>
@@ -201,21 +202,13 @@ export default function DashboardPage() {
       {workspaces.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center bg-card">
           <Briefcase className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h2 className="mb-2 text-xl font-semibold">Tạm thời bạn chưa có workspace nào</h2>
+          <h2 className="mb-2 text-xl font-semibold">{t('dashboard.emptyWorkspaceTitle')}</h2>
           <p className="mb-4 text-muted-foreground">
-            Vui lòng tạo 1 workspace cá nhân hoặc liên hệ Admin để xin cấp quyền.
+            {t('dashboard.emptyWorkspaceDesc')}
           </p>
-          <Button onClick={onOpenWorkspaceModal} disabled={isFreePlanLimitReached}>
-            Tạo Workspace đầu tiên
+          <Button onClick={onOpenWorkspaceModal}>
+            {t('dashboard.createFirstWorkspace')}
           </Button>
-        </div>
-      ) : isFreePlanLimitReached ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center bg-card">
-          <Briefcase className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h2 className="mb-2 text-xl font-semibold">Bạn đã đạt giới hạn Workspace</h2>
-          <p className="mb-4 text-muted-foreground">
-            Gói Free chỉ cho phép 1 workspace. Nâng cấp lên Pro để tạo thêm workspace khác.
-          </p>
         </div>
       ) : (
         <div className="space-y-8">

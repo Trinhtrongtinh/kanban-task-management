@@ -5,6 +5,7 @@ import { Label, Board, Card } from '../../database/entities';
 import { CreateLabelDto, UpdateLabelDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode } from '../../common/enums';
+import { AppCacheService, CACHE_TTL, CacheKeys } from '../../common/cache';
 
 @Injectable()
 export class LabelsService {
@@ -15,7 +16,12 @@ export class LabelsService {
     private readonly boardRepository: Repository<Board>,
     @InjectRepository(Card)
     private readonly cardRepository: Repository<Card>,
+    private readonly cacheService: AppCacheService,
   ) {}
+
+  private async invalidateBoardLabels(boardId: string): Promise<void> {
+    await this.cacheService.del(CacheKeys.labelsByBoard(boardId));
+  }
 
   /**
    * Validate board exists
@@ -63,16 +69,32 @@ export class LabelsService {
       ...rest,
     });
 
-    return this.labelRepository.save(label);
+    const savedLabel = await this.labelRepository.save(label);
+    await this.invalidateBoardLabels(boardId);
+    return savedLabel;
   }
 
   async findAllByBoard(boardId: string): Promise<Label[]> {
+    const cacheKey = CacheKeys.labelsByBoard(boardId);
+    const cached = await this.cacheService.get<Label[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Validate board exists
     await this.validateBoardExists(boardId);
 
-    return this.labelRepository.find({
+    const labels = await this.labelRepository.find({
       where: { boardId },
     });
+
+    await this.cacheService.set(
+      cacheKey,
+      labels,
+      CACHE_TTL.LABELS_BY_BOARD_SECONDS,
+    );
+
+    return labels;
   }
 
   async findOne(id: string): Promise<Label> {
@@ -96,12 +118,15 @@ export class LabelsService {
 
     Object.assign(label, updateLabelDto);
 
-    return this.labelRepository.save(label);
+    const updated = await this.labelRepository.save(label);
+    await this.invalidateBoardLabels(label.boardId);
+    return updated;
   }
 
   async remove(id: string): Promise<void> {
     const label = await this.findOne(id);
     await this.labelRepository.remove(label);
+    await this.invalidateBoardLabels(label.boardId);
   }
 
   /**
