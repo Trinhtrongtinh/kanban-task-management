@@ -10,6 +10,8 @@ export enum ErrorCode {
   UNAUTHORIZED_ACCESS = 'AUTH_UNAUTHORIZED_ACCESS',
   TOKEN_EXPIRED = 'AUTH_TOKEN_EXPIRED',
   TOKEN_INVALID = 'AUTH_TOKEN_INVALID',
+  PASSWORD_RESET_TOKEN_INVALID = 'AUTH_PASSWORD_RESET_TOKEN_INVALID',
+  PASSWORD_RESET_TOKEN_EXPIRED = 'AUTH_PASSWORD_RESET_TOKEN_EXPIRED',
 
   // User
   USER_NOT_FOUND = 'USER_NOT_FOUND',
@@ -78,6 +80,10 @@ export const ErrorMessages: Record<ErrorCode, string> = {
     'You are not authorized to access this resource',
   [ErrorCode.TOKEN_EXPIRED]: 'Your session has expired. Please login again',
   [ErrorCode.TOKEN_INVALID]: 'Invalid authentication token',
+  [ErrorCode.PASSWORD_RESET_TOKEN_INVALID]:
+    'Invalid password reset token',
+  [ErrorCode.PASSWORD_RESET_TOKEN_EXPIRED]:
+    'Password reset token has expired',
 
   // User
   [ErrorCode.USER_NOT_FOUND]: 'User not found',

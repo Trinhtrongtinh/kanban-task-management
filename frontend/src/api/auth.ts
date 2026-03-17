@@ -39,6 +39,19 @@ export interface RegisterPayload {
   password: string;
 }
 
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface VerifyResetTokenPayload {
+  token: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  newPassword: string;
+}
+
 // ── API calls ─────────────────────────────────────────────────────────
 
 export const authApi = {
@@ -57,6 +70,36 @@ export const authApi = {
    */
   register: async (payload: RegisterPayload): Promise<AuthResponse['data']> => {
     const res = await apiClient.post<AuthResponse>('/auth/register', payload);
+    return res.data.data;
+  },
+
+  forgotPassword: async (
+    payload: ForgotPasswordPayload,
+  ): Promise<{ success: boolean }> => {
+    const res = await apiClient.post<{ data: { success: boolean } }>(
+      '/auth/forgot-password',
+      payload,
+    );
+    return res.data.data;
+  },
+
+  verifyResetToken: async (
+    payload: VerifyResetTokenPayload,
+  ): Promise<{ valid: boolean }> => {
+    const res = await apiClient.post<{ data: { valid: boolean } }>(
+      '/auth/verify-reset-token',
+      payload,
+    );
+    return res.data.data;
+  },
+
+  resetPassword: async (
+    payload: ResetPasswordPayload,
+  ): Promise<{ success: boolean }> => {
+    const res = await apiClient.post<{ data: { success: boolean } }>(
+      '/auth/reset-password',
+      payload,
+    );
     return res.data.data;
   },
 

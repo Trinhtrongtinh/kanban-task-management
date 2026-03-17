@@ -10,7 +10,13 @@ import {
   ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto } from './dto';
+import {
+  RegisterDto,
+  LoginDto,
+  ForgotPasswordDto,
+  VerifyResetTokenDto,
+  ResetPasswordDto,
+} from './dto';
 import { JwtAuthGuard } from './guards';
 import { User } from '../../database/entities';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
@@ -44,5 +50,32 @@ export class AuthController {
     @CurrentUser('userId') userId: string,
   ): Promise<Partial<User> | null> {
     return this.authService.getProfile(userId);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('If the email exists, a password reset link has been sent')
+  async forgotPassword(
+    @Body() forgotPasswordDto: ForgotPasswordDto,
+  ): Promise<{ success: boolean }> {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Post('verify-reset-token')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Reset token is valid')
+  async verifyResetToken(
+    @Body() verifyResetTokenDto: VerifyResetTokenDto,
+  ): Promise<{ valid: boolean }> {
+    return this.authService.verifyResetToken(verifyResetTokenDto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Password reset successful')
+  async resetPassword(
+    @Body() resetPasswordDto: ResetPasswordDto,
+  ): Promise<{ success: boolean }> {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 }

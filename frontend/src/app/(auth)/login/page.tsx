@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, AlertCircle } from 'lucide-react';
-
+import { PasswordInput } from "@/components/ui/password-input"
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -121,8 +121,7 @@ export default function LoginPage() {
                 <FormItem>
                   <FormLabel>{t('auth.password')}</FormLabel>
                   <FormControl>
-                    <Input
-                      type="password"
+                    <PasswordInput
                       placeholder="••••••••"
                       autoComplete="current-password"
                       disabled={isSubmitting}
@@ -133,6 +132,12 @@ export default function LoginPage() {
                 </FormItem>
               )}
             />
+
+            <div className="text-right text-sm">
+              <Link href="/forgot-password" className="text-primary hover:underline">
+                {t('auth.forgotPassword')}
+              </Link>
+            </div>
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? (
