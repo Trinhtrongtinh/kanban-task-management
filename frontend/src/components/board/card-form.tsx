@@ -5,7 +5,7 @@ import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useBoard } from './board-context';
-import { useCreateCard } from '@/hooks/use-cards';
+import { useCreateCard } from '@/hooks/data/use-cards';
 
 interface CardFormProps {
   listId: string;

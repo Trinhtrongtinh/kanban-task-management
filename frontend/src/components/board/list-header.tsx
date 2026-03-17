@@ -5,7 +5,7 @@ import { GripVertical, MoreHorizontal } from 'lucide-react';
 import type { BoardList } from './types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useUpdateList, useDeleteList } from '@/hooks/use-lists';
+import { useUpdateList, useDeleteList } from '@/hooks/data/use-lists';
 import {
   DropdownMenu,
   DropdownMenuContent,

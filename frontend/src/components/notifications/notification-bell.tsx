@@ -1,7 +1,7 @@
 'use client';
 
 import { Bell, Check, X, Loader2, Trash2 } from 'lucide-react';
-import { useNotifications, useUnreadNotificationsCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead, useDeleteNotification, useDeleteAllNotifications } from '@/hooks/use-notifications';
+import { useNotifications, useUnreadNotificationsCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead, useDeleteNotification, useDeleteAllNotifications } from '@/hooks/data/use-notifications';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -14,7 +14,7 @@ import {
 import { NotificationType } from '@/api/notifications';
 import { workspacesApi } from '@/api/workspaces';
 import { useQueryClient } from '@tanstack/react-query';
-import { workspaceKeys } from '@/hooks/use-workspaces';
+import { workspaceKeys } from '@/hooks/data/use-workspaces';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useChecklists } from '@/api/checklists';
-import { useCardModal } from '@/hooks/use-card-modal';
+import { useCardModal } from '@/hooks/ui/use-card-modal';
 import { ChecklistComponent } from './checklist';
 
 export function ChecklistsContainer() {

@@ -3,7 +3,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Clock } from 'lucide-react';
-import { useCardModal } from '@/hooks/use-card-modal';
+import { useCardModal } from '@/hooks/ui/use-card-modal';
 import { useBoard } from './board-context';
 import type { BoardCard } from './types';
 import { cn } from '@/lib/utils';

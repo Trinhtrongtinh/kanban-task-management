@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useWorkspaceModal } from '@/hooks/use-workspace-modal';
-import { useCreateWorkspace } from '@/hooks/use-workspaces';
+import { useWorkspaceModal } from '@/hooks/ui/use-workspace-modal';
+import { useCreateWorkspace } from '@/hooks/data/use-workspaces';
 
 import {
     Dialog,

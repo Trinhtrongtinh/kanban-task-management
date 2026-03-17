@@ -6,7 +6,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/api/auth';
-import { useI18n } from '@/hooks/use-i18n';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 export default function PaymentSuccessPage() {
   const router = useRouter();

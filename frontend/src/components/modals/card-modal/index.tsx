@@ -28,9 +28,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useCardModal } from '@/hooks/use-card-modal';
+import { useCardModal } from '@/hooks/ui/use-card-modal';
 import { useBoardSafe } from '@/components/board/board-context';
-import { useUpdateCard, useDeleteCard } from '@/hooks/use-cards';
+import { useUpdateCard, useDeleteCard } from '@/hooks/data/use-cards';
 import { useAddChecklistMutation } from '@/api/checklists';
 import { attachmentsApi } from '@/api/attachments';
 import { BASE_URL } from '@/api/client';

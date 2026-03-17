@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { Check, UserPlus, ChevronLeft, Settings, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { useUpdateBoard } from '@/hooks/use-boards';
+import { useUpdateBoard } from '@/hooks/data/use-boards';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -28,10 +28,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { User } from '@/types';
-import { useWorkspaceMembers } from '@/hooks/use-workspaces';
+import { useWorkspaceMembers } from '@/hooks/data/use-workspaces';
 import { useGetBoardMembers, useAddMemberToBoard, useRemoveMemberFromBoard } from '@/api/board-members';
 import { resolveAvatarUrl } from '@/lib/utils';
-import { useI18n } from '@/hooks/use-i18n';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 // ── Shared Constants ────────────────────────────────────────────────────────
 

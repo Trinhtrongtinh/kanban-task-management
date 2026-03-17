@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useProModal } from '@/hooks/use-pro-modal';
+import { useProModal } from '@/hooks/ui/use-pro-modal';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';

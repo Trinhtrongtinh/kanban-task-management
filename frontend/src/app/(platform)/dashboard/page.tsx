@@ -5,8 +5,8 @@ import { useQueries } from '@tanstack/react-query';
 import { Briefcase, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WorkspaceSection } from '@/components/workspaces/workspace-section';
-import { useWorkspaces } from '@/hooks/use-workspaces';
-import { useWorkspaceModal } from '@/hooks/use-workspace-modal';
+import { useWorkspaces } from '@/hooks/data/use-workspaces';
+import { useWorkspaceModal } from '@/hooks/ui/use-workspace-modal';
 import { workspacesApi } from '@/api/workspaces';
 import { boardsApi } from '@/api/boards';
 import { listsApi } from '@/api/lists';
@@ -14,7 +14,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/authStore';
 import { parseApiDate } from '@/lib/date-time';
-import { useI18n } from '@/hooks/use-i18n';
+import { useI18n } from '@/hooks/ui/use-i18n';
 import { QUERY_STALE_TIME } from '@/lib/cache-ttl';
 
 // ── Types ────────────────────────────────────────────────────────────

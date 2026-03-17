@@ -4,9 +4,9 @@ import { useMemo } from 'react';
 import { Briefcase, Users, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { WorkspaceSection, WorkspaceListSkeleton } from '@/components/workspaces';
-import { useWorkspaces } from '@/hooks/use-workspaces';
-import { useWorkspaceModal } from '@/hooks/use-workspace-modal';
-import { useI18n } from '@/hooks/use-i18n';
+import { useWorkspaces } from '@/hooks/data/use-workspaces';
+import { useWorkspaceModal } from '@/hooks/ui/use-workspace-modal';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 type WorkspaceWithBoards = import('@/api/workspaces').Workspace & {
   boards?: Array<{ id: string; title: string; backgroundColor?: string }>;

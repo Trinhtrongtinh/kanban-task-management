@@ -17,9 +17,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { useProModal } from '@/hooks/use-pro-modal';
+import { useProModal } from '@/hooks/ui/use-pro-modal';
 import { useAuthStore } from '@/stores/authStore';
-import { useI18n } from '@/hooks/use-i18n';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 // ── Nav structure ────────────────────────────────────────────────────
 

@@ -6,8 +6,8 @@ import { BoardProvider } from '@/components/board/board-context';
 import { ListContainer } from '@/components/board/list-container';
 import { BoardNavbar } from '@/components/board/board-navbar';
 import { ModalProvider } from '@/components/providers/modal-provider';
-import { useBoardById } from '@/hooks/use-boards';
-import { useCardModal } from '@/hooks/use-card-modal';
+import { useBoardById } from '@/hooks/data/use-boards';
+import { useCardModal } from '@/hooks/ui/use-card-modal';
 import { Loader2 } from 'lucide-react';
 
 export default function BoardDetailPage() {

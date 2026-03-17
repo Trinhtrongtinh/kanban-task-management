@@ -9,16 +9,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Zap, Check, Upload, Link2, Users, Bell, Blocks, CreditCard, Settings, Loader2, Trash2, ArrowLeft } from 'lucide-react';
-import { useProModal } from '@/hooks/use-pro-modal';
+import { useProModal } from '@/hooks/ui/use-pro-modal';
 import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember, useRemoveWorkspaceMember, useDeleteWorkspace } from '@/hooks/use-workspaces';
+import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember, useRemoveWorkspaceMember, useDeleteWorkspace } from '@/hooks/data/use-workspaces';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { resolveAvatarUrl } from '@/lib/utils';
 import { paymentsApi } from '@/api/payments';
-import { useI18n } from '@/hooks/use-i18n';
+import { useI18n } from '@/hooks/ui/use-i18n';
 export default function WorkspaceSettingsPage({
   params
 }: {

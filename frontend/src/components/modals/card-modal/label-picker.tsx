@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useBoardLabels, useCreateLabel, useToggleCardLabel } from '@/api/labels';
-import { useCardModal } from '@/hooks/use-card-modal';
+import { useCardModal } from '@/hooks/ui/use-card-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';

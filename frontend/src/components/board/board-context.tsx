@@ -14,10 +14,10 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { useQueryClient } from '@tanstack/react-query';
 import type { BoardCard, BoardList } from './types';
 import { BoardStatic } from './board-static';
-import { LIST_QUERY_KEYS, useListsByBoard, useUpdateList } from '@/hooks/use-lists';
-import { useMoveCard } from '@/hooks/use-cards';
+import { LIST_QUERY_KEYS, useListsByBoard, useUpdateList } from '@/hooks/data/use-lists';
+import { useMoveCard } from '@/hooks/data/use-cards';
 import { Loader2 } from 'lucide-react';
-import { useSocket } from '@/hooks/useSocket';
+import { useSocket } from '@/hooks/ui/useSocket';
 
 interface BoardContextValue {
   boardId: string;

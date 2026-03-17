@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useI18n } from '@/hooks/use-i18n';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 export default function PaymentCancelPage() {
   const router = useRouter();

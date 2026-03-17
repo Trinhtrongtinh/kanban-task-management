@@ -4,7 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { workspacesApi } from '@/api/workspaces';
 import { useQueryClient } from '@tanstack/react-query';
-import { workspaceKeys } from '@/hooks/use-workspaces';
+import { workspaceKeys } from '@/hooks/data/use-workspaces';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';

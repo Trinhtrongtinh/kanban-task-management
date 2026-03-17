@@ -2,8 +2,8 @@
 
 import { ChevronsUpDown, Check, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useWorkspaces } from '@/hooks/use-workspaces';
-import { useWorkspaceModal } from '@/hooks/use-workspace-modal';
+import { useWorkspaces } from '@/hooks/data/use-workspaces';
+import { useWorkspaceModal } from '@/hooks/ui/use-workspace-modal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { useRouter, usePathname } from 'next/navigation';
-import { useI18n } from '@/hooks/use-i18n';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 export function WorkspaceSwitcher() {
   const pathname = usePathname();

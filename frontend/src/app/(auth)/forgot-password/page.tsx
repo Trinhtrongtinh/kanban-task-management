@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { authApi } from '@/api/auth';
-import { useI18n } from '@/hooks/use-i18n';
+import { useI18n } from '@/hooks/ui/use-i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {

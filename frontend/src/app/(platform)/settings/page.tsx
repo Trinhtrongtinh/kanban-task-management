@@ -186,12 +186,6 @@ export default function AppSettingsPage() {
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex items-center justify-between border-t bg-muted/20 py-4">
-          <SaveFeedback saved={appearanceSaved} label={copy.saved} />
-          <Button onClick={handleSaveAppearance} className="ml-auto">
-            {copy.save}
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   );

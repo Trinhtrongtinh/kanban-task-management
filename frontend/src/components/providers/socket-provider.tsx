@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/authStore';
 import { useQueryClient } from '@tanstack/react-query';
-import { notificationKeys } from '@/hooks/use-notifications';
+import { notificationKeys } from '@/hooks/data/use-notifications';
 import { toast } from 'sonner';
 
 interface SocketContextType {

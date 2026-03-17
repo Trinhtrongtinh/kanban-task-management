@@ -53,6 +53,7 @@ import { usersApi, type RecentActivity } from '@/api/users';
 import { useAuthStore } from '@/stores/authStore';
 import { cn, resolveAvatarUrl } from '@/lib/utils';
 import { formatDateTimeVN } from '@/lib/date-time';
+import { PasswordInput } from '@/components/ui/password-input';
 
 /** Canvas-based circular crop helper */
 async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<File> {
@@ -566,9 +567,8 @@ export default function ProfilePage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="current-pw">Mật khẩu hiện tại</Label>
-                <Input
+                <PasswordInput
                   id="current-pw"
-                  type="password"
                   value={currentPw}
                   onChange={(e) => setCurrentPw(e.target.value)}
                   autoComplete="current-password"
@@ -578,9 +578,8 @@ export default function ProfilePage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="new-pw">Mật khẩu mới</Label>
-                  <Input
+                  <PasswordInput
                     id="new-pw"
-                    type="password"
                     value={newPw}
                     onChange={(e) => setNewPw(e.target.value)}
                     autoComplete="new-password"
@@ -589,9 +588,8 @@ export default function ProfilePage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="confirm-pw">Xác nhận mật khẩu mới</Label>
-                  <Input
+                  <PasswordInput
                     id="confirm-pw"
-                    type="password"
                     value={confirmPw}
                     onChange={(e) => setConfirmPw(e.target.value)}
                     autoComplete="new-password"

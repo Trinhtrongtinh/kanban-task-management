@@ -35,7 +35,7 @@ import {
 import { searchApi, type SearchEntityType } from '@/api/search';
 import { cn, resolveAvatarUrl } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { useI18n } from '@/hooks/use-i18n';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 function getBreadcrumb(parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(' > ');
