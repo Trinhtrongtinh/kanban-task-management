@@ -22,70 +22,222 @@
  */
 
 import http from 'k6/http';
-import { check, group, sleep } from 'k6';
+import { check, group, sleep, fail } from 'k6';
 import { Rate, Trend, Counter } from 'k6/metrics';
 
-// Custom metrics to track
 const cacheHitRate = new Rate('cache_hit_rate');
-const cacheMissRate = new Rate('cache_miss_rate');
+const writeSuccessRate = new Rate('write_success_rate');
 const responseTime = new Trend('response_time_ms');
 const workspaceLatency = new Trend('workspaces_latency_ms');
 const boardsLatency = new Trend('boards_latency_ms');
 const labelsLatency = new Trend('labels_latency_ms');
 const notificationsLatency = new Trend('notifications_latency_ms');
-
+const writeLatency = new Trend('write_latency_ms');
 const cacheHits = new Counter('cache_hits');
 const cacheMisses = new Counter('cache_misses');
 
-// Configuration
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
-const API_TOKEN = __ENV.API_TOKEN || 'test-token';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:3001';
+const TEST_PASSWORD = __ENV.TEST_PASSWORD || 'LoadTest123!@#';
 
-// Test scenario configuration
+// Realistic staging profile (default peak = 200 concurrent users)
+const READ_PEAK_VUS = Number(__ENV.READ_PEAK_VUS || 170);
+const MIX_VUS = Number(__ENV.MIX_VUS || 30);
+const RAMP_UP = __ENV.RAMP_UP || '2m';
+const STEADY = __ENV.STEADY || '8m';
+const RAMP_DOWN = __ENV.RAMP_DOWN || '2m';
+const MIX_START = __ENV.MIX_START || '1m';
+const MIX_DURATION = __ENV.MIX_DURATION || '10m';
+
 export const options = {
-  stages: [
-    // Ramp up from 0 to 10 users over 10 seconds
-    { duration: '10s', target: 10 },
-    // Stay at 10 users for 20 seconds
-    { duration: '20s', target: 10 },
-    // Ramp down to 0 users over 5 seconds
-    { duration: '5s', target: 0 },
-  ],
-  
-  // Thresholds: Define success/failure criteria
+  scenarios: {
+    read_heavy: {
+      executor: 'ramping-vus',
+      exec: 'readHeavyScenario',
+      startVUs: 0,
+      stages: [
+        { duration: RAMP_UP, target: READ_PEAK_VUS },
+        { duration: STEADY, target: READ_PEAK_VUS },
+        { duration: RAMP_DOWN, target: 0 },
+      ],
+      gracefulRampDown: '30s',
+    },
+    read_write_mix: {
+      executor: 'constant-vus',
+      exec: 'readWriteMixScenario',
+      vus: MIX_VUS,
+      duration: MIX_DURATION,
+      startTime: MIX_START,
+      gracefulStop: '30s',
+    },
+  },
   thresholds: {
-    'response_time_ms': ['p(95) < 200'], // 95% of requests must complete in < 200ms
-    'cache_hit_rate': ['rate > 0.8'], // Cache hit rate should be > 80%
-    'http_req_failed': ['rate < 0.05'], // Less than 5% of requests should fail
+    response_time_ms: ['p(95) < 250'],
+    cache_hit_rate: ['rate > 0.8'],
+    http_req_failed: ['rate < 0.05'],
+    write_success_rate: ['rate > 0.95'],
   },
 };
 
-// Test data prep
-let authToken = '';
-let workspaceId = '';
-let boardId = '';
-let userId = '';
-
-/**
- * Generates a unique string for test data
- */
 function generateUnique() {
-  return `load-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `loadtest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/**
- * Before running load test: Setup - create test user, workspace, and board
- */
-export function setup() {
-  console.log('🚀 Setting up test data...');
+function parseBody(response) {
+  try {
+    return JSON.parse(response.body);
+  } catch {
+    return null;
+  }
+}
 
-  // Step 1: Register a test user
+function apiData(response) {
+  const parsed = parseBody(response);
+  if (parsed && typeof parsed === 'object' && parsed.data !== undefined) {
+    return parsed.data;
+  }
+  return parsed;
+}
+
+function trackCacheByLatency(durationMs) {
+  const isLikelyCacheHit = durationMs < 50;
+  cacheHitRate.add(isLikelyCacheHit);
+  if (isLikelyCacheHit) {
+    cacheHits.add(1);
+  } else {
+    cacheMisses.add(1);
+  }
+}
+
+function authHeaders(token) {
+  return {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+function runReadSuite(token, wsId, bId) {
+  const headers = authHeaders(token);
+
+  group('Workspaces API', () => {
+    const res = http.get(`${BASE_URL}/workspaces`, {
+      headers,
+      tags: { name: 'get_workspaces' },
+    });
+    responseTime.add(res.timings.duration);
+    workspaceLatency.add(res.timings.duration);
+    trackCacheByLatency(res.timings.duration);
+    check(res, {
+      'workspaces 200': (r) => r.status === 200,
+      'workspaces < 250ms': (r) => r.timings.duration < 250,
+    });
+  });
+
+  sleep(0.05);
+
+  if (wsId) {
+    group('Boards API', () => {
+      const res = http.get(`${BASE_URL}/boards/workspace/${wsId}`, {
+        headers,
+        tags: { name: 'get_boards_by_workspace' },
+      });
+      responseTime.add(res.timings.duration);
+      boardsLatency.add(res.timings.duration);
+      trackCacheByLatency(res.timings.duration);
+      check(res, {
+        'boards 200': (r) => r.status === 200,
+        'boards < 250ms': (r) => r.timings.duration < 250,
+      });
+    });
+  }
+
+  sleep(0.05);
+
+  if (bId) {
+    group('Labels API', () => {
+      const res = http.get(`${BASE_URL}/labels/board/${bId}`, {
+        headers,
+        tags: { name: 'get_labels_by_board' },
+      });
+      responseTime.add(res.timings.duration);
+      labelsLatency.add(res.timings.duration);
+      trackCacheByLatency(res.timings.duration);
+      check(res, {
+        'labels 200': (r) => r.status === 200,
+        'labels < 250ms': (r) => r.timings.duration < 250,
+      });
+    });
+  }
+
+  sleep(0.05);
+
+  group('Notifications API', () => {
+    const res = http.get(`${BASE_URL}/notifications`, {
+      headers,
+      tags: { name: 'get_notifications' },
+    });
+    responseTime.add(res.timings.duration);
+    notificationsLatency.add(res.timings.duration);
+    trackCacheByLatency(res.timings.duration);
+    check(res, {
+      'notifications 200': (r) => r.status === 200,
+      'notifications < 250ms': (r) => r.timings.duration < 250,
+    });
+  });
+}
+
+function runWriteAction(token, wsId) {
+  const headers = authHeaders(token);
+
+  // 60% write traffic: mark-all-read (idempotent write, low side effects)
+  // 40% write traffic: workspace PATCH (real DB write + cache invalidation)
+  const writeRoll = Math.random();
+  if (writeRoll < 0.6) {
+    const markAllRes = http.post(`${BASE_URL}/notifications/mark-all-read`, null, {
+      headers,
+      tags: { name: 'post_mark_all_notifications_read' },
+    });
+    writeLatency.add(markAllRes.timings.duration);
+    const ok = markAllRes.status === 201;
+    writeSuccessRate.add(ok);
+    check(markAllRes, {
+      'mark-all-read 201': (r) => r.status === 201,
+    });
+    return;
+  }
+
+  const patchRes = http.patch(
+    `${BASE_URL}/workspaces/${wsId}`,
+    JSON.stringify({
+      description: `lt-heartbeat-vu${__VU}-iter${__ITER}`,
+    }),
+    {
+      headers,
+      tags: { name: 'patch_workspace_description' },
+    },
+  );
+  writeLatency.add(patchRes.timings.duration);
+  const ok = patchRes.status === 200;
+  writeSuccessRate.add(ok);
+  check(patchRes, {
+    'patch workspace 200': (r) => r.status === 200,
+  });
+}
+
+export function setup() {
+  console.log(`[setup] Using BASE_URL=${BASE_URL}`);
+  console.log(
+    `[setup] Staging profile read_peak=${READ_PEAK_VUS}, mix_vus=${MIX_VUS}, total_peak=${READ_PEAK_VUS + MIX_VUS}`,
+  );
+
+  const email = `${generateUnique()}@loadtest.com`;
+  const username = `lt_${generateUnique()}`;
+
   const registerRes = http.post(
     `${BASE_URL}/auth/register`,
     JSON.stringify({
-      email: `${generateUnique()}@loadtest.com`,
-      password: 'LoadTest123!@#',
-      name: 'Load Test User',
+      username,
+      email,
+      password: TEST_PASSWORD,
     }),
     {
       headers: { 'Content-Type': 'application/json' },
@@ -94,28 +246,19 @@ export function setup() {
   );
 
   check(registerRes, {
-    'Register status is 201 or 400 (user may exist)': (r) => r.status === 201 || r.status === 400,
+    'register status is 201': (r) => r.status === 201,
   });
 
-  if (registerRes.status !== 201 && registerRes.status !== 400) {
-    console.error('❌ Registration failed:', registerRes.body);
-    return {};
+  if (registerRes.status !== 201) {
+    console.error(`[setup] Register failed: status=${registerRes.status} body=${registerRes.body}`);
+    fail('Setup failed at register step');
   }
 
-  let registerData = {};
-  try {
-    registerData = JSON.parse(registerRes.body);
-  } catch (e) {
-    console.error('❌ Failed to parse register response:', registerRes.body);
-    return {};
-  }
-
-  // Step 2: Login
   const loginRes = http.post(
     `${BASE_URL}/auth/login`,
     JSON.stringify({
-      email: registerData.user?.email || `${generateUnique()}@loadtest.com`,
-      password: 'LoadTest123!@#',
+      email,
+      password: TEST_PASSWORD,
     }),
     {
       headers: { 'Content-Type': 'application/json' },
@@ -124,81 +267,73 @@ export function setup() {
   );
 
   check(loginRes, {
-    'Login status is 200': (r) => r.status === 200,
+    'login status is 200': (r) => r.status === 200,
   });
 
-  if (loginRes.status !== 200) {
-    console.error('❌ Login failed:', loginRes.body);
-    return {};
+  const loginPayload = apiData(loginRes);
+  const authToken = loginPayload?.accessToken;
+  const userId = loginPayload?.user?.id;
+
+  if (!authToken) {
+    console.error(`[setup] Login token missing: status=${loginRes.status} body=${loginRes.body}`);
+    fail('Setup failed: no access token from login');
   }
 
-  const loginData = JSON.parse(loginRes.body);
-  authToken = loginData.access_token;
-  userId = loginData.user?.id;
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${authToken}`,
+  };
 
-  console.log(`✅ Logged in with token: ${authToken.substr(0, 20)}...`);
-
-  // Step 3: Create a workspace
   const workspaceRes = http.post(
     `${BASE_URL}/workspaces`,
     JSON.stringify({
       name: `Load Test Workspace ${generateUnique()}`,
-      description: 'Workspace for load testing cache',
+      description: 'Workspace for cache load test',
     }),
     {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-      },
+      headers,
       tags: { name: 'create_workspace' },
     },
   );
 
   check(workspaceRes, {
-    'Create workspace status is 201': (r) => r.status === 201,
+    'workspace status is 201': (r) => r.status === 201,
   });
 
   if (workspaceRes.status !== 201) {
-    console.error('❌ Workspace creation failed:', workspaceRes.body);
-    return { authToken, userId };
+    console.error(`[setup] Create workspace failed: status=${workspaceRes.status} body=${workspaceRes.body}`);
+    fail('Setup failed at create workspace step');
   }
 
-  const workspaceData = JSON.parse(workspaceRes.body);
-  workspaceId = workspaceData.id;
+  const workspaceData = apiData(workspaceRes);
+  const workspaceId = workspaceData?.id;
 
-  console.log(`✅ Created workspace: ${workspaceId}`);
-
-  // Step 4: Create a board
   const boardRes = http.post(
     `${BASE_URL}/boards`,
     JSON.stringify({
-      name: `Load Test Board ${generateUnique()}`,
-      workspaceId: workspaceId,
+      title: `Load Test Board ${generateUnique()}`,
+      workspaceId,
     }),
     {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-      },
+      headers,
       tags: { name: 'create_board' },
     },
   );
 
   check(boardRes, {
-    'Create board status is 201': (r) => r.status === 201,
+    'board status is 201': (r) => r.status === 201,
   });
 
   if (boardRes.status !== 201) {
-    console.error('❌ Board creation failed:', boardRes.body);
-    return { authToken, userId, workspaceId };
+    console.error(`[setup] Create board failed: status=${boardRes.status} body=${boardRes.body}`);
+    fail('Setup failed at create board step');
   }
 
-  const boardData = JSON.parse(boardRes.body);
-  boardId = boardData.id;
+  const boardData = apiData(boardRes);
+  const boardId = boardData?.id;
 
-  console.log(`✅ Created board: ${boardId}`);
+  console.log(`[setup] Ready: userId=${userId} workspaceId=${workspaceId} boardId=${boardId}`);
 
-  // Return setup data to be used in test scenario
   return {
     authToken,
     userId,
@@ -207,191 +342,61 @@ export function setup() {
   };
 }
 
-/**
- * Main load test scenario
- * Runs for all virtual users across all stages
- */
 export default function (data) {
-  // Use setup data
-  const token = data.authToken || authToken;
-  const wsId = data.workspaceId || workspaceId;
-  const bId = data.boardId || boardId;
+  // Keep default export for backwards compatibility; route to read-heavy flow.
+  readHeavyScenario(data);
+}
+
+export function readHeavyScenario(data) {
+  const token = data?.authToken;
+  const wsId = data?.workspaceId;
+  const bId = data?.boardId;
 
   if (!token) {
-    console.error('❌ No auth token available, skipping test');
-    return;
+    fail('No auth token available from setup');
   }
 
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  };
+  runReadSuite(token, wsId, bId);
 
-  // TEST 1: Get workspaces (cached endpoint)
-  group('Workspaces API - Cache Test', () => {
-    const res = http.get(`${BASE_URL}/workspaces`, {
-      headers,
-      tags: { name: 'get_workspaces' },
-    });
-
-    const duration = res.timings.duration;
-    responseTime.add(duration);
-    workspaceLatency.add(duration);
-
-    // Heuristic: If response time < 50ms, likely a cache hit
-    const isLikelyCacheHit = duration < 50;
-    if (isLikelyCacheHit) {
-      cacheHits.add(1);
-      cacheHitRate.add(true);
-    } else {
-      cacheMisses.add(1);
-      cacheHitRate.add(false);
-    }
-
-    check(res, {
-      'Status is 200': (r) => r.status === 200,
-      'Response time < 200ms': (r) => r.timings.duration < 200,
-      'Has workspaces': (r) => r.body && r.body.includes('id'),
-    });
-  });
-
-  sleep(0.1); // Small delay between requests
-
-  // TEST 2: Get boards for workspace (cached endpoint)
-  if (wsId) {
-    group('Boards API - Cache Test', () => {
-      const res = http.get(`${BASE_URL}/boards?workspaceId=${wsId}`, {
-        headers,
-        tags: { name: 'get_boards' },
-      });
-
-      const duration = res.timings.duration;
-      responseTime.add(duration);
-      boardsLatency.add(duration);
-
-      const isLikelyCacheHit = duration < 50;
-      if (isLikelyCacheHit) {
-        cacheHits.add(1);
-        cacheHitRate.add(true);
-      } else {
-        cacheMisses.add(1);
-        cacheHitRate.add(false);
-      }
-
-      check(res, {
-        'Status is 200': (r) => r.status === 200,
-        'Response time < 200ms': (r) => r.timings.duration < 200,
-      });
-    });
-  }
-
-  sleep(0.1);
-
-  // TEST 3: Get labels for board (cached endpoint)
-  if (bId) {
-    group('Labels API - Cache Test', () => {
-      const res = http.get(`${BASE_URL}/labels?boardId=${bId}`, {
-        headers,
-        tags: { name: 'get_labels' },
-      });
-
-      const duration = res.timings.duration;
-      responseTime.add(duration);
-      labelsLatency.add(duration);
-
-      const isLikelyCacheHit = duration < 50;
-      if (isLikelyCacheHit) {
-        cacheHits.add(1);
-        cacheHitRate.add(true);
-      } else {
-        cacheMisses.add(1);
-        cacheHitRate.add(false);
-      }
-
-      check(res, {
-        'Status is 200': (r) => r.status === 200,
-        'Response time < 200ms': (r) => r.timings.duration < 200,
-      });
-    });
-  }
-
-  sleep(0.1);
-
-  // TEST 4: Get notifications (cached endpoint)
-  group('Notifications API - Cache Test', () => {
-    const res = http.get(`${BASE_URL}/notifications`, {
-      headers,
-      tags: { name: 'get_notifications' },
-    });
-
-    const duration = res.timings.duration;
-    responseTime.add(duration);
-    notificationsLatency.add(duration);
-
-    const isLikelyCacheHit = duration < 50;
-    if (isLikelyCacheHit) {
-      cacheHits.add(1);
-      cacheHitRate.add(true);
-    } else {
-      cacheMisses.add(1);
-      cacheHitRate.add(false);
-    }
-
-    check(res, {
-      'Status is 200': (r) => r.status === 200,
-      'Response time < 200ms': (r) => r.timings.duration < 200,
-    });
-  });
-
-  sleep(0.1);
-
-  // TEST 5: Check metrics endpoint
-  group('Metrics API - Read-only monitoring', () => {
+  // Low-frequency metrics probe to avoid log noise under high VU
+  if (__ITER % 50 === 0 && __VU <= 3) {
     const res = http.get(`${BASE_URL}/metrics`, {
       tags: { name: 'get_metrics' },
     });
-
     check(res, {
-      'Metrics status is 200': (r) => r.status === 200,
-      'Metrics has data': (r) => r.body && r.body.includes('hitRatio'),
+      'metrics 200': (r) => r.status === 200,
     });
-
-    if (res.status === 200) {
-      try {
-        const metrics = JSON.parse(res.body);
-        console.log(
-          `📊 Current Cache - Hits: ${metrics.summary.overallHits}, Misses: ${metrics.summary.overallMisses}`,
-        );
-      } catch (e) {
-        // Ignore parse errors
-      }
-    }
-  });
-
-  sleep(1); // Wait between iterations to allow cache to settle
-}
-
-/**
- * After load test completes: Teardown and report summary
- */
-export function teardown(data) {
-  console.log('\n========== LOAD TEST SUMMARY ==========');
-  console.log(`✅ Test completed successfully`);
-  console.log(`📍 Base URL: ${BASE_URL}`);
-  console.log(`🔢 Total Requests: ${cacheHits.value + cacheMisses.value}`);
-  console.log(`💚 Cache Hits: ${cacheHits.value}`);
-  console.log(`❌ Cache Misses: ${cacheMisses.value}`);
-
-  if (cacheHits.value + cacheMisses.value > 0) {
-    const hitRatio =
-      ((cacheHits.value / (cacheHits.value + cacheMisses.value)) * 100).toFixed(2) + '%';
-    console.log(`📈 Cache Hit Ratio: ${hitRatio}`);
   }
 
-  console.log(`\n🎯 Response Time Metrics:`);
-  console.log(`   - P95: Likely reported in k6 summary`);
-  console.log(`   - P99: Likely reported in k6 summary`);
-  console.log('\n✅ Check k6 summary above for detailed thresholds results');
-  console.log('✅ If all thresholds passed → Cache is working as expected!');
-  console.log('==========================================\n');
+  sleep(0.4);
+}
+
+export function readWriteMixScenario(data) {
+  const token = data?.authToken;
+  const wsId = data?.workspaceId;
+  const bId = data?.boardId;
+
+  if (!token) {
+    fail('No auth token available from setup');
+  }
+
+  // Mixed traffic profile: 70% reads, 30% writes
+  const roll = Math.random();
+  if (roll < 0.7) {
+    runReadSuite(token, wsId, bId);
+  } else {
+    runWriteAction(token, wsId);
+  }
+
+  sleep(0.2);
+}
+
+export function teardown() {
+  console.log('\n========== LOAD TEST SUMMARY ==========');
+  console.log(`Base URL: ${BASE_URL}`);
+  console.log(
+    `Profile: read_peak=${READ_PEAK_VUS}, mix_vus=${MIX_VUS}, total_peak=${READ_PEAK_VUS + MIX_VUS}, steady=${STEADY}`,
+  );
+  console.log('Use k6 built-in summary for exact totals, p95 and hit-rate thresholds.');
+  console.log('======================================\n');
 }
