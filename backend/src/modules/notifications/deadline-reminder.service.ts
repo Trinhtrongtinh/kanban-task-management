@@ -223,6 +223,13 @@ export class DeadlineReminderService {
       return;
     }
 
+    if (!user.notifyDueDateEmail) {
+      this.logger.debug(
+        `User ${user.id} disabled due date reminder emails, skipping mail send`,
+      );
+      return;
+    }
+
     await this.mailerService.sendDeadlineReminder(
       user.email,
       card.title,

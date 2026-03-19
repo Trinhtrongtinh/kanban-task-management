@@ -12,14 +12,22 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { User } from '@/types';
 import { resolveAvatarUrl } from '@/lib/utils';
+import { useI18n } from '@/hooks/ui/use-i18n';
+import { useAuthStore } from '@/stores/authStore';
 
 interface CommentEditorProps {
   members: User[];
   /** Called when the user saves a comment */
-  onSave: (payload: { content: string; mentionedUserIds: string[] }) => void;
+  onSave: (payload: {
+    content: string;
+    mentionedUserIds: string[];
+    mentionAll: boolean;
+  }) => void;
   /** Optional — show a loading spinner on Save */
   isLoading?: boolean;
 }
+
+type MentionTarget = User | { id: '__everyone__'; username: string; name?: string; email?: string };
 
 /**
  * Finds the @-query that the user is currently typing.
@@ -38,8 +46,11 @@ function getMentionQuery(
 }
 
 export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps) {
+  const { t } = useI18n();
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const [content, setContent] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+  const [mentionAll, setMentionAll] = useState(false);
 
   // @mention popover state
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -50,9 +61,28 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Filtered member list based on the query typed after @
-  const filteredMembers = members.filter((m) =>
-    (m.username || m.name || '').toLowerCase().includes(mentionQuery.toLowerCase())
+  const everyoneLabel = t('cardModal.commentEditor.everyoneToken');
+  const normalizedQuery = mentionQuery.toLowerCase();
+  const otherMembers = members.filter((member) => member.id !== currentUserId);
+  const shouldShowEveryone =
+    normalizedQuery.length === 0 ||
+    everyoneLabel.toLowerCase().includes(normalizedQuery) ||
+    'everyone'.includes(normalizedQuery) ||
+    'mọingười'.includes(normalizedQuery) ||
+    'moi nguoi'.includes(normalizedQuery);
+  const filteredMembers = otherMembers.filter((m) =>
+    (m.username || m.name || '').toLowerCase().includes(normalizedQuery)
   );
+  const mentionTargets: MentionTarget[] = [
+    ...(shouldShowEveryone
+      ? [{
+          id: '__everyone__' as const,
+          username: everyoneLabel,
+          name: t('cardModal.commentEditor.everyoneDescription'),
+        }]
+      : []),
+    ...filteredMembers,
+  ];
 
   const closeMentionMenu = useCallback(() => {
     setMentionOpen(false);
@@ -83,6 +113,7 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setContent(value);
+    setMentionAll(/(^|\s)@(everyone|mọingười)(?=\s|$)/i.test(value));
 
     const cursor = e.target.selectionStart ?? value.length;
     const result = getMentionQuery(value, cursor);
@@ -110,7 +141,7 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
   }, [mentionOpen, closeMentionMenu]);
 
   const selectMember = useCallback(
-    (member: User) => {
+    (member: MentionTarget) => {
       if (mentionAtIndex === -1) return;
 
       // Replace "@query" with "@Name " in the textarea
@@ -122,9 +153,13 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
       const newContent = before + inserted + after;
 
       setContent(newContent);
-      setMentionedUserIds((prev) =>
-        prev.includes(member.id) ? prev : [...prev, member.id]
-      );
+      if (member.id === '__everyone__') {
+        setMentionAll(true);
+      } else {
+        setMentionedUserIds((prev) =>
+          prev.includes(member.id) ? prev : [...prev, member.id]
+        );
+      }
       closeMentionMenu();
 
       // Restore focus + move cursor to end of inserted mention
@@ -142,9 +177,10 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
   const handleSave = () => {
     const trimmed = content.trim();
     if (!trimmed) return;
-    onSave({ content: trimmed, mentionedUserIds });
+    onSave({ content: trimmed, mentionedUserIds, mentionAll });
     setContent('');
     setMentionedUserIds([]);
+    setMentionAll(false);
   };
 
   return (
@@ -155,10 +191,10 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
         value={content}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        placeholder="Write a comment… (@ to mention)"
+        placeholder={t('cardModal.commentEditor.placeholder')}
         rows={2}
         className="
-          w-full resize-none rounded-md border border-input bg-background
+          w-full resize-none rounded-md border border-input bg-background text-foreground
           px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground
           focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
           disabled:cursor-not-allowed disabled:opacity-50 transition
@@ -166,13 +202,13 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
       />
 
       {/* Inline @mention Command menu (renders below the textarea, anchored to wrapper) */}
-      {mentionOpen && filteredMembers.length > 0 && (
+      {mentionOpen && mentionTargets.length > 0 && (
         <div className="absolute bottom-full left-0 z-50 mb-1 w-64 rounded-md border bg-popover shadow-xl animate-in fade-in-0 zoom-in-95">
           <Command>
             <CommandList className="max-h-48">
-              <CommandEmpty>No members found.</CommandEmpty>
-              <CommandGroup heading="Mention a member">
-                {filteredMembers.map((member) => (
+              <CommandEmpty>{t('cardModal.commentEditor.noMembers')}</CommandEmpty>
+              <CommandGroup heading={t('cardModal.commentEditor.mentionMember')}>
+                {mentionTargets.map((member) => (
                   <CommandItem
                     key={member.id}
                     value={member.username || member.name}
@@ -180,14 +216,16 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
                     className="flex cursor-pointer items-center gap-2 px-2 py-1.5"
                   >
                     <Avatar className="h-6 w-6 shrink-0">
-                      <AvatarImage src={resolveAvatarUrl(member.avatarUrl)} alt={member.username || member.name || ''} />
+                      <AvatarImage src={member.id === '__everyone__' ? undefined : resolveAvatarUrl('avatarUrl' in member ? member.avatarUrl : undefined)} alt={member.username || member.name || ''} />
                       <AvatarFallback className="text-[9px] font-medium">
-                        {(member.username || member.name || 'U').substring(0, 2).toUpperCase()}
+                        {member.id === '__everyone__'
+                          ? '@@'
+                          : (member.username || member.name || 'U').substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{member.username || member.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                      <p className="truncate text-xs text-muted-foreground">{member.email || member.name}</p>
                     </div>
                   </CommandItem>
                 ))}
@@ -200,7 +238,7 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
       {/* Actions row */}
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-muted-foreground select-none">
-          <kbd className="rounded border px-1 font-mono text-[9px]">Enter</kbd> gửi · <kbd className="rounded border px-1 font-mono text-[9px]">Shift+Enter</kbd> xuống dòng · <span className="font-medium text-foreground">@</span> mention
+          <kbd className="rounded border px-1 font-mono text-[9px]">Enter</kbd> {t('cardModal.commentEditor.hintSend')} · <kbd className="rounded border px-1 font-mono text-[9px]">Shift+Enter</kbd> {t('cardModal.commentEditor.hintNewLine')} · <span className="font-medium text-foreground">@</span> {t('cardModal.commentEditor.hintMention')} · <span className="font-medium text-foreground">@{everyoneLabel}</span>
         </p>
         <Button
           size="sm"
@@ -208,7 +246,7 @@ export function CommentEditor({ members, onSave, isLoading }: CommentEditorProps
           onClick={handleSave}
           disabled={!content.trim() || isLoading}
         >
-          {isLoading ? 'Sending…' : 'Send'}
+          {isLoading ? t('cardModal.commentEditor.sending') : t('cardModal.commentEditor.send')}
         </Button>
       </div>
     </div>

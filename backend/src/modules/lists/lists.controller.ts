@@ -30,7 +30,7 @@ export class ListsController {
   }
 
   @Get('board/:boardId')
-  @UseGuards(JwtAuthGuard, BoardMemberGuard)
+  @UseGuards(JwtAuthGuard, ListBoardGuard)
   @ResponseMessage('Lists retrieved successfully')
   async findAllByBoard(
     @Param('boardId', ParseUUIDPipe) boardId: string,
@@ -38,12 +38,12 @@ export class ListsController {
     return this.listsService.findAllByBoard(boardId);
   }
 
-  @Get(':id')
-  @UseGuards(JwtAuthGuard, ListBoardGuard)
-  @ResponseMessage('List retrieved successfully')
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<List> {
-    return this.listsService.findOne(id);
-  }
+  // @Get(':id')
+  // @UseGuards(JwtAuthGuard, ListBoardGuard)
+  // @ResponseMessage('List retrieved successfully')
+  // async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<List> {
+  //   return this.listsService.findOne(id);
+  // }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, ListBoardGuard)
@@ -58,7 +58,7 @@ export class ListsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, ListBoardGuard)
-  @RequireBoardRole(BoardRole.ADMIN)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('List deleted successfully')
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.listsService.remove(id);

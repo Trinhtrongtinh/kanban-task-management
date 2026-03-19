@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Check, UserPlus, ChevronLeft, Settings, Loader2 } from 'lucide-react';
+import { useMemo, useState, useCallback } from 'react';
+import { Check, UserPlus, ChevronLeft, Settings, Loader2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { useUpdateBoard } from '@/hooks/data/use-boards';
+import { useDeleteBoard, useUpdateBoard } from '@/hooks/data/use-boards';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -32,19 +32,13 @@ import { useWorkspaceMembers } from '@/hooks/data/use-workspaces';
 import { useGetBoardMembers, useAddMemberToBoard, useRemoveMemberFromBoard } from '@/api/board-members';
 import { resolveAvatarUrl } from '@/lib/utils';
 import { useI18n } from '@/hooks/ui/use-i18n';
-
-// ── Shared Constants ────────────────────────────────────────────────────────
-
-const GRADIENT_PRESETS = [
-  'from-blue-500 to-blue-600',
-  'from-purple-500 to-pink-500',
-  'from-green-500 to-teal-500',
-  'from-orange-500 to-red-500',
-  'from-indigo-500 to-purple-500',
-  'from-cyan-500 to-blue-500',
-  'from-rose-500 to-rose-600',
-  'from-amber-500 to-orange-500',
-];
+import { useAuthStore } from '@/stores/authStore';
+import {
+  DEFAULT_BOARD_BACKGROUND,
+  getBoardUiTheme,
+  getBoardBackgroundOptionsByCategory,
+  resolveBoardBackground,
+} from '@/lib/board-themes';
 
 // ── Component ────────────────────────────────────────────────────────
 
@@ -56,11 +50,17 @@ interface BoardNavbarProps {
 }
 
 export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: BoardNavbarProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: boardMembers = [] } = useGetBoardMembers(boardId);
   const { data: workspaceMembers = [] } = useWorkspaceMembers(workspaceId);
+
+  // Determine if the current user is a board admin
+  const isAdmin = boardMembers.some(
+    (m) => m.id === currentUserId && m.role === 'ADMIN',
+  );
 
   const addMemberMutation = useAddMemberToBoard(boardId);
   const removeMemberMutation = useRemoveMemberFromBoard(boardId);
@@ -81,8 +81,20 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
   // Settings popover
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(title);
-  const [editedBg, setEditedBg] = useState(backgroundUrl || GRADIENT_PRESETS[0]);
+  const [editedBg, setEditedBg] = useState(backgroundUrl || DEFAULT_BOARD_BACKGROUND);
   const updateBoardMutation = useUpdateBoard();
+  const deleteBoardMutation = useDeleteBoard();
+  const themedOptions = useMemo(() => getBoardBackgroundOptionsByCategory('theme'), []);
+  const gradientOptions = useMemo(() => getBoardBackgroundOptionsByCategory('gradient'), []);
+  const previewBackground = resolveBoardBackground(editedBg);
+  const uiTheme = getBoardUiTheme(backgroundUrl);
+
+  const handleDeleteBoard = useCallback(() => {
+    const confirmed = window.confirm(t('board.deleteBoardConfirm'));
+    if (!confirmed) return;
+
+    deleteBoardMutation.mutate({ id: boardId, workspaceId });
+  }, [boardId, workspaceId, deleteBoardMutation, t]);
 
   const handleUpdateBoard = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +114,10 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
     });
   };
 
-  const boardMemberIds = new Set(boardMembers.map((m) => m.id));
+  const boardMemberIds = useMemo(
+    () => new Set(boardMembers.map((member) => member.id)),
+    [boardMembers],
+  );
   const invitedUsers = workspaceUsers.filter((user) => boardMemberIds.has(user.id));
   const invitableUsers = workspaceUsers.filter((user) => !boardMemberIds.has(user.id));
 
@@ -116,17 +131,17 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
   }, [boardMemberIds, addMemberMutation, removeMemberMutation, boardId]);
 
   return (
-    <div className="mb-2 flex w-full items-center justify-between rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm">
+    <div className={cn('mb-2 flex w-full items-center justify-between rounded-lg px-4 py-2 backdrop-blur-sm', uiTheme.navbarClassName)}>
       <div className="flex items-center gap-x-4">
-        <Button variant="ghost" size="sm" asChild className="text-foreground/80 hover:bg-accent">
+        <Button variant="ghost" size="sm" asChild className={cn(uiTheme.navbarButtonClassName, 'border')}>
           <Link href={workspaceId ? `/workspaces/${workspaceId}` : '/workspaces'}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             <span className="font-semibold">{t('board.backToWorkspaces')}</span>
           </Link>
         </Button>
-        <div className="h-6 w-px bg-border" />
-        <h2 className="text-lg font-bold text-foreground">{title}</h2>
-        <div className="h-6 w-px bg-border" />
+        <div className="h-6 w-px bg-white/20" />
+        <h2 className="text-lg font-bold text-current">{title}</h2>
+        <div className="h-6 w-px bg-white/20" />
 
         {/* ── Facepile: overlapping avatars ────────────── */}
         <div className="flex items-center">
@@ -151,12 +166,13 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
           </TooltipProvider>
 
           {/* ── Invite Popover ─────────────────────────── */}
+          {isAdmin && (
           <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="ml-3 flex h-8 items-center gap-2 rounded-md border bg-background px-3 text-foreground/80 transition hover:bg-accent"
+                className={cn('ml-3 flex h-8 items-center gap-2 rounded-md border px-3 transition', uiTheme.navbarButtonClassName)}
               >
                 <UserPlus className="h-4 w-4" />
                 <span className="text-sm font-medium">{t('board.addMember')}</span>
@@ -243,14 +259,16 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
               </Command>
             </PopoverContent>
           </Popover>
+          )}
 
           {/* ── Settings Popover ─────────────────────────── */}
+          {isAdmin && (
           <Popover open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="ml-2 flex h-8 w-8 p-0 items-center justify-center rounded-md border bg-background text-foreground/80 transition hover:bg-accent"
+                className={cn('ml-2 flex h-8 w-8 p-0 items-center justify-center rounded-md border transition', uiTheme.navbarButtonClassName)}
               >
                 <Settings className="h-4 w-4" />
               </Button>
@@ -279,19 +297,79 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">{t('board.backgroundColor')}</label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {GRADIENT_PRESETS.map((g, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => setEditedBg(g)}
-                          className={cn(
-                            'h-8 cursor-pointer rounded-md bg-gradient-to-br transition-all hover:scale-105',
-                            g,
-                            editedBg === g ? 'ring-2 ring-primary ring-offset-2' : ''
-                          )}
-                        />
-                      ))}
+                    <label className="text-sm font-medium">{t('board.backgroundStyle')}</label>
+                    <div
+                      className={cn(
+                        'relative h-24 overflow-hidden rounded-xl border shadow-sm',
+                        previewBackground.className,
+                      )}
+                      style={previewBackground.style}
+                    >
+                      <div className="absolute inset-0 bg-black/20" />
+                      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-3 text-white">
+                        <span className="text-sm font-semibold">{editedTitle.trim() || title}</span>
+                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm">
+                          {t('board.themePreview')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-1">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {t('board.funThemes')}
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {themedOptions.map((option) => {
+                            const optionBackground = resolveBoardBackground(option.token);
+
+                            return (
+                              <button
+                                key={option.token}
+                                type="button"
+                                onClick={() => setEditedBg(option.token)}
+                                className={cn(
+                                  'relative h-20 overflow-hidden rounded-lg border text-left transition-transform hover:scale-[1.02]',
+                                  editedBg === option.token ? 'ring-2 ring-primary ring-offset-2' : '',
+                                  optionBackground.className,
+                                )}
+                                style={optionBackground.style}
+                              >
+                                <div className="absolute inset-0 bg-black/20" />
+                                <span className="absolute inset-x-0 bottom-0 p-2 text-xs font-semibold text-white drop-shadow-sm">
+                                  {option.label[locale]}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {t('board.classicGradients')}
+                        </p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {gradientOptions.map((option) => {
+                            const optionBackground = resolveBoardBackground(option.token);
+
+                            return (
+                              <button
+                                key={option.token}
+                                type="button"
+                                onClick={() => setEditedBg(option.token)}
+                                className={cn(
+                                  'h-10 rounded-md transition-all hover:scale-105',
+                                  editedBg === option.token ? 'ring-2 ring-primary ring-offset-2' : '',
+                                  optionBackground.className,
+                                )}
+                                style={optionBackground.style}
+                                title={option.label[locale]}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -303,9 +381,27 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
                     {updateBoardMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t('board.save')}
                   </Button>
                 </form>
+
+                <div className="border-t pt-3">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-full"
+                    onClick={handleDeleteBoard}
+                    disabled={deleteBoardMutation.isPending}
+                  >
+                    {deleteBoardMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    <span>{t('board.deleteBoard')}</span>
+                  </Button>
+                </div>
               </div>
             </PopoverContent>
           </Popover>
+          )}
         </div>
       </div>
     </div>

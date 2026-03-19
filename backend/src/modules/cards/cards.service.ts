@@ -4,7 +4,7 @@ import { Repository, DataSource, Not } from 'typeorm';
 import { Card, List, BoardMember, NotificationType, User } from '../../database/entities';
 import { CreateCardDto, UpdateCardDto, MoveCardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode } from '../../common/enums';
+import { ActivityAction, ErrorCode } from '../../common/enums';
 import { ActivitiesService } from '../activities/activities.service';
 import { CardsGateway } from './cards.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -90,7 +90,7 @@ export class CardsService {
     return lastCard.position + POSITION_GAP;
   }
 
-  async create(createCardDto: CreateCardDto): Promise<Card> {
+  async create(createCardDto: CreateCardDto, userId: string): Promise<Card> {
     const { title, listId, deadline, assigneeId, ...rest } = createCardDto;
 
     // Validate list exists
@@ -126,6 +126,18 @@ export class CardsService {
     const boardId = fullCard.list.boardId;
     this.cardsGateway.emitCardCreated(boardId, fullCard);
 
+    // Log activity: card created
+    this.activitiesService
+      .createLog({
+        userId,
+        boardId,
+        cardId: savedCard.id,
+        action: ActivityAction.CREATE_CARD,
+        entityTitle: savedCard.title,
+        content: `Đã tạo thẻ "${savedCard.title}"`,
+      })
+      .catch((err) => console.error('Failed to log card creation:', err));
+
     return fullCard;
   }
 
@@ -156,7 +168,7 @@ export class CardsService {
     return card;
   }
 
-  async update(id: string, updateCardDto: UpdateCardDto): Promise<Card> {
+  async update(id: string, updateCardDto: UpdateCardDto, userId: string): Promise<Card> {
     const card = await this.findOne(id);
     const previousAssigneeId = card.assigneeId;
 
@@ -202,6 +214,46 @@ export class CardsService {
     }
     const updatedCard = await this.cardRepository.save(card);
 
+    // Log deadline change
+    if (deadline !== undefined) {
+      this.activitiesService
+        .createLog({
+          userId,
+          boardId: card.list.boardId,
+          cardId: updatedCard.id,
+          action: ActivityAction.UPDATE_CARD,
+          entityTitle: updatedCard.title,
+          details: {
+            field: 'deadline',
+            deadline: deadline || null,
+          },
+          content: deadline
+            ? `Đặt hạn chót "${updatedCard.title}" → ${new Date(deadline).toLocaleDateString('vi-VN')}`
+            : `Xóa hạn chót "${updatedCard.title}"`,
+        })
+        .catch((err) => console.error('Failed to log deadline change:', err));
+    }
+
+    if (
+      rest.assigneeId !== undefined &&
+      rest.assigneeId !== null &&
+      rest.assigneeId !== previousAssigneeId
+    ) {
+      this.activitiesService
+        .createLog({
+          userId,
+          boardId: card.list.boardId,
+          cardId: updatedCard.id,
+          action: ActivityAction.ADD_MEMBER,
+          entityTitle: updatedCard.title,
+          details: {
+            memberUserId: rest.assigneeId,
+          },
+          content: `Đã thêm thành viên vào thẻ "${updatedCard.title}"`,
+        })
+        .catch((err) => console.error('Failed to log member add:', err));
+    }
+
     if (
       rest.assigneeId !== undefined &&
       rest.assigneeId !== null &&
@@ -232,7 +284,7 @@ export class CardsService {
     return fullUpdatedCard;
   }
 
-  async addMember(cardId: string, userId: string): Promise<Card> {
+  async addMember(cardId: string, userId: string, addedByUserId?: string): Promise<Card> {
     const card = await this.findOne(cardId);
     await this.validateMemberInBoard(card.listId, userId);
 
@@ -243,6 +295,23 @@ export class CardsService {
         .relation(Card, 'members')
         .of(cardId)
         .add(userId);
+
+      // Log activity: member added
+      if (addedByUserId) {
+        this.activitiesService
+          .createLog({
+            userId: addedByUserId,
+            boardId: card.list?.boardId || '',
+            cardId,
+            action: ActivityAction.ADD_MEMBER,
+            entityTitle: card.title,
+            details: {
+              memberUserId: userId,
+            },
+            content: `Đã thêm thành viên vào thẻ "${card.title}"`,
+          })
+          .catch((err) => console.error('Failed to log member add:', err));
+      }
     }
 
     if (!card.assigneeId) {
@@ -443,19 +512,25 @@ export class CardsService {
     }
 
     // Log activity AFTER successful commit (outside transaction)
-    const logContent = isListChanged
-      ? `Đã chuyển thẻ "${savedCard.title}" từ "${oldListTitle}" sang "${targetListTitle}"`
-      : `Đã thay đổi vị trí thẻ "${savedCard.title}" trong "${targetListTitle}"`;
-
-    this.activitiesService
-      .createLog({
-        userId,
-        boardId,
-        cardId: savedCard.id,
-        action: 'MOVE_CARD',
-        content: logContent,
-      })
-      .catch((err) => console.error('Failed to log activity:', err));
+    // Only log if card moved to a DIFFERENT list (cross-list move)
+    // Do NOT log reordering within the same list
+    if (isListChanged) {
+      const logContent = `Đã chuyển thẻ "${savedCard.title}" từ "${oldListTitle}" sang "${targetListTitle}"`;
+      this.activitiesService
+        .createLog({
+          userId,
+          boardId,
+          cardId: savedCard.id,
+          action: ActivityAction.MOVE_CARD,
+          entityTitle: savedCard.title,
+          details: {
+            fromList: oldListTitle,
+            toList: targetListTitle,
+          },
+          content: logContent,
+        })
+        .catch((err) => console.error('Failed to log card move:', err));
+    }
 
     // Emit real-time event after successful commit
     this.cardsGateway.emitCardMoved(boardId, {

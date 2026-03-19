@@ -1,11 +1,16 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveBoardBackground } from '@/lib/board-themes';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 interface Board {
   id: string;
   title: string;
+  backgroundUrl?: string | null;
   backgroundColor?: string;
   backgroundImage?: string;
 }
@@ -13,23 +18,8 @@ interface Board {
 interface Workspace {
   id: string;
   name: string;
+  ownerDisplayName?: string;
   boards?: Board[];
-}
-
-// Gradient presets for boards
-const BOARD_GRADIENTS = [
-  'from-blue-500 to-blue-600',
-  'from-purple-500 to-purple-600',
-  'from-pink-500 to-pink-600',
-  'from-orange-500 to-orange-600',
-  'from-green-500 to-green-600',
-  'from-teal-500 to-teal-600',
-  'from-indigo-500 to-indigo-600',
-  'from-rose-500 to-rose-600',
-];
-
-function getGradient(index: number): string {
-  return BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
 }
 
 interface BoardCardProps {
@@ -38,25 +28,19 @@ interface BoardCardProps {
 }
 
 function BoardCard({ board, index }: BoardCardProps) {
-  const gradient = board.backgroundColor || getGradient(index);
-  const hasImage = !!board.backgroundImage;
+  const background = resolveBoardBackground(
+    board.backgroundUrl ?? board.backgroundImage ?? board.backgroundColor,
+    index,
+  );
 
   return (
-    <Link href={`/b/${board.id}`}>
+    <Link href={`/b/${board.id}`} className="block w-[72vw] max-w-[280px] min-w-[220px] shrink-0 snap-start sm:w-[250px]">
       <div
         className={cn(
           'group relative aspect-video cursor-pointer overflow-hidden rounded-lg transition-all duration-200 hover:scale-[1.03] hover:shadow-lg',
-          !hasImage && `bg-gradient-to-br ${gradient}`
+          background.className,
         )}
-        style={
-          hasImage
-            ? {
-                backgroundImage: `url(${board.backgroundImage})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }
-            : undefined
-        }
+        style={background.style}
       >
         {/* Overlay for better text visibility */}
         <div className="absolute inset-0 bg-black/20 transition-colors group-hover:bg-black/30" />
@@ -78,6 +62,40 @@ interface WorkspaceSectionProps {
 }
 
 export function WorkspaceSection({ workspace, icon }: WorkspaceSectionProps) {
+  const { t } = useI18n();
+  const sliderRef = useRef<HTMLDivElement | null>(null);
+  const boards = workspace.boards ?? [];
+  const ownerDisplayName = workspace.ownerDisplayName ?? t('dashboard.unknownOwner');
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = sliderRef.current;
+    if (!el) return;
+
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    updateScrollState();
+    window.addEventListener('resize', updateScrollState);
+    return () => window.removeEventListener('resize', updateScrollState);
+  }, [boards.length, updateScrollState]);
+
+  const scrollRow = (direction: 'left' | 'right') => {
+    const el = sliderRef.current;
+    if (!el) return;
+
+    const amount = Math.round(el.clientWidth * 0.9);
+    el.scrollBy({
+      left: direction === 'left' ? -amount : amount,
+      behavior: 'smooth',
+    });
+  };
+
+  const showScrollControls = canScrollLeft || canScrollRight;
+
   return (
     <div className="space-y-4">
       {/* Workspace Header — clickable to go to workspace dashboard */}
@@ -93,19 +111,55 @@ export function WorkspaceSection({ workspace, icon }: WorkspaceSectionProps) {
               </span>
             )}
           </div>
-          <h2 className="text-xl font-semibold group-hover:underline">
-            {workspace.name}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold group-hover:underline">
+              {workspace.name}
+            </h2>
+            <span className="text-xs text-muted-foreground sm:text-sm">
+              {t('dashboard.ownerLabel')}: {ownerDisplayName}
+            </span>
+          </div>
           <span className="text-sm text-muted-foreground hidden sm:inline-block">
-            ({workspace.boards?.length || 0} boards)
+            ({boards.length} boards)
           </span>
         </Link>
+
+        {showScrollControls && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollRow('left')}
+              disabled={!canScrollLeft}
+              aria-label={t('dashboard.slideLeft')}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background/80 text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollRow('right')}
+              disabled={!canScrollRight}
+              aria-label={t('dashboard.slideRight')}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background/80 text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Boards Grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {(workspace.boards || []).map((board, index) => (
-          <BoardCard key={board.id} board={board} index={index} />
+      {/* Boards Row Slider */}
+      <div
+        ref={sliderRef}
+        onScroll={updateScrollState}
+        className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:thin]"
+      >
+        {boards.map((board, index) => (
+          <BoardCard
+            key={board.id}
+            board={board}
+            index={index}
+          />
         ))}
       </div>
     </div>

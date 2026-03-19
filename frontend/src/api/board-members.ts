@@ -3,13 +3,17 @@ import { User } from "@/types";
 import { apiClient } from "./client";
 import { toast } from "sonner";
 
+export interface BoardMemberUser extends User {
+  role: 'ADMIN' | 'EDITOR' | 'VIEWER';
+}
+
 export const BOARD_MEMBERS_KEYS = {
   all: ["boardMembers"] as const,
   byBoard: (boardId: string) => [...BOARD_MEMBERS_KEYS.all, boardId] as const,
 };
 
-const fetchBoardMembers = async (boardId: string): Promise<User[]> => {
-  const res = await apiClient.get<{ data: User[] }>(`/boards/${boardId}/members`);
+const fetchBoardMembers = async (boardId: string): Promise<BoardMemberUser[]> => {
+  const res = await apiClient.get<{ data: BoardMemberUser[] }>(`/boards/${boardId}/members`);
   return res.data.data;
 };
 

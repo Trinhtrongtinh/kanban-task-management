@@ -1,14 +1,14 @@
 'use client';
 
+import type { AxiosError } from 'axios';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Zap, Check, Upload, Link2, Users, Bell, Blocks, CreditCard, Settings, Loader2, Trash2, ArrowLeft } from 'lucide-react';
+import { Zap, Check, Users, CreditCard, Settings, Loader2, Trash2, ArrowLeft } from 'lucide-react';
 import { useProModal } from '@/hooks/ui/use-pro-modal';
 import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -19,6 +19,15 @@ import { toast } from 'sonner';
 import { resolveAvatarUrl } from '@/lib/utils';
 import { paymentsApi } from '@/api/payments';
 import { useI18n } from '@/hooks/ui/use-i18n';
+
+type ApiErrorResponse = {
+  message?: string;
+};
+
+function getApiErrorMessage(error: unknown): string | undefined {
+  return (error as AxiosError<ApiErrorResponse>)?.response?.data?.message;
+}
+
 export default function WorkspaceSettingsPage({
   params
 }: {
@@ -36,10 +45,10 @@ export default function WorkspaceSettingsPage({
   // Redirect if not owner
   useEffect(() => {
     if (!isLoadingWs && workspace && user && workspace.ownerId !== user.id) {
-      toast.error("Bạn không có quyền truy cập vào cài đặt của Workspace này.");
+      toast.error(t('workspaceSettings.toast.noPermission'));
       router.push(`/workspaces/${workspaceId}`);
     }
-  }, [workspace, user, isLoadingWs, router, workspaceId]);
+  }, [workspace, user, isLoadingWs, router, workspaceId, t]);
 
   const updateMutation = useUpdateWorkspace();
   const deleteWorkspaceMutation = useDeleteWorkspace();
@@ -53,8 +62,8 @@ export default function WorkspaceSettingsPage({
     try {
       const { url } = await paymentsApi.createPortalSession();
       window.location.href = url;
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Không thể mở cổng quản lý thanh toán.');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) || t('workspaceSettings.toast.openPortalFailed'));
     } finally {
       setIsPortalLoading(false);
     }
@@ -93,16 +102,12 @@ export default function WorkspaceSettingsPage({
       payload: { email: inviteEmail }
     }, {
       onSuccess: () => {
-        toast.success("Đã gửi lời mời thành công! Người tham gia sẽ có quyền Member.");
+        toast.success(t('workspaceSettings.toast.inviteSuccess'));
         setInviteEmail('');
         setIsInviteOpen(false);
       },
-      onError: (err: any) => {
-        const rawMessage = err?.response?.data?.message;
-        const errorMessage = Array.isArray(rawMessage)
-          ? rawMessage.join(', ')
-          : rawMessage || err?.message || "Email không chính xác hoặc không tồn tại trong hệ thống";
-        toast.error(errorMessage);
+      onError: (err: unknown) => {
+        toast.error(getApiErrorMessage(err) || t('workspaceSettings.toast.invalidEmail'));
       }
     });
   };
@@ -114,11 +119,11 @@ export default function WorkspaceSettingsPage({
       { id: workspaceId, memberId: memberPendingRemove.userId },
       {
         onSuccess: () => {
-          toast.success('Đã xóa thành viên khỏi workspace');
+          toast.success(t('workspaceSettings.toast.memberRemoved'));
           setMemberPendingRemove(null);
         },
-        onError: (err: any) => {
-          toast.error(err.response?.data?.message || 'Không thể xóa thành viên');
+        onError: (err: unknown) => {
+          toast.error(getApiErrorMessage(err) || t('workspaceSettings.toast.memberRemoveFailed'));
         },
       },
     );
@@ -128,28 +133,28 @@ export default function WorkspaceSettingsPage({
     if (!workspace) return;
 
     if (deleteWorkspaceConfirmName.trim() !== workspace.name) {
-      toast.error('Vui lòng nhập đúng tên workspace để xác nhận xóa.');
+      toast.error(t('workspaceSettings.toast.workspaceNameConfirmMismatch'));
       return;
     }
 
     deleteWorkspaceMutation.mutate(workspaceId, {
       onSuccess: () => {
-        toast.success(isEn ? 'Workspace deleted successfully.' : 'Đã xóa workspace thành công.');
+        toast.success(t('workspaceSettings.toast.workspaceDeleted'));
         setIsDeleteWorkspaceOpen(false);
         setDeleteWorkspaceConfirmName('');
         router.push('/workspaces');
       },
-      onError: (err: any) => {
-        toast.error(err?.response?.data?.message || (isEn ? 'Unable to delete workspace' : 'Không thể xóa workspace'));
+      onError: (err: unknown) => {
+        toast.error(getApiErrorMessage(err) || t('workspaceSettings.toast.workspaceDeleteFailed'));
       },
     });
   };
 
   const roleLabelMap: Record<string, string> = {
-    OWNER: 'Owner',
-    MEMBER: 'Member',
-    ADMIN: 'Admin',
-    OBSERVER: 'Observer',
+    OWNER: t('workspaceSettings.role.owner'),
+    MEMBER: t('workspaceSettings.role.member'),
+    ADMIN: t('workspaceSettings.role.admin'),
+    OBSERVER: t('workspaceSettings.role.observer'),
   };
 
   return (
@@ -192,18 +197,6 @@ export default function WorkspaceSettingsPage({
               <Users className="w-4 h-4 shrink-0" /> {t('common.members')}
             </TabsTrigger>
             <TabsTrigger
-              value="notifications"
-              className="w-full justify-start gap-2 px-4 py-2 text-muted-foreground data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-none hover:bg-muted/40 hover:text-foreground rounded-md transition-colors"
-            >
-              <Bell className="w-4 h-4 shrink-0" /> {t('common.notifications')}
-            </TabsTrigger>
-            <TabsTrigger
-              value="integrations"
-              className="w-full justify-start gap-2 px-4 py-2 text-muted-foreground data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-none hover:bg-muted/40 hover:text-foreground rounded-md transition-colors"
-            >
-              <Blocks className="w-4 h-4 shrink-0" /> {t('common.integrations')}
-            </TabsTrigger>
-            <TabsTrigger
               value="billing"
               className="w-full justify-start gap-2 px-4 py-2 text-muted-foreground data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-none hover:bg-muted/40 hover:text-foreground rounded-md transition-colors"
             >
@@ -218,60 +211,38 @@ export default function WorkspaceSettingsPage({
             <TabsContent value="general" className="mt-0 space-y-6 focus-visible:outline-none focus-visible:ring-0">
               <Card className="border-border/50 shadow-sm">
                 <CardHeader>
-                  <CardTitle>{isEn ? 'Workspace Info' : 'Thông tin Workspace'}</CardTitle>
+                  <CardTitle>{t('workspaceSettings.general.infoTitle')}</CardTitle>
                   <CardDescription>
-                    {isEn ? 'Update your workspace details and branding.' : 'Cập nhật thông tin và nhận diện của workspace.'}
+                    {t('workspaceSettings.general.infoDescription')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-                    <div className="h-20 w-20 rounded-md bg-muted flex border-2 border-dashed items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent transition-colors shrink-0">
-                      <Upload className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium">{isEn ? 'Workspace Logo' : 'Logo Workspace'}</h4>
-                      <p className="text-sm text-muted-foreground mb-3">{isEn ? 'Recommended size: 256x256px (PNG, JPG).' : 'Kích thước đề xuất: 256x256px (PNG, JPG).'}</p>
-                      <Button variant="outline" size="sm">{isEn ? 'Upload new image' : 'Tải ảnh mới'}</Button>
-                    </div>
-                  </div>
+
 
                   <div className="space-y-2">
-                    <Label htmlFor="name">{isEn ? 'Workspace Name' : 'Tên Workspace'}</Label>
+                    <Label htmlFor="name">{t('workspaceSettings.general.nameLabel')}</Label>
                     <Input
                       id="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder={isEn ? 'Enter workspace name' : 'Nhập tên workspace'}
+                      placeholder={t('workspaceSettings.general.namePlaceholder')}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="slug">{isEn ? 'Workspace URL (Slug)' : 'Đường dẫn Workspace (Slug)'}</Label>
-                    <div className="flex items-center">
-                      <span className="bg-muted px-3 py-2 text-sm text-muted-foreground border border-r-0 rounded-l-md truncate">kanban.com/</span>
-                      <Input
-                        id="slug"
-                        value={slug}
-                        onChange={(e) => setSlug(e.target.value)}
-                        placeholder={isEn ? 'workspace-slug' : 'duong-dan-workspace'}
-                        className="rounded-l-none"
-                      />
-                    </div>
-                  </div>
+                  
+              
                 </CardContent>
                 <CardFooter className="bg-muted/20 border-t py-4">
                   <Button onClick={handleUpdate} disabled={updateMutation.isPending}>
-                    {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {isEn ? 'Save Changes' : 'Lưu thay đổi'}
+                    {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} {t('workspaceSettings.general.saveChanges')}
                   </Button>
                 </CardFooter>
               </Card>
 
               <Card className="border-destructive/40 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-destructive">{isEn ? 'Delete Workspace' : 'Xóa Workspace'}</CardTitle>
+                  <CardTitle className="text-destructive">{t('workspaceSettings.delete.title')}</CardTitle>
                   <CardDescription>
-                    {isEn
-                      ? 'This action cannot be undone. All boards, lists, cards, and related data will be permanently removed.'
-                      : 'Hành động này không thể hoàn tác. Toàn bộ bảng, danh sách, thẻ và dữ liệu liên quan sẽ bị xóa vĩnh viễn.'}
+                    {t('workspaceSettings.delete.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardFooter className="bg-destructive/5 border-t py-4">
@@ -285,25 +256,25 @@ export default function WorkspaceSettingsPage({
                     <DialogTrigger asChild>
                       <Button variant="destructive" className="gap-2">
                         <Trash2 className="h-4 w-4" />
-                        {isEn ? 'Delete workspace' : 'Xóa workspace'}
+                        {t('workspaceSettings.delete.button')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>{isEn ? 'Confirm workspace deletion' : 'Xác nhận xóa workspace'}</DialogTitle>
+                        <DialogTitle>{t('workspaceSettings.delete.dialogTitle')}</DialogTitle>
                         <DialogDescription>
-                          {isEn
-                            ? <>Type the exact workspace name <span className="font-semibold text-foreground">{workspace?.name}</span> to confirm.</>
-                            : <>Nhập chính xác tên workspace <span className="font-semibold text-foreground">{workspace?.name}</span> để xác nhận.</>}
+                          {t('workspaceSettings.delete.dialogDescriptionPrefix')}{' '}
+                          <span className="font-semibold text-foreground">{workspace?.name}</span>{' '}
+                          {t('workspaceSettings.delete.dialogDescriptionSuffix')}
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-2 py-2">
-                        <Label htmlFor="delete-workspace-name">{isEn ? 'Workspace name' : 'Tên workspace'}</Label>
+                        <Label htmlFor="delete-workspace-name">{t('workspaceSettings.delete.nameLabel')}</Label>
                         <Input
                           id="delete-workspace-name"
                           value={deleteWorkspaceConfirmName}
                           onChange={(e) => setDeleteWorkspaceConfirmName(e.target.value)}
-                          placeholder={workspace?.name || (isEn ? 'Type workspace name' : 'Nhập tên workspace')}
+                          placeholder={workspace?.name || t('workspaceSettings.delete.namePlaceholder')}
                         />
                       </div>
                       <DialogFooter>
@@ -312,7 +283,7 @@ export default function WorkspaceSettingsPage({
                           onClick={() => setIsDeleteWorkspaceOpen(false)}
                           disabled={deleteWorkspaceMutation.isPending}
                         >
-                          {isEn ? 'Cancel' : 'Hủy'}
+                          {t('common.cancel')}
                         </Button>
                         <Button
                           variant="destructive"
@@ -320,7 +291,7 @@ export default function WorkspaceSettingsPage({
                           disabled={deleteWorkspaceMutation.isPending}
                         >
                           {deleteWorkspaceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                          {isEn ? 'Delete permanently' : 'Xóa vĩnh viễn'}
+                          {t('workspaceSettings.delete.confirm')}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
@@ -334,9 +305,9 @@ export default function WorkspaceSettingsPage({
               <Card className="border-border/50 shadow-sm">
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0 pb-6">
                   <div className="space-y-1">
-                    <CardTitle>{isEn ? 'Members' : 'Thành viên'}</CardTitle>
+                    <CardTitle>{t('workspaceSettings.members.title')}</CardTitle>
                     <CardDescription>
-                      {isEn ? 'Manage who has access to this workspace.' : 'Quản lý quyền truy cập vào workspace này.'}
+                      {t('workspaceSettings.members.description')}
                     </CardDescription>
                   </div>
 
@@ -344,19 +315,19 @@ export default function WorkspaceSettingsPage({
                     <DialogTrigger asChild>
                       <Button className="gap-2 w-full sm:w-auto">
                         <Users className="w-4 h-4" />
-                        Thêm thành viên
+                        {t('workspaceSettings.members.addMember')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Mời thành viên</DialogTitle>
+                        <DialogTitle>{t('workspaceSettings.members.inviteTitle')}</DialogTitle>
                         <DialogDescription>
-                          Họ sẽ nhận được email chứa đường dẫn để tham gia Workspace này.
+                          {t('workspaceSettings.members.inviteDescription')}
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                          <Label>Email</Label>
+                          <Label>{t('workspaceSettings.members.emailLabel')}</Label>
                           <Input
                             value={inviteEmail}
                             onChange={(e) => setInviteEmail(e.target.value)}
@@ -364,7 +335,8 @@ export default function WorkspaceSettingsPage({
                           />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Người tham gia mới sẽ luôn được gán quyền <span className="font-medium text-foreground">Member</span>.
+                          {t('workspaceSettings.members.inviteNotePrefix')}{' '}
+                          <span className="font-medium text-foreground">{t('workspaceSettings.role.member')}</span>.
                         </p>
                       </div>
                       <DialogFooter>
@@ -373,7 +345,7 @@ export default function WorkspaceSettingsPage({
                           disabled={inviteMutation.isPending || !inviteEmail}
                         >
                           {inviteMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                          Gửi lời mời
+                          {t('workspaceSettings.members.sendInvite')}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
@@ -427,14 +399,16 @@ export default function WorkspaceSettingsPage({
               <Dialog open={!!memberPendingRemove} onOpenChange={(open) => !open && setMemberPendingRemove(null)}>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Xác nhận xóa thành viên</DialogTitle>
+                    <DialogTitle>{t('workspaceSettings.members.removeDialogTitle')}</DialogTitle>
                     <DialogDescription>
-                      {`Bạn có chắc muốn xóa ${memberPendingRemove?.name || 'thành viên này'} khỏi workspace?`}
+                      {t('workspaceSettings.members.removeDialogDescription', {
+                        name: memberPendingRemove?.name || t('workspaceSettings.members.thisMember'),
+                      })}
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setMemberPendingRemove(null)}>
-                      Hủy
+                      {t('common.cancel')}
                     </Button>
                     <Button
                       variant="destructive"
@@ -444,98 +418,21 @@ export default function WorkspaceSettingsPage({
                       {removeMemberMutation.isPending ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : null}
-                      Xóa thành viên
+                      {t('workspaceSettings.members.removeMember')}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             </TabsContent>
-
-            {/* ── NOTIFICATIONS TAB ── */}
-            <TabsContent value="notifications" className="mt-0 space-y-6 focus-visible:outline-none focus-visible:ring-0">
-              <Card className="border-border/50 shadow-sm">
-                <CardHeader>
-                  <CardTitle>{isEn ? 'Notifications' : 'Thông báo'}</CardTitle>
-                  <CardDescription>
-                    {isEn ? 'Configure how you receive alerts and summaries.' : 'Cấu hình cách bạn nhận cảnh báo và bản tóm tắt.'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">{isEn ? 'Email Preferences' : 'Tùy chọn Email'}</h4>
-
-                    <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm bg-card">
-                      <div className="flex flex-col space-y-1">
-                        <Label htmlFor="due-date" className="font-medium">{isEn ? 'Due Date Reminders' : 'Nhắc hạn thẻ'}</Label>
-                        <span className="text-sm text-muted-foreground">{isEn ? 'Email me when a card is due soon (24h).' : 'Gửi email khi thẻ sắp đến hạn (24h).'}</span>
-                      </div>
-                      <Switch id="due-date" defaultChecked />
-                    </div>
-
-                    <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm bg-card">
-                      <div className="flex flex-col space-y-1">
-                        <Label htmlFor="mentions" className="font-medium">{isEn ? 'Mentions' : 'Đề cập'}</Label>
-                        <span className="text-sm text-muted-foreground">{isEn ? 'Email me when someone mentions me in a comment.' : 'Gửi email khi có người @nhắc đến tôi trong bình luận.'}</span>
-                      </div>
-                      <Switch id="mentions" defaultChecked />
-                    </div>
-
-                    <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm bg-card">
-                      <div className="flex flex-col space-y-1">
-                        <Label htmlFor="digest" className="font-medium">{isEn ? 'Weekly Digest' : 'Tổng hợp tuần'}</Label>
-                        <span className="text-sm text-muted-foreground">{isEn ? 'Receive a weekly summary of workspace activity.' : 'Nhận tổng hợp hoạt động workspace theo tuần.'}</span>
-                      </div>
-                      <Switch id="digest" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* ── INTEGRATIONS TAB ── */}
-            <TabsContent value="integrations" className="mt-0 space-y-6 focus-visible:outline-none focus-visible:ring-0">
-              <Card className="border-border/50 shadow-sm">
-                <CardHeader>
-                  <CardTitle>{isEn ? 'Integrations' : 'Tích hợp'}</CardTitle>
-                  <CardDescription>
-                    {isEn ? 'Connect your workspace with third-party tools via webhooks.' : 'Kết nối workspace với công cụ bên thứ ba qua webhook.'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Slack/Discord Mockup */}
-                  <div className="flex flex-col gap-4 rounded-lg border p-6 shadow-sm relative overflow-hidden bg-card">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                      <Blocks className="h-24 w-24" />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="bg-indigo-100 dark:bg-indigo-950/40 p-3 rounded-xl text-indigo-600 dark:text-indigo-300">
-                        <Link2 className="h-6 w-6" />
-                      </div>
-                      <div className="z-10">
-                        <h4 className="text-lg font-semibold">{isEn ? 'Custom Webhooks' : 'Webhook tùy chỉnh'}</h4>
-                        <p className="text-sm text-muted-foreground">{isEn ? 'Send card updates directly to Discord or Slack channels.' : 'Gửi cập nhật thẻ trực tiếp đến Discord hoặc Slack.'}</p>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 space-y-3 z-10 w-full max-w-md">
-                      <div className="space-y-1">
-                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Endpoint URL</Label>
-                        <Input placeholder="https://discord.com/api/webhooks/..." className="bg-background" />
-                      </div>
-                      <Button variant="secondary" className="w-fit">{isEn ? 'Add Webhook' : 'Thêm Webhook'}</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+            
 
             {/* ── BILLING TAB ── */}
             <TabsContent value="billing" className="mt-0 space-y-6 focus-visible:outline-none focus-visible:ring-0">
               <Card className="border-border/50 shadow-sm">
                 <CardHeader>
-                  <CardTitle>Thanh toán & Gói đăng ký</CardTitle>
+                  <CardTitle>{t('workspaceSettings.billing.title')}</CardTitle>
                   <CardDescription>
-                    Quản lý thông tin thanh toán và nâng cấp gói của bạn.
+                    {t('workspaceSettings.billing.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -544,7 +441,7 @@ export default function WorkspaceSettingsPage({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-lg border bg-card p-6 shadow-sm">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-lg font-semibold leading-none">{isPro ? 'Kanban Pro' : 'Free Plan'}</p>
+                        <p className="text-lg font-semibold leading-none">{isPro ? t('workspaceSettings.billing.proPlan') : t('workspaceSettings.billing.freePlan')}</p>
                         {isPro && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
                             <Zap className="h-3 w-3" /> PRO
@@ -553,8 +450,8 @@ export default function WorkspaceSettingsPage({
                       </div>
                       <p className="text-sm text-muted-foreground pt-1">
                         {isPro
-                          ? `Gói Pro đang hoạt động${user?.expiredAt ? ` — hết hạn ${new Date(user.expiredAt).toLocaleDateString('vi-VN')}` : ''}`
-                          : 'Quản lý dự án cơ bản cho cá nhân và nhóm nhỏ.'}
+                          ? `${t('workspaceSettings.billing.proActive')}${user?.expiredAt ? ` — ${t('workspaceSettings.billing.expiresOn')} ${new Date(user.expiredAt).toLocaleDateString(isEn ? 'en-US' : 'vi-VN')}` : ''}`
+                          : t('workspaceSettings.billing.freeDescription')}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -572,7 +469,7 @@ export default function WorkspaceSettingsPage({
                           disabled={isPortalLoading}
                         >
                           {isPortalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-                          {isEn ? 'Manage plan' : 'Quản lý gói'}
+                          {t('workspaceSettings.billing.managePlan')}
                         </Button>
                       )}
                     </div>
@@ -592,8 +489,8 @@ export default function WorkspaceSettingsPage({
                               <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-200 mb-3">
                                 <Zap className="h-3.5 w-3.5" /> PRO
                               </div>
-                              <h3 className="text-2xl font-bold text-amber-950 dark:text-amber-100">Mở khóa toàn bộ tiềm năng</h3>
-                              <p className="text-amber-800/80 dark:text-amber-200/80 mt-1">Nâng cấp lên Pro để sử dụng đầy đủ các tính năng.</p>
+                              <h3 className="text-2xl font-bold text-amber-950 dark:text-amber-100">{t('workspaceSettings.billing.upgradeTitle')}</h3>
+                              <p className="text-amber-800/80 dark:text-amber-200/80 mt-1">{t('workspaceSettings.billing.upgradeSubtitle')}</p>
                             </div>
                           </div>
 
@@ -601,21 +498,21 @@ export default function WorkspaceSettingsPage({
                             <ul className="space-y-4 text-sm text-amber-900/90 dark:text-amber-100/90">
                               <li className="flex items-center gap-x-3">
                                 <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-1"><Check className="h-3 w-3 text-amber-600 dark:text-amber-300" /></div>
-                                <span className="font-medium">Không giới hạn</span> bảng & danh sách
+                                {t('workspaceSettings.billing.featureBoards')}
                               </li>
                               <li className="flex items-center gap-x-3">
                                 <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-1"><Check className="h-3 w-3 text-amber-600 dark:text-amber-300" /></div>
-                                Thành viên <span className="font-medium">không giới hạn</span>
+                                {t('workspaceSettings.billing.featureMembers')}
                               </li>
                             </ul>
                             <ul className="space-y-4 text-sm text-amber-900/90 dark:text-amber-100/90">
                               <li className="flex items-center gap-x-3">
                                 <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-1"><Check className="h-3 w-3 text-amber-600 dark:text-amber-300" /></div>
-                                Tệp đính kèm tới <span className="font-medium">250MB</span>
+                                {t('workspaceSettings.billing.featureAttachment')}
                               </li>
                               <li className="flex items-center gap-x-3">
                                 <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-1"><Check className="h-3 w-3 text-amber-600 dark:text-amber-300" /></div>
-                                <span className="font-medium">Hỗ trợ ưu tiên</span> 24/7
+                                {t('workspaceSettings.billing.featureSupport')}
                               </li>
                             </ul>
                           </div>
@@ -625,7 +522,7 @@ export default function WorkspaceSettingsPage({
                             size="lg"
                             className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 font-semibold text-white shadow-md focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 border-0"
                           >
-                            {isEn ? 'Upgrade $9/month' : 'Nâng cấp $9/tháng'}
+                            {t('workspaceSettings.billing.upgradeButton')}
                           </Button>
                         </div>
                       </div>

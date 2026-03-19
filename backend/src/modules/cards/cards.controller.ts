@@ -44,7 +44,7 @@ export class CardsController {
     if (!createCardDto.assigneeId) {
       createCardDto.assigneeId = userId;
     }
-    return this.cardsService.create(createCardDto);
+    return this.cardsService.create(createCardDto, userId);
   }
 
   @Get(':id')
@@ -61,13 +61,14 @@ export class CardsController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCardDto: UpdateCardDto,
+    @CurrentUser('userId') userId: string,
   ): Promise<Card> {
-    return this.cardsService.update(id, updateCardDto);
+    return this.cardsService.update(id, updateCardDto, userId);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, CardBoardGuard)
-  @RequireBoardRole(BoardRole.ADMIN)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Card deleted successfully')
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.cardsService.remove(id);
@@ -137,8 +138,9 @@ export class CardsController {
   async assignMember(
     @Param('cardId', ParseUUIDPipe) cardId: string,
     @Body('userId') userId: string,
+    @CurrentUser('userId') currentUserId: string,
   ): Promise<Card> {
-    return this.cardsService.addMember(cardId, userId);
+    return this.cardsService.addMember(cardId, userId, currentUserId);
   }
 
   @Delete(':cardId/members/:userId')

@@ -23,7 +23,7 @@ export const commentsApi = {
     },
     create: async (
         cardId: string,
-        payload: { content: string; mentionedUserIds?: string[] },
+        payload: { content: string; mentionedUserIds?: string[]; mentionAll?: boolean },
     ): Promise<Comment> => {
         const response = await apiClient.post<{ data: Comment }>(`/cards/${cardId}/comments`, payload);
         return response.data.data;
@@ -102,7 +102,7 @@ export function useCreateCommentMutation(cardId: string | undefined) {
     const key = commentKeys.byCard(cardId ?? '');
 
     return useMutation({
-        mutationFn: (payload: { content: string; mentionedUserIds: string[] }) =>
+        mutationFn: (payload: { content: string; mentionedUserIds: string[]; mentionAll: boolean }) =>
             commentsApi.create(cardId ?? '', payload),
         onSuccess: (createdComment) => {
             queryClient.setQueryData<Comment[]>(key, (old = []) => {

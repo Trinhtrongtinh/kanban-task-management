@@ -51,6 +51,12 @@ export class User {
   @Column({ type: 'boolean', default: false, name: 'is_verified' })
   isVerified: boolean;
 
+  @Column({ type: 'boolean', default: true, name: 'notify_due_date_email' })
+  notifyDueDateEmail: boolean;
+
+  @Column({ type: 'boolean', default: true, name: 'notify_mention_email' })
+  notifyMentionEmail: boolean;
+
   @Column({
     type: 'varchar',
     length: 255,

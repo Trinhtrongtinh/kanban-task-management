@@ -94,6 +94,7 @@ export class MailerService {
   ): Promise<boolean> {
     const formattedDeadline = this.formatDeadline(deadline);
     const timeRemaining = this.getTimeRemaining(deadline);
+    const resolvedCardLink = this.resolveAppUrl(cardLink);
 
     const html = `
       <!DOCTYPE html>
@@ -129,7 +130,7 @@ export class MailerService {
               <strong>⌛ Thời gian còn lại:</strong> ${timeRemaining.text}
             </div>
             
-            <a href="${cardLink}" class="btn">Xem thẻ</a>
+            <a href="${resolvedCardLink}" class="btn">Xem thẻ</a>
             
             <p style="margin-top: 20px;">Hãy hoàn thành nhiệm vụ trước khi hết hạn!</p>
           </div>
@@ -149,12 +150,77 @@ export class MailerService {
       Hạn chót: ${formattedDeadline}
       Thời gian còn lại: ${timeRemaining.text}
       
-      Xem thẻ: ${cardLink}
+      Xem thẻ: ${resolvedCardLink}
     `;
 
     return this.sendMail({
       to,
       subject: `⏰ Nhắc nhở: "${cardTitle}" sắp đến hạn`,
+      html,
+      text,
+    });
+  }
+
+  async sendMentionNotification(
+    to: string,
+    mentionedUsername: string,
+    actorName: string,
+    cardTitle: string,
+    boardName: string,
+    commentContent: string,
+    commentLink: string,
+  ): Promise<boolean> {
+    const resolvedCommentLink = this.resolveAppUrl(commentLink);
+    const preview = this.truncateText(commentContent, 180);
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #0f766e 0%, #155e75 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+          .content { background: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0; }
+          .comment { background: white; border-left: 4px solid #0f766e; padding: 12px 14px; border-radius: 4px; margin: 16px 0; }
+          .btn { display: inline-block; background: #0f766e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin-top: 15px; }
+          .footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>📣 Bạn vừa được nhắc đến</h2>
+          </div>
+          <div class="content">
+            <p>Xin chào ${mentionedUsername || 'bạn'},</p>
+            <p><strong>${actorName}</strong> đã nhắc đến bạn trong thẻ <strong>${cardTitle}</strong> thuộc board <strong>${boardName}</strong>.</p>
+            <div class="comment">${preview}</div>
+            <a href="${resolvedCommentLink}" class="btn">Mở bình luận</a>
+          </div>
+          <div class="footer">
+            <p>Email này được gửi tự động từ Kanban App</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+      Bạn vừa được nhắc đến
+
+      ${actorName} đã nhắc đến bạn trong thẻ "${cardTitle}" thuộc board "${boardName}".
+
+      Bình luận:
+      ${preview}
+
+      Mở bình luận: ${resolvedCommentLink}
+    `;
+
+    return this.sendMail({
+      to,
+      subject: `📣 ${actorName} vừa nhắc đến bạn trong "${cardTitle}"`,
       html,
       text,
     });
@@ -181,6 +247,31 @@ export class MailerService {
       return { text: `${hours} giờ ${minutes} phút`, hours };
     }
     return { text: `${minutes} phút`, hours: 0 };
+  }
+
+  private resolveAppUrl(pathOrUrl: string): string {
+    if (/^https?:\/\//i.test(pathOrUrl)) {
+      return pathOrUrl;
+    }
+
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+
+    const normalizedBase = frontendUrl.replace(/\/$/, '');
+    const normalizedPath = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+
+    return `${normalizedBase}${normalizedPath}`;
+  }
+
+  private truncateText(text: string, maxLength: number): string {
+    const sanitized = text.trim();
+    if (sanitized.length <= maxLength) {
+      return sanitized;
+    }
+
+    return `${sanitized.slice(0, maxLength - 3).trimEnd()}...`;
   }
 
   /**

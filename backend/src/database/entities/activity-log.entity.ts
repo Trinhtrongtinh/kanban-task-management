@@ -5,11 +5,15 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Board } from './board.entity';
 import { Card } from './card.entity';
+import { ActivityAction } from '../../common/enums';
 
+@Index('IDX_ACTIVITY_LOG_BOARD_CREATED_AT', ['boardId', 'createdAt'])
+@Index('IDX_ACTIVITY_LOG_USER_CREATED_AT', ['userId', 'createdAt'])
 @Entity('activity_logs')
 export class ActivityLog {
   @PrimaryGeneratedColumn('uuid')
@@ -24,14 +28,15 @@ export class ActivityLog {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'board_id' })
-  boardId: string;
+  @Column({ name: 'board_id', nullable: true })
+  boardId: string | null;
 
   @ManyToOne(() => Board, {
     onDelete: 'CASCADE',
+    nullable: true,
   })
   @JoinColumn({ name: 'board_id' })
-  board: Board;
+  board: Board | null;
 
   @Column({ name: 'card_id', nullable: true })
   cardId: string | null;
@@ -43,8 +48,17 @@ export class ActivityLog {
   @JoinColumn({ name: 'card_id' })
   card: Card | null;
 
-  @Column({ type: 'varchar', length: 50 })
-  action: string;
+  @Column({
+    type: 'enum',
+    enum: ActivityAction,
+  })
+  action: ActivityAction;
+
+  @Column({ name: 'entity_title', type: 'varchar', length: 255 })
+  entityTitle: string;
+
+  @Column({ type: 'json', nullable: true })
+  details: Record<string, unknown> | null;
 
   @Column({ type: 'text' })
   content: string;

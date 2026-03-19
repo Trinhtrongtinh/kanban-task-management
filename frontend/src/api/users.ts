@@ -10,13 +10,22 @@ export interface ChangePasswordPayload {
   newPassword: string;
 }
 
+export interface UpdateNotificationPreferencesPayload {
+  notifyDueDateEmail: boolean;
+  notifyMentionEmail: boolean;
+}
+
+export type RecentActivityFilter = 'today' | 'week' | 'all';
+
 export interface RecentActivity {
   id: string;
   action: string;
   content: string;
   createdAt: string;
-  boardId: string;
+  boardId: string | null;
   cardId: string | null;
+  entityTitle: string;
+  details?: Record<string, unknown> | null;
   board?: {
     id: string;
     title: string;
@@ -27,6 +36,17 @@ export interface RecentActivity {
   } | null;
 }
 
+export interface RecentActivityPage {
+  items: RecentActivity[];
+  nextCursor: string | null;
+}
+
+export interface GetRecentActivityParams {
+  filter?: RecentActivityFilter;
+  limit?: number;
+  cursor?: string;
+}
+
 export const usersApi = {
   updateProfile: async (payload: UpdateProfilePayload): Promise<AuthUser> => {
     const response = await apiClient.patch<{ data: AuthUser }>('/users/me', payload);
@@ -35,6 +55,16 @@ export const usersApi = {
 
   changePassword: async (payload: ChangePasswordPayload): Promise<void> => {
     await apiClient.patch('/users/me/password', payload);
+  },
+
+  updateNotificationPreferences: async (
+    payload: UpdateNotificationPreferencesPayload,
+  ): Promise<AuthUser> => {
+    const response = await apiClient.patch<{ data: AuthUser }>(
+      '/users/me/notification-preferences',
+      payload,
+    );
+    return response.data.data;
   },
 
   uploadAvatar: async (file: File): Promise<AuthUser> => {
@@ -54,8 +84,10 @@ export const usersApi = {
     await apiClient.delete('/users/me');
   },
 
-  getRecentActivity: async (): Promise<RecentActivity[]> => {
-    const response = await apiClient.get<{ data: RecentActivity[] }>('/activities/me');
+  getRecentActivity: async (params?: GetRecentActivityParams): Promise<RecentActivityPage> => {
+    const response = await apiClient.get<{ data: RecentActivityPage }>('/activities/me', {
+      params,
+    });
     return response.data.data;
   },
 };

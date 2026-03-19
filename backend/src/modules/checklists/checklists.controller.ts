@@ -15,7 +15,11 @@ import {
   UpdateChecklistItemDto,
 } from './dto';
 import { ChecklistItem } from '../../database/entities';
-import { RequireBoardRole, ResponseMessage } from '../../common/decorators';
+import {
+  CurrentUser,
+  RequireBoardRole,
+  ResponseMessage,
+} from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { ChecklistBoardGuard } from '../../common/guards';
 import { BoardRole } from '../../common/enums';
@@ -64,10 +68,12 @@ export class ChecklistsController {
   async updateChecklistItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateChecklistItemDto: UpdateChecklistItemDto,
+    @CurrentUser('userId') userId: string,
   ): Promise<ChecklistItem> {
     return this.checklistsService.updateChecklistItem(
       id,
       updateChecklistItemDto,
+      userId,
     );
   }
 

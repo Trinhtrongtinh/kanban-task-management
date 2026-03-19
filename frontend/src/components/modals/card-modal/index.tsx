@@ -66,6 +66,7 @@ import type { User } from '@/types';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { resolveAvatarUrl } from '@/lib/utils';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 // ── Collapsible Section ───────────────────────────────────────────────
 function CollapsibleSection({
@@ -81,7 +82,7 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -95,7 +96,7 @@ function CollapsibleSection({
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         )}
       </button>
-      {open && <div className="pl-1">{children}</div>}
+      {open && <div className="min-w-0 overflow-hidden pl-1">{children}</div>}
     </div>
   );
 }
@@ -103,6 +104,7 @@ function CollapsibleSection({
 // ── Main Modal ────────────────────────────────────────────────────────
 export function CardModal() {
   const { id, isOpen, onClose } = useCardModal();
+  const { t, locale } = useI18n();
   const { user } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -118,12 +120,14 @@ export function CardModal() {
     ({
       content,
       mentionedUserIds,
+      mentionAll,
     }: {
       content: string;
       mentionedUserIds: string[];
+      mentionAll: boolean;
     }) => {
       setIsPostingComment(true);
-      createComment.mutate({ content, mentionedUserIds }, {
+      createComment.mutate({ content, mentionedUserIds, mentionAll }, {
         onSuccess: () => {
           setIsPostingComment(false);
           // Scroll feed to bottom
@@ -141,7 +145,7 @@ export function CardModal() {
 
   // ── Checklist popover ─────────────────────────────────────────────
   const [checklistPopoverOpen, setChecklistPopoverOpen] = useState(false);
-  const [checklistName, setChecklistName] = useState('Checklist');
+  const [checklistName, setChecklistName] = useState(t('cardModal.checklists.defaultTitle'));
   const addChecklist = useAddChecklistMutation(id ?? undefined);
 
   // ── Due date popover ──────────────────────────────────────────────
@@ -275,9 +279,9 @@ export function CardModal() {
     const name = checklistName.trim();
     if (!name) return;
     addChecklist.mutate(name);
-    setChecklistName('Checklist');
+    setChecklistName(t('cardModal.checklists.defaultTitle'));
     setChecklistPopoverOpen(false);
-  }, [checklistName, addChecklist]);
+  }, [checklistName, addChecklist, t]);
 
   const handleDateSelect = useCallback(
     (date: Date | undefined) => {
@@ -355,7 +359,8 @@ export function CardModal() {
     ? new Date(currentCard.deadline)
     : undefined;
 
-  const cardTitle = currentCard?.title || 'Card';
+  const defaultCardTitle = t('cardModal.defaults.cardTitle');
+  const cardTitle = currentCard?.title || defaultCardTitle;
 
   // Local state for title / description to handle forms smoothly
   const [descValue, setDescValue] = useState(currentCard?.description || '');
@@ -363,21 +368,21 @@ export function CardModal() {
 
   // Sync state when opening different cards
   useEffect(() => {
-    setTitleValue(currentCard?.title || 'Card');
+    setTitleValue(currentCard?.title || defaultCardTitle);
     setDescValue(currentCard?.description || '');
-  }, [currentCard?.id, currentCard?.title, currentCard?.description]);
+  }, [currentCard?.id, currentCard?.title, currentCard?.description, defaultCardTitle]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       {/* Wide modal — 5xl (~1024px) */}
       <DialogContent className="sm:max-w-5xl p-0 gap-0 overflow-hidden">
         {/* ── 3-Zone grid ─────────────────────────────────────────── */}
-        <div className="flex h-[85vh] min-h-0">
+        <div className="grid h-[85vh] min-h-0 grid-cols-[minmax(0,1fr)_10rem_18rem] overflow-hidden xl:grid-cols-[minmax(0,1fr)_10.5rem_18.5rem]">
 
           {/* ═══════════════════════════════════════════════════════
               ZONE 1 — LEFT: Content (title, desc, checklists, attachments)
           ═══════════════════════════════════════════════════════ */}
-          <div className="flex flex-1 min-w-0 flex-col overflow-y-auto p-6 gap-5">
+          <div className="flex min-w-0 flex-col gap-5 overflow-y-auto overflow-x-hidden p-6">
             {/* Title */}
             <div className="space-y-1">
               <Input
@@ -385,17 +390,17 @@ export function CardModal() {
                 onChange={(e) => setTitleValue(e.target.value)}
                 className="text-xl font-bold tracking-tight leading-tight border-none px-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
               />
-              <p className="text-xs text-muted-foreground pl-1">In list: <span className="font-medium text-foreground">{currentList?.title}</span></p>
+              <p className="text-xs text-muted-foreground pl-1">{t('cardModal.header.inList')}: <span className="font-medium text-foreground">{currentList?.title}</span></p>
             </div>
 
             {/* Description */}
-            <div className="space-y-1.5 pl-1">
-              <label className="text-sm font-semibold">Description</label>
+            <div className="min-w-0 space-y-1.5 pl-1">
+              <label className="text-sm font-semibold">{t('cardModal.description.label')}</label>
               <Textarea
-                placeholder="Add a detailed description…"
+                placeholder={t('cardModal.description.placeholder')}
                 value={descValue}
                 onChange={(e) => setDescValue(e.target.value)}
-                className="min-h-[100px] resize-none text-sm"
+                className="min-h-[124px] w-full resize-none text-sm"
               />
 
               {/* Save / Cancel edits for Title & Description */}
@@ -404,23 +409,23 @@ export function CardModal() {
                   <Button
                     size="sm"
                     onClick={() => {
-                      const newTitle = titleValue.trim() || currentCard?.title || 'Card';
+                      const newTitle = titleValue.trim() || currentCard?.title || defaultCardTitle;
                       updateCard({ title: newTitle, description: descValue });
                       setTitleValue(newTitle);
                     }}
                   >
-                    Save
+                    {t('common.saveChanges')}
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      setTitleValue(currentCard?.title || 'Card');
+                      setTitleValue(currentCard?.title || defaultCardTitle);
                       setDescValue(currentCard?.description || '');
                       onClose();
                     }}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                 </div>
               )}
@@ -428,21 +433,23 @@ export function CardModal() {
 
             {/* Checklists — collapsible */}
             <CollapsibleSection
-              title="Checklists"
+              title={t('cardModal.checklists.sectionTitle')}
               icon={<CheckSquare className="h-4 w-4" />}
               defaultOpen={false}
             >
-              <ChecklistsContainer />
+              <div className="max-w-full pr-1">
+                <ChecklistsContainer />
+              </div>
             </CollapsibleSection>
 
             {/* Attachments — collapsible */}
             {currentCard?.attachments && currentCard.attachments.length > 0 && (
               <CollapsibleSection
-                title={`Attachments (${currentCard.attachments.length})`}
+                title={t('cardModal.attachments.sectionTitle', { count: currentCard.attachments.length })}
                 icon={<Paperclip className="h-4 w-4" />}
                 defaultOpen={false}
               >
-                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                <div className="max-h-[220px] max-w-full space-y-2 overflow-y-auto overflow-x-hidden pr-1">
                   {currentCard.attachments.map((attachment) => {
                     const isImage = attachment.fileType.includes('image');
                     const fileUrl = attachment.fileUrl.startsWith('http')
@@ -450,7 +457,7 @@ export function CardModal() {
                       : `${BASE_URL}${attachment.fileUrl}`;
                     const addedDate = new Date(
                       attachment.createdAt
-                    ).toLocaleDateString(undefined, {
+                    ).toLocaleDateString(locale === 'en' ? 'en-US' : 'vi-VN', {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric',
@@ -458,7 +465,7 @@ export function CardModal() {
                     return (
                       <div
                         key={attachment.id}
-                        className="flex items-center gap-3 rounded-md border p-2 hover:bg-muted/50 transition-colors group"
+                        className="group flex min-w-0 max-w-full items-center gap-3 rounded-md border p-2 transition-colors hover:bg-muted/50"
                       >
                         <a
                           href={fileUrl}
@@ -476,12 +483,12 @@ export function CardModal() {
                             <FileIcon className="h-6 w-6 text-muted-foreground" />
                           )}
                         </a>
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">
                             {attachment.fileName}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Added {addedDate}
+                            {t('cardModal.attachments.added', { date: addedDate })}
                           </p>
                           <div className="flex gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <a
@@ -490,7 +497,7 @@ export function CardModal() {
                               rel="noreferrer"
                               className="text-xs underline text-muted-foreground hover:text-foreground"
                             >
-                              Download
+                              {t('cardModal.attachments.download')}
                             </a>
                             <span className="text-muted-foreground text-xs">·</span>
                             <button
@@ -500,7 +507,7 @@ export function CardModal() {
                               }
                               className="text-xs underline text-muted-foreground hover:text-destructive"
                             >
-                              Delete
+                              {t('cardModal.attachments.delete')}
                             </button>
                           </div>
                         </div>
@@ -515,9 +522,9 @@ export function CardModal() {
           {/* ═══════════════════════════════════════════════════════
               ZONE 2 — MIDDLE: Actions & metadata chips
           ═══════════════════════════════════════════════════════ */}
-          <div className="flex w-44 shrink-0 flex-col gap-3 border-l border-r bg-muted/30 px-3 py-6">
+          <div className="flex min-w-0 flex-col gap-3 border-l border-r bg-muted/30 px-3 py-6">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              Actions
+              {t('cardModal.actions.title')}
             </p>
 
             {/* Members */}
@@ -534,7 +541,7 @@ export function CardModal() {
                   className="w-full justify-start text-xs"
                 >
                   <Users className="mr-1.5 h-3.5 w-3.5" />
-                  Thêm
+                  {t('cardModal.members.add')}
                 </Button>
               </CardMemberPicker>
               {assignedMembers.length > 0 && (
@@ -588,11 +595,11 @@ export function CardModal() {
                     className="w-full justify-start text-xs"
                   >
                     <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
-                    Dates
+                    {t('cardModal.dates.button')}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent align="start" side="bottom" className="w-auto space-y-2 p-3">
-                  <p className="text-center text-sm font-medium">Due Date</p>
+                  <p className="text-center text-sm font-medium">{t('cardModal.dates.title')}</p>
                   <Calendar
                     mode="single"
                     selected={selectedDate}
@@ -607,7 +614,7 @@ export function CardModal() {
                       onClick={handleRemoveDate}
                     >
                       <X className="mr-2 h-4 w-4" />
-                      Remove due date
+                      {t('cardModal.dates.remove')}
                     </Button>
                   )}
                 </PopoverContent>
@@ -640,14 +647,14 @@ export function CardModal() {
                   className="w-full justify-start text-xs"
                 >
                   <CheckSquare className="mr-1.5 h-3.5 w-3.5" />
-                  Checklist
+                  {t('cardModal.checklists.defaultTitle')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" side="bottom" className="w-60 space-y-3 p-3">
-                <p className="text-center text-sm font-medium">Add Checklist</p>
+                <p className="text-center text-sm font-medium">{t('cardModal.checklists.addTitle')}</p>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Title
+                    {t('cardModal.checklists.titleLabel')}
                   </label>
                   <Input
                     value={checklistName}
@@ -668,7 +675,7 @@ export function CardModal() {
                   onClick={handleAddChecklist}
                   disabled={!checklistName.trim()}
                 >
-                  Add
+                  {t('cardModal.checklists.add')}
                 </Button>
               </PopoverContent>
             </Popover>
@@ -687,7 +694,7 @@ export function CardModal() {
                 ) : (
                   <Paperclip className="mr-1.5 h-3.5 w-3.5" />
                 )}
-                Attachment
+                {t('cardModal.attachments.button')}
               </Button>
               <input
                 type="file"
@@ -705,18 +712,18 @@ export function CardModal() {
               onClick={handleDeleteCard}
             >
               <Trash className="mr-1.5 h-3.5 w-3.5" />
-              Delete card
+              {t('cardModal.deleteCard')}
             </Button>
           </div>
 
           {/* ═══════════════════════════════════════════════════════
               ZONE 3 — RIGHT: Activity (scrollable feed + sticky input)
           ═══════════════════════════════════════════════════════ */}
-          <div className="flex w-72 shrink-0 flex-col border-none">
+          <div className="flex min-w-0 flex-col border-none">
             {/* Header */}
             <div className="flex items-center gap-2 border-b px-4 py-3">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">Activity</h3>
+              <h3 className="text-sm font-semibold">{t('cardModal.activity.title')}</h3>
               <Badge variant="secondary" className="text-[10px] h-5">
                 {comments.length}
               </Badge>
@@ -738,12 +745,12 @@ export function CardModal() {
             <div className="border-t bg-background px-4 py-3 space-y-2">
               <div className="flex items-start gap-2">
                 <Avatar className="h-7 w-7 shrink-0 mt-0.5">
-                  <AvatarImage src={resolveAvatarUrl(user?.avatarUrl)} alt={user?.username || 'Me'} />
+                  <AvatarImage src={resolveAvatarUrl(user?.avatarUrl)} alt={user?.username || t('cardModal.defaults.me')} />
                   <AvatarFallback className="bg-primary/10 text-[9px] font-semibold text-primary">
-                    {(user?.username || 'Me').substring(0, 2).toUpperCase()}
+                    {(user?.username || t('cardModal.defaults.me')).substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <CommentEditor
                     members={boardMembers}
                     onSave={handleCreateComment}

@@ -17,7 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { WorkspaceSwitcher } from '@/components/workspaces/workspace-switcher';
 import { NotificationBell } from '@/components/notifications/notification-bell';
@@ -63,6 +63,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { t } = useI18n();
   const { user, logout } = useAuthStore();
   const [query, setQuery] = useState('');
@@ -128,10 +129,17 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   useEffect(() => {
-    if (!query.trim()) {
-      setSelectedType('all');
+    if (typeof window === 'undefined') return;
+
+    const isProfileOrAppSettings = pathname === '/profile' || pathname === '/settings';
+    if (!isProfileOrAppSettings && pathname) {
+      window.sessionStorage.setItem('kanban:returnPath', pathname);
     }
-  }, [query]);
+
+    if (pathname?.startsWith('/b/')) {
+      window.sessionStorage.setItem('kanban:lastBoardPath', pathname);
+    }
+  }, [pathname]);
 
   const handleLogout = () => {
     logout();
@@ -195,10 +203,23 @@ export function Header({ onMenuClick }: HeaderProps) {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
+              name="global-search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               placeholder={t('common.searchPlaceholder')}
               className="w-full pl-9"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                const nextValue = e.target.value;
+                setQuery(nextValue);
+                if (!nextValue.trim()) {
+                  setSelectedType('all');
+                }
+              }}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => {
                 window.setTimeout(() => setIsSearchFocused(false), 160);

@@ -9,10 +9,11 @@ import {
 } from '../../database/entities';
 import { CreateCommentDto, UpdateCommentDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode, BoardRole } from '../../common/enums';
+import { ErrorCode, BoardRole, ActivityAction } from '../../common/enums';
 import { CommentsGateway } from './comments.gateway';
 import { ActivitiesService } from '../activities/activities.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MailerService } from '../notifications/mailer.service';
 
 @Injectable()
 export class CommentsService {
@@ -26,6 +27,7 @@ export class CommentsService {
     private readonly commentsGateway: CommentsGateway,
     private readonly activitiesService: ActivitiesService,
     private readonly notificationsService: NotificationsService,
+    private readonly mailerService: MailerService,
   ) {}
 
   /**
@@ -34,7 +36,7 @@ export class CommentsService {
   private async getCardWithList(cardId: string): Promise<Card> {
     const card = await this.cardRepository.findOne({
       where: { id: cardId },
-      relations: ['list'],
+      relations: ['list', 'list.board'],
     });
 
     if (!card) {
@@ -91,16 +93,28 @@ export class CommentsService {
     );
 
     let mentionedBoardMembers: BoardMember[] = [];
-    if (candidateMentionIds.length > 0) {
+    if (createCommentDto.mentionAll || candidateMentionIds.length > 0) {
       mentionedBoardMembers = await this.boardMemberRepository.find({
-        where: {
-          boardId: card.list.boardId,
-          userId: In(candidateMentionIds),
-        },
+        where: createCommentDto.mentionAll
+          ? {
+              boardId: card.list.boardId,
+            }
+          : {
+              boardId: card.list.boardId,
+              userId: In(candidateMentionIds),
+            },
         relations: ['user'],
       });
 
+      mentionedBoardMembers = mentionedBoardMembers.filter(
+        (member, index, members) =>
+          member.userId !== userId &&
+          members.findIndex((candidate) => candidate.userId === member.userId) === index,
+      );
+
       for (const mentionedMember of mentionedBoardMembers) {
+        const mentionLink = `/b/${card.list.boardId}?cardId=${cardId}&focus=activity&commentId=${commentWithUser.id}`;
+
         await this.notificationsService
           .create({
             userId: mentionedMember.userId,
@@ -108,7 +122,7 @@ export class CommentsService {
             type: NotificationType.MENTION,
             title: 'Bạn được nhắc đến trong bình luận',
             message: `${commentWithUser.user.username} đã nhắc đến bạn trong thẻ "${card.title}"`,
-            link: `/b/${card.list.boardId}?cardId=${cardId}&focus=activity&commentId=${commentWithUser.id}`,
+            link: mentionLink,
             metadata: {
               boardId: card.list.boardId,
               cardId,
@@ -117,6 +131,20 @@ export class CommentsService {
             },
           })
           .catch(() => null);
+
+        if (mentionedMember.user?.email && mentionedMember.user.notifyMentionEmail) {
+          this.mailerService
+            .sendMentionNotification(
+              mentionedMember.user.email,
+              mentionedMember.user.username || mentionedMember.user.email,
+              commentWithUser.user.username || 'Một người dùng',
+              card.title,
+              card.list.board?.title || 'Kanban',
+              commentWithUser.content,
+              mentionLink,
+            )
+            .catch(() => null);
+        }
       }
     }
 
@@ -134,7 +162,12 @@ export class CommentsService {
       userId,
       boardId: card.list.boardId,
       cardId: card.id,
-      action: 'ADD_COMMENT',
+      action: ActivityAction.COMMENT_ADDED,
+      entityTitle: card.title,
+      details: {
+        commentId: commentWithUser.id,
+        mentionedUserIds: mentionedBoardMembers.map((member) => member.userId),
+      },
       content: `Đã thêm một bình luận vào Card "${card.title}"${mentionText}`,
     });
 

@@ -26,10 +26,21 @@ export interface UpdateBoardPayload {
     visibility?: 'Private' | 'Workspace' | 'Public';
 }
 
+interface GetBoardsByWorkspaceOptions {
+    joinedOnly?: boolean;
+}
+
 export const boardsApi = {
     // Get all boards in a workspace
-    getBoardsByWorkspace: async (workspaceId: string): Promise<Board[]> => {
-        const response = await apiClient.get<{ data: Board[] }>(`/boards/workspace/${workspaceId}`);
+    getBoardsByWorkspace: async (
+        workspaceId: string,
+        options?: GetBoardsByWorkspaceOptions,
+    ): Promise<Board[]> => {
+        const response = await apiClient.get<{ data: Board[] }>(`/boards/workspace/${workspaceId}`, {
+            params: {
+                joinedOnly: options?.joinedOnly,
+            },
+        });
         return response.data.data;
     },
 

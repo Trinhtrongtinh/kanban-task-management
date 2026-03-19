@@ -39,6 +39,8 @@ interface NavGroup {
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
@@ -87,7 +89,7 @@ function NavGroupSection({
 
 // ── Desktop Sidebar ──────────────────────────────────────────────────
 
-function DesktopSidebar() {
+function DesktopSidebar({ isCollapsed, onToggleCollapse }: { isCollapsed: boolean; onToggleCollapse: () => void }) {
   const onOpen = useProModal((state) => state.onOpen);
   const user = useAuthStore((state) => state.user);
   const isProUser = user?.planType === 'PRO';
@@ -120,8 +122,36 @@ function DesktopSidebar() {
     },
   ];
 
+  if (isCollapsed) {
+    return (
+      <div className="fixed left-0 top-16 z-40 hidden md:block">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onToggleCollapse}
+          aria-label={t('sidebar.expand')}
+          className="ml-3 h-9 w-9 rounded-full border bg-background/95 shadow-sm"
+        >
+          <ChevronLeft className="h-4 w-4 rotate-180" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <aside className="fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-60 border-r bg-background md:flex flex-col">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={onToggleCollapse}
+        aria-label={t('sidebar.collapse')}
+        className="absolute right-2 top-2 h-8 w-8"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+
       {/* Navigation groups */}
       <nav className="flex-1 overflow-y-auto px-3 pt-5">
         {NAV_GROUPS.map((group) => (
@@ -152,7 +182,7 @@ function DesktopSidebar() {
 
 // ── Mobile Sidebar ───────────────────────────────────────────────────
 
-function MobileSidebar({ isOpen, onClose }: SidebarProps) {
+function MobileSidebar({ isOpen, onClose }: Pick<SidebarProps, 'isOpen' | 'onClose'>) {
   const onOpen = useProModal((state) => state.onOpen);
   const user = useAuthStore((state) => state.user);
   const isProUser = user?.planType === 'PRO';
@@ -232,10 +262,10 @@ function MobileSidebar({ isOpen, onClose }: SidebarProps) {
 
 // ── Export ───────────────────────────────────────────────────────────
 
-export function Sidebar({ isOpen, onClose }: SidebarProps) {
+export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   return (
     <>
-      <DesktopSidebar />
+      <DesktopSidebar isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse} />
       <MobileSidebar isOpen={isOpen} onClose={onClose} />
     </>
   );

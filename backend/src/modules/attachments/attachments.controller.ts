@@ -13,7 +13,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AttachmentsService } from './attachments.service';
 import { Attachment } from '../../database/entities';
-import { ResponseMessage } from '../../common/decorators';
+import { CurrentUser, ResponseMessage } from '../../common/decorators';
 import { multerOptions } from './multer.config';
 import { BusinessException } from '../../common/exceptions';
 import { BoardRole, ErrorCode } from '../../common/enums';
@@ -33,6 +33,7 @@ export class AttachmentsController {
   async upload(
     @Param('cardId', ParseUUIDPipe) cardId: string,
     @UploadedFile() file: Express.Multer.File,
+    @CurrentUser('userId') userId: string,
   ): Promise<Attachment> {
     if (!file) {
       throw new BusinessException(
@@ -40,7 +41,7 @@ export class AttachmentsController {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.attachmentsService.create(cardId, file);
+    return this.attachmentsService.create(cardId, file, userId);
   }
 
   @Get('cards/:cardId/attachments')

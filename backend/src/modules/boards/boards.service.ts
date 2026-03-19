@@ -4,9 +4,10 @@ import { Repository } from 'typeorm';
 import { Board, Workspace, BoardMember, WorkspaceMember } from '../../database/entities';
 import { CreateBoardDto, UpdateBoardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode, BoardRole, MemberStatus } from '../../common/enums';
+import { ErrorCode, BoardRole, MemberStatus, ActivityAction } from '../../common/enums';
 import { User, PlanType } from '../../database/entities';
 import { AppCacheService, CACHE_TTL, CacheKeys } from '../../common/cache';
+import { ActivitiesService } from '../activities/activities.service';
 
 const FREE_PLAN_BOARD_LIMIT = 3;
 
@@ -22,6 +23,7 @@ export class BoardsService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly cacheService: AppCacheService,
+    private readonly activitiesService: ActivitiesService,
   ) { }
 
   private async getWorkspaceAudienceUserIds(workspaceId: string): Promise<string[]> {
@@ -46,9 +48,10 @@ export class BoardsService {
 
   private async invalidateBoardsByWorkspace(workspaceId: string): Promise<void> {
     const userIds = await this.getWorkspaceAudienceUserIds(workspaceId);
-    const keys = userIds.map((userId) =>
-      CacheKeys.boardsByWorkspaceAndUser(workspaceId, userId),
-    );
+    const keys = userIds.flatMap((userId) => {
+      const baseKey = CacheKeys.boardsByWorkspaceAndUser(workspaceId, userId);
+      return [`${baseKey}:joined:0`, `${baseKey}:joined:1`];
+    });
     await this.cacheService.delMany(keys);
   }
 
@@ -258,11 +261,28 @@ export class BoardsService {
 
     await this.invalidateBoardsByWorkspace(workspaceId);
 
+    this.activitiesService
+      .createLog({
+        userId,
+        boardId: savedBoard.id,
+        action: ActivityAction.CREATE_BOARD,
+        entityTitle: savedBoard.title,
+        details: {
+          workspaceId,
+        },
+        content: `Đã tạo board "${savedBoard.title}"`,
+      })
+      .catch(() => null);
+
     return savedBoard;
   }
 
-  async findAllByWorkspace(workspaceId: string, userId: string): Promise<Board[]> {
-    const cacheKey = CacheKeys.boardsByWorkspaceAndUser(workspaceId, userId);
+  async findAllByWorkspace(
+    workspaceId: string,
+    userId: string,
+    joinedOnly = false,
+  ): Promise<Board[]> {
+    const cacheKey = `${CacheKeys.boardsByWorkspaceAndUser(workspaceId, userId)}:joined:${joinedOnly ? 1 : 0}`;
     const cached = await this.cacheService.get<Board[]>(cacheKey);
     if (cached) {
       return cached;
@@ -284,8 +304,9 @@ export class BoardsService {
       .leftJoinAndSelect('board.workspace', 'workspace')
       .where('board.workspace_id = :workspaceId', { workspaceId });
 
-    // If not owner, only show boards where user is a member
-    if (workspace.ownerId !== userId) {
+    // joinedOnly=true: only show boards user joined/invited to
+    // joinedOnly=false: preserve old behavior (owner sees all boards)
+    if (joinedOnly || workspace.ownerId !== userId) {
       query
         .innerJoin('board_members', 'bm', 'bm.board_id = board.id')
         .andWhere('bm.user_id = :userId', { userId });
@@ -316,8 +337,9 @@ export class BoardsService {
     return board;
   }
 
-  async update(id: string, updateBoardDto: UpdateBoardDto): Promise<Board> {
+  async update(id: string, updateBoardDto: UpdateBoardDto, userId: string): Promise<Board> {
     const board = await this.findOne(id);
+    const previousTitle = board.title;
 
     const { slug, title, ...rest } = updateBoardDto;
 
@@ -363,6 +385,24 @@ export class BoardsService {
 
     const updatedBoard = await this.boardRepository.save(board);
     await this.invalidateBoardsByWorkspace(board.workspaceId);
+
+    this.activitiesService
+      .createLog({
+        userId,
+        boardId: updatedBoard.id,
+        action: ActivityAction.UPDATE_BOARD,
+        entityTitle: updatedBoard.title,
+        details: {
+          oldTitle: previousTitle,
+          newTitle: updatedBoard.title,
+        },
+        content:
+          previousTitle !== updatedBoard.title
+            ? `Đã đổi tên board từ "${previousTitle}" thành "${updatedBoard.title}"`
+            : `Đã cập nhật board "${updatedBoard.title}"`,
+      })
+      .catch(() => null);
+
     return updatedBoard;
   }
 
@@ -372,15 +412,15 @@ export class BoardsService {
     await this.invalidateBoardsByWorkspace(board.workspaceId);
   }
 
-  async getMembers(boardId: string): Promise<User[]> {
+  async getMembers(boardId: string): Promise<(User & { role: string })[]> {
     const boardMembers = await this.boardMemberRepository.find({
       where: { boardId },
       relations: ['user'],
     });
-    return boardMembers.map(bm => bm.user);
+    return boardMembers.map(bm => ({ ...bm.user, role: bm.role }));
   }
 
-  async addMember(boardId: string, userId: string): Promise<BoardMember> {
+  async addMember(boardId: string, userId: string, actorId: string): Promise<BoardMember> {
     const board = await this.findOne(boardId);
 
     // Check if user is in workspace
@@ -416,16 +456,43 @@ export class BoardsService {
 
     const savedMember = await this.boardMemberRepository.save(newMember);
     await this.invalidateBoardsByWorkspace(board.workspaceId);
+
+    this.activitiesService
+      .createLog({
+        userId: actorId,
+        boardId,
+        action: ActivityAction.ADD_MEMBER,
+        entityTitle: board.title,
+        details: {
+          memberUserId: userId,
+        },
+        content: `Đã thêm thành viên vào board "${board.title}"`,
+      })
+      .catch(() => null);
+
     return savedMember;
   }
 
-  async removeMember(boardId: string, userId: string): Promise<void> {
+  async removeMember(boardId: string, userId: string, actorId: string): Promise<void> {
     const board = await this.findOne(boardId);
     const existing = await this.boardMemberRepository.findOne({
       where: { boardId, userId }
     });
     if (existing) {
       await this.boardMemberRepository.remove(existing);
+
+      this.activitiesService
+        .createLog({
+          userId: actorId,
+          boardId,
+          action: ActivityAction.REMOVE_MEMBER,
+          entityTitle: board.title,
+          details: {
+            memberUserId: userId,
+          },
+          content: `Đã xóa thành viên khỏi board "${board.title}"`,
+        })
+        .catch(() => null);
     }
     await this.invalidateBoardsByWorkspace(board.workspaceId);
   }

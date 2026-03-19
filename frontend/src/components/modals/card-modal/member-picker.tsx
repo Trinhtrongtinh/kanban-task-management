@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/command";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { resolveAvatarUrl } from "@/lib/utils";
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 interface MemberPickerProps {
     card: Card;
@@ -28,6 +29,7 @@ interface MemberPickerProps {
 }
 
 export const MemberPicker = ({ card, children }: MemberPickerProps) => {
+    const { t } = useI18n();
     const { data: boardMembers = [], isLoading } = useGetBoardMembers(card.boardId);
     const { mutate: assignMember } = useAssignMember(card.id, card.boardId);
     const { mutate: unassignMember } = useUnassignMember(card.id);
@@ -48,12 +50,12 @@ export const MemberPicker = ({ card, children }: MemberPickerProps) => {
             </PopoverTrigger>
             <PopoverContent align="start" className="w-72 p-0" side="bottom">
                 <Command>
-                    <CommandInput placeholder="Search members..." />
+                    <CommandInput placeholder={t('cardModal.members.searchPlaceholder')} />
                     <CommandList>
                         <CommandEmpty>
-                            {isLoading ? "Loading members..." : "No members found."}
+                            {isLoading ? t('cardModal.members.loading') : t('cardModal.members.empty')}
                         </CommandEmpty>
-                        <CommandGroup heading="Board members">
+                        <CommandGroup heading={t('cardModal.members.groupHeading')}>
                             {boardMembers.map((user) => {
                                 const isAssigned = card.members.some((member) => member.id === user.id);
 

@@ -19,6 +19,8 @@ import type { User } from '@/types';
 import { useGetBoardMembers } from '@/api/board-members';
 import { Loader2 } from 'lucide-react';
 import { resolveAvatarUrl } from '@/lib/utils';
+import { useI18n } from '@/hooks/ui/use-i18n';
+
 interface CardMemberPickerProps {
   boardId?: string;
   assignedMembers: User[];
@@ -34,6 +36,7 @@ export function CardMemberPicker({
   children,
   isPending = false,
 }: CardMemberPickerProps) {
+  const { t } = useI18n();
   const assignedIds = new Set(assignedMembers.map((m) => m.id));
   const { data: boardMembers = [], isLoading } = useGetBoardMembers(boardId || '');
   const isInteractionDisabled = isPending || isLoading;
@@ -48,16 +51,16 @@ export function CardMemberPicker({
         sideOffset={8}
       >
         <Command>
-          <CommandInput placeholder="Search members..." />
+          <CommandInput placeholder={t('cardModal.members.searchPlaceholder')} />
           <CommandList>
             <CommandEmpty>
-              {isLoading ? 'Đang tải thành viên...' : 'Không có thành viên phù hợp.'}
+              {isLoading ? t('cardModal.members.loading') : t('cardModal.members.empty')}
             </CommandEmpty>
-            <CommandGroup heading="Board members">
+            <CommandGroup heading={t('cardModal.members.groupHeading')}>
               {isLoading && (
                 <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Đang tải danh sách thành viên...
+                  {t('cardModal.members.loadingList')}
                 </div>
               )}
 
@@ -69,7 +72,7 @@ export function CardMemberPicker({
                     onSelect={() => onToggleMember(user)}
                     className="flex cursor-pointer items-center gap-2"
                     disabled={isInteractionDisabled}
-                    title={isLoading ? 'Đang tải thành viên, vui lòng chờ...' : undefined}
+                    title={isLoading ? t('cardModal.members.loadingWait') : undefined}
                   >
                     <Avatar className="h-7 w-7 shrink-0">
                       <AvatarImage src={resolveAvatarUrl(user.avatarUrl)} alt={user.name || user.username} />
@@ -90,7 +93,7 @@ export function CardMemberPicker({
             </CommandGroup>
             {isLoading && (
               <div className="px-3 py-2 text-[11px] text-muted-foreground border-t">
-                Đang tải thành viên, tạm thời chưa thể thêm.
+                {t('cardModal.members.loadingDisabled')}
               </div>
             )}
           </CommandList>

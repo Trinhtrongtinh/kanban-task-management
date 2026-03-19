@@ -20,6 +20,7 @@ interface PlatformLayoutProps {
 
 export default function PlatformLayout({ children }: PlatformLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const initAuth = useAuthStore(s => s.initAuth);
   const isLoading = useAuthStore(s => s.isLoading);
 
@@ -33,6 +34,10 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
 
   const handleSidebarClose = () => {
     setSidebarOpen(false);
+  };
+
+  const handleSidebarToggle = () => {
+    setIsSidebarCollapsed((prev) => !prev);
   };
 
   if (isLoading) {
@@ -53,10 +58,15 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
           <Header onMenuClick={handleMenuClick} />
 
           {/* Sidebar */}
-          <Sidebar isOpen={sidebarOpen} onClose={handleSidebarClose} />
+          <Sidebar
+            isOpen={sidebarOpen}
+            onClose={handleSidebarClose}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={handleSidebarToggle}
+          />
 
           {/* Main Content */}
-          <main className="pt-14 md:pl-60">
+          <main className={`pt-14 ${isSidebarCollapsed ? 'md:pl-0' : 'md:pl-60'}`}>
             <div className="container mx-auto p-6">{children}</div>
           </main>
         </div>

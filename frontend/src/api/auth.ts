@@ -13,6 +13,8 @@ export interface AuthUser {
   planType?: PlanType;
   expiredAt?: string | null;
   stripeCustomerId?: string | null;
+  notifyDueDateEmail?: boolean;
+  notifyMentionEmail?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

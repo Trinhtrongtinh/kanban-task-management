@@ -7,6 +7,7 @@ import { useCardModal } from '@/hooks/ui/use-card-modal';
 import { useBoard } from './board-context';
 import type { BoardCard } from './types';
 import { cn } from '@/lib/utils';
+import { getBoardUiTheme } from '@/lib/board-themes';
 import {
   getDueDateStatus,
   getDueDateColor,
@@ -20,7 +21,8 @@ interface CardItemProps {
 
 export function CardItem({ card, listId }: CardItemProps) {
   const onOpen = useCardModal((s) => s.onOpen);
-  const { boardId } = useBoard();
+  const { boardId, boardBackgroundUrl } = useBoard();
+  const uiTheme = getBoardUiTheme(boardBackgroundUrl);
   const {
     attributes,
     listeners,
@@ -53,7 +55,8 @@ export function CardItem({ card, listId }: CardItemProps) {
       {...listeners}
       onClick={() => onOpen(card.id, boardId)}
       className={cn(
-        'cursor-grab rounded-md border border-transparent bg-white px-3 py-2 shadow-sm transition-colors hover:border-border active:cursor-grabbing',
+        'cursor-grab rounded-md px-3 py-2 transition-colors active:cursor-grabbing',
+        uiTheme.cardClassName,
         isDragging && 'opacity-40 shadow-md'
       )}
     >
@@ -71,7 +74,7 @@ export function CardItem({ card, listId }: CardItemProps) {
         </div>
       )}
 
-      <span className="text-sm text-foreground block">{card.title}</span>
+      <span className={cn('block text-sm', uiTheme.cardTitleClassName)}>{card.title}</span>
       {card.deadline && (
         <div className="mt-1.5 flex items-center">
           <span

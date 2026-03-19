@@ -9,8 +9,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tag, Check, Plus } from 'lucide-react';
 import { useBoardSafe } from '@/components/board/board-context';
 import type { Label, BoardList, BoardCard } from '@/components/board/types';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 export function LabelPicker() {
+  const { t } = useI18n();
   const cardId = useCardModal((state) => state.id);
   const boardCtx = useBoardSafe();
   const lists = boardCtx?.lists ?? [];
@@ -30,14 +32,13 @@ export function LabelPicker() {
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newColor, setNewColor] = useState('#blue-500'); // Hex or tailwind class? The prompt asks for label.color property.
-
   // Suggested Trello-like colors
   const presetColors = [
     '#22c55e', '#facc15', '#f97316', '#ef4444',
     '#a855f7', '#3b82f6', '#06b6d4', '#10b981',
     '#f43f5e', '#64748b'
   ];
+  const [newColor, setNewColor] = useState(presetColors[0]);
 
   const handleToggle = (label: Label) => {
     if (!cardId) return;
@@ -63,12 +64,12 @@ export function LabelPicker() {
       <PopoverTrigger asChild>
         <Button variant="secondary" className="w-full justify-start mt-2">
           <Tag className="mr-2 h-4 w-4" />
-          Labels
+          {t('cardModal.labels.button')}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 pt-3" side="bottom">
         <div className="text-sm font-medium text-center text-muted-foreground pb-2 border-b mb-3">
-          Labels
+          {t('cardModal.labels.title')}
         </div>
 
         {!isCreating ? (
@@ -102,7 +103,7 @@ export function LabelPicker() {
                 })}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-2">No labels found.</p>
+              <p className="text-xs text-muted-foreground text-center py-2">{t('cardModal.labels.empty')}</p>
             )}
 
             <Button
@@ -112,23 +113,23 @@ export function LabelPicker() {
               onClick={() => setIsCreating(true)}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Create a new label
+              {t('cardModal.labels.createNew')}
             </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-y-3">
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Title</label>
+              <label className="text-xs font-semibold text-muted-foreground">{t('cardModal.labels.nameLabel')}</label>
               <Input
                 autoFocus
                 className="mt-1 h-8 text-sm"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Label name"
+                placeholder={t('cardModal.labels.namePlaceholder')}
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Select a color</label>
+              <label className="text-xs font-semibold text-muted-foreground">{t('cardModal.labels.colorLabel')}</label>
               <div className="mt-2 grid grid-cols-5 gap-2">
                 {presetColors.map((c) => (
                   <div
@@ -143,8 +144,8 @@ export function LabelPicker() {
             </div>
 
             <div className="flex gap-x-2 mt-2">
-              <Button size="sm" onClick={handleCreate} className="w-full">Create</Button>
-              <Button size="sm" variant="ghost" onClick={() => setIsCreating(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleCreate} className="w-full">{t('cardModal.labels.create')}</Button>
+              <Button size="sm" variant="ghost" onClick={() => setIsCreating(false)}>{t('cardModal.labels.cancel')}</Button>
             </div>
           </div>
         )}

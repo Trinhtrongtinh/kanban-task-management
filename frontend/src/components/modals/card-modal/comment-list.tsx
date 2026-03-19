@@ -2,14 +2,15 @@
 
 import { Fragment, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { formatDateTimeVN } from '@/lib/date-time';
+import { formatDateTimeByLocale } from '@/lib/date-time';
 import { resolveAvatarUrl } from '@/lib/utils';
 import type { Comment } from '@/api/comments';
+import { useI18n } from '@/hooks/ui/use-i18n';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function formatCommentTime(iso: string): string {
-  return formatDateTimeVN(iso);
+function formatCommentTime(iso: string, locale: 'vi' | 'en'): string {
+  return formatDateTimeByLocale(iso, locale);
 }
 
 /**
@@ -53,6 +54,7 @@ interface CommentListProps {
 }
 
 export function CommentList({ comments, memberNames, highlightedCommentId }: CommentListProps) {
+  const { t, locale } = useI18n();
   useEffect(() => {
     if (!highlightedCommentId) return;
 
@@ -64,7 +66,7 @@ export function CommentList({ comments, memberNames, highlightedCommentId }: Com
 
   if (comments.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground italic">No comments yet.</p>
+      <p className="text-sm text-muted-foreground italic">{t('cardModal.activity.noComments')}</p>
     );
   }
 
@@ -92,7 +94,7 @@ export function CommentList({ comments, memberNames, highlightedCommentId }: Com
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-sm font-semibold">{comment.user.username}</span>
               <span className="text-xs text-muted-foreground">
-                {formatCommentTime(comment.createdAt)}
+                {formatCommentTime(comment.createdAt, locale)}
               </span>
             </div>
 

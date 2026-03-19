@@ -6,13 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useBoard } from './board-context';
 import { useCreateCard } from '@/hooks/data/use-cards';
+import { useI18n } from '@/hooks/ui/use-i18n';
+import { cn } from '@/lib/utils';
+import { getBoardUiTheme } from '@/lib/board-themes';
 
 interface CardFormProps {
   listId: string;
 }
 
 export function CardForm({ listId }: CardFormProps) {
-  const { boardId, setLists } = useBoard();
+  const { boardId, setLists, boardBackgroundUrl } = useBoard();
+  const { t } = useI18n();
+  const uiTheme = getBoardUiTheme(boardBackgroundUrl);
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -88,7 +93,7 @@ export function CardForm({ listId }: CardFormProps) {
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
     });
-  }, [title, listId, boardId, setLists]);
+  }, [title, listId, boardId, setLists, createCard]);
 
   const handleCancel = useCallback(() => {
     setIsEditing(false);
@@ -116,7 +121,7 @@ export function CardForm({ listId }: CardFormProps) {
         className="mt-2 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground"
       >
         <Plus className="h-4 w-4" />
-        Add a card
+        {t('board.cardForm.addCard')}
       </button>
     );
   }
@@ -125,11 +130,11 @@ export function CardForm({ listId }: CardFormProps) {
     <div className="mt-2 space-y-2">
       <Textarea
         ref={textareaRef}
-        placeholder="Enter a title for this card..."
+        placeholder={t('board.cardForm.titlePlaceholder')}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="min-h-[54px] resize-none border-none bg-white shadow-sm focus-visible:ring-1 focus-visible:ring-primary"
+        className={cn(uiTheme.listInputClassName, 'min-h-[54px] resize-none border-none shadow-sm focus-visible:ring-1 focus-visible:ring-primary')}
       />
       <div className="flex items-center gap-1.5">
         <Button
@@ -138,13 +143,14 @@ export function CardForm({ listId }: CardFormProps) {
           disabled={!title.trim()}
           className="h-8 px-3 text-sm"
         >
-          Add card
+          {t('board.cardForm.submit')}
         </Button>
         <Button
           variant="ghost"
           size="icon"
           onClick={handleCancel}
           className="h-8 w-8"
+          aria-label={t('common.cancel')}
         >
           <X className="h-4 w-4" />
         </Button>

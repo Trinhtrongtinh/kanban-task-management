@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -18,18 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Moon, Sun, Globe, Monitor, CheckCircle2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Moon, Sun, Globe, Monitor, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { usePreferencesStore, type AppLanguage, type AppTheme } from '@/stores/preferencesStore';
-
-function SaveFeedback({ saved, label }: { saved: boolean; label: string }) {
-  if (!saved) return null;
-  return (
-    <span className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-left-2">
-      <CheckCircle2 className="h-4 w-4" />
-      {label}
-    </span>
-  );
-}
+import { useI18n } from '@/hooks/ui/use-i18n';
+import { toast } from 'sonner';
+import { usersApi } from '@/api/users';
+import { useAuthStore } from '@/stores/authStore';
 
 const COPY: Record<
   AppLanguage,
@@ -41,10 +36,17 @@ const COPY: Record<
     theme: string;
     language: string;
     density: string;
-    save: string;
-    saved: string;
     themeOptions: Record<AppTheme, string>;
     densityOptions: Record<'compact' | 'comfortable' | 'spacious', string>;
+    notificationsTitle: string;
+    notificationsDescription: string;
+    notificationsHint: string;
+    dueDateTitle: string;
+    dueDateDescription: string;
+    mentionTitle: string;
+    mentionDescription: string;
+    saved: string;
+    saveError: string;
   }
 > = {
   vi: {
@@ -55,8 +57,6 @@ const COPY: Record<
     theme: 'Chế độ màu',
     language: 'Ngôn ngữ',
     density: 'Mật độ hiển thị',
-    save: 'Lưu tùy chỉnh',
-    saved: 'Đã lưu',
     themeOptions: {
       system: 'Theo hệ thống',
       light: 'Sáng',
@@ -67,6 +67,15 @@ const COPY: Record<
       comfortable: 'Tiêu chuẩn',
       spacious: 'Rộng',
     },
+    notificationsTitle: 'Thông báo email cá nhân',
+    notificationsDescription: 'Các tùy chọn này áp dụng cho riêng bạn, không phụ thuộc vai trò owner/member của workspace.',
+    notificationsHint: 'Các thay đổi được lưu ngay và email sẽ đi qua SMTP hiện tại, nên bạn có thể kiểm tra bằng Mailtrap.',
+    dueDateTitle: 'Nhắc hạn thẻ',
+    dueDateDescription: 'Gửi email khi thẻ được giao cho tôi sắp đến hạn trong 24 giờ.',
+    mentionTitle: 'Được nhắc trong bình luận',
+    mentionDescription: 'Gửi email khi có người @nhắc đến tôi trong bình luận của thẻ.',
+    saved: 'Đã lưu tùy chọn thông báo',
+    saveError: 'Không thể lưu tùy chọn thông báo',
   },
   en: {
     title: 'App Preferences',
@@ -76,8 +85,6 @@ const COPY: Record<
     theme: 'Theme',
     language: 'Language',
     density: 'Display density',
-    save: 'Save Preferences',
-    saved: 'Saved!',
     themeOptions: {
       system: 'System',
       light: 'Light',
@@ -88,11 +95,42 @@ const COPY: Record<
       comfortable: 'Comfortable',
       spacious: 'Spacious',
     },
+    notificationsTitle: 'Personal Email Notifications',
+    notificationsDescription: 'These preferences apply to your account only, not to workspace owners or members globally.',
+    notificationsHint: 'Changes are saved instantly and emails use the current SMTP setup, so you can verify them with Mailtrap.',
+    dueDateTitle: 'Due date reminders',
+    dueDateDescription: 'Send me an email when a card assigned to me is due within 24 hours.',
+    mentionTitle: 'Comment mentions',
+    mentionDescription: 'Send me an email when someone @mentions me in a card comment.',
+    saved: 'Notification preferences saved',
+    saveError: 'Unable to save notification preferences',
   },
 };
 
+type NotificationPreferenceState = {
+  notifyDueDateEmail: boolean;
+  notifyMentionEmail: boolean;
+};
+
+function getNotificationPreferenceState(
+  user: ReturnType<typeof useAuthStore.getState>['user'],
+): NotificationPreferenceState {
+  return {
+    notifyDueDateEmail: user?.notifyDueDateEmail ?? true,
+    notifyMentionEmail: user?.notifyMentionEmail ?? true,
+  };
+}
+
 export default function AppSettingsPage() {
-  const [appearanceSaved, setAppearanceSaved] = useState(false);
+  const router = useRouter();
+  const { t } = useI18n();
+  const [exitTargetPath] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return (
+      window.sessionStorage.getItem('kanban:returnPath') ||
+      window.sessionStorage.getItem('kanban:lastBoardPath')
+    );
+  });
 
   const theme = usePreferencesStore((s) => s.theme);
   const language = usePreferencesStore((s) => s.language);
@@ -100,13 +138,12 @@ export default function AppSettingsPage() {
   const setTheme = usePreferencesStore((s) => s.setTheme);
   const setLanguage = usePreferencesStore((s) => s.setLanguage);
   const setDensity = usePreferencesStore((s) => s.setDensity);
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferenceState>(() => getNotificationPreferenceState(useAuthStore.getState().user));
+  const [savingPreference, setSavingPreference] = useState<keyof NotificationPreferenceState | null>(null);
 
   const copy = COPY[language] ?? COPY.en;
-
-  const handleSaveAppearance = () => {
-    setAppearanceSaved(true);
-    setTimeout(() => setAppearanceSaved(false), 2500);
-  };
 
   const THEME_OPTIONS = [
     { value: 'system' as const, icon: Monitor },
@@ -114,11 +151,51 @@ export default function AppSettingsPage() {
     { value: 'dark' as const, icon: Moon },
   ];
 
+  useEffect(() => {
+    setNotificationPreferences(getNotificationPreferenceState(user));
+  }, [user]);
+
+  const updateNotificationPreference = async (
+    key: keyof NotificationPreferenceState,
+    checked: boolean,
+  ) => {
+    const previous = notificationPreferences;
+    const next = {
+      ...notificationPreferences,
+      [key]: checked,
+    };
+
+    setNotificationPreferences(next);
+    setSavingPreference(key);
+
+    try {
+      const updatedUser = await usersApi.updateNotificationPreferences(next);
+      setUser(updatedUser);
+      toast.success(copy.saved);
+    } catch {
+      setNotificationPreferences(previous);
+      toast.error(copy.saveError);
+    } finally {
+      setSavingPreference(null);
+    }
+  };
+
   return (
     <div className="mx-auto mt-10 max-w-3xl space-y-8 px-4 pb-16">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{copy.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{copy.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
+          </div>
+
+          {exitTargetPath && (
+            <Button variant="outline" className="gap-2" onClick={() => router.push(exitTargetPath)}>
+              <ArrowLeft className="h-4 w-4" />
+              {t('common.exit')}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -184,6 +261,42 @@ export default function AppSettingsPage() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{copy.notificationsTitle}</CardTitle>
+          <CardDescription>{copy.notificationsDescription}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">{copy.notificationsHint}</p>
+
+          <div className="flex items-center justify-between gap-4 rounded-xl border p-4">
+            <div className="space-y-1">
+              <Label htmlFor="notify-due-date">{copy.dueDateTitle}</Label>
+              <p className="text-sm text-muted-foreground">{copy.dueDateDescription}</p>
+            </div>
+            <Switch
+              id="notify-due-date"
+              checked={notificationPreferences.notifyDueDateEmail}
+              disabled={savingPreference !== null}
+              onCheckedChange={(checked) => updateNotificationPreference('notifyDueDateEmail', checked)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-xl border p-4">
+            <div className="space-y-1">
+              <Label htmlFor="notify-mention">{copy.mentionTitle}</Label>
+              <p className="text-sm text-muted-foreground">{copy.mentionDescription}</p>
+            </div>
+            <Switch
+              id="notify-mention"
+              checked={notificationPreferences.notifyMentionEmail}
+              disabled={savingPreference !== null}
+              onCheckedChange={(checked) => updateNotificationPreference('notifyMentionEmail', checked)}
+            />
           </div>
         </CardContent>
       </Card>

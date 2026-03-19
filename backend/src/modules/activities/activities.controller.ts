@@ -1,7 +1,9 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
+import { BoardMemberGuard } from '../../common/guards';
+import { GetActivitiesQueryDto } from './dto';
 
 @Controller()
 export class ActivitiesController {
@@ -10,7 +12,20 @@ export class ActivitiesController {
   @Get('activities/me')
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('User activities retrieved successfully')
-  findRecentByUser(@CurrentUser('userId') userId: string) {
-    return this.activitiesService.findRecentByUser(userId);
+  findRecentByUser(
+    @CurrentUser('userId') userId: string,
+    @Query() query: GetActivitiesQueryDto,
+  ) {
+    return this.activitiesService.getActivities(query, userId);
+  }
+
+  @Get('boards/:boardId/activities')
+  @UseGuards(JwtAuthGuard, BoardMemberGuard)
+  @ResponseMessage('Board activities retrieved successfully')
+  findBoardActivities(
+    @Param('boardId', ParseUUIDPipe) boardId: string,
+    @Query() query: GetActivitiesQueryDto,
+  ) {
+    return this.activitiesService.getActivities(query, undefined, boardId);
   }
 }

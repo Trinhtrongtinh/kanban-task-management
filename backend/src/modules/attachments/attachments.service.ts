@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Attachment, Card } from '../../database/entities';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode } from '../../common/enums';
+import { ErrorCode, ActivityAction } from '../../common/enums';
+import { ActivitiesService } from '../activities/activities.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -14,6 +15,7 @@ export class AttachmentsService {
     private readonly attachmentRepository: Repository<Attachment>,
     @InjectRepository(Card)
     private readonly cardRepository: Repository<Card>,
+    private readonly activitiesService: ActivitiesService,
   ) {}
 
   /**
@@ -35,9 +37,19 @@ export class AttachmentsService {
   /**
    * Upload and create attachment
    */
-  async create(cardId: string, file: Express.Multer.File): Promise<Attachment> {
+  async create(cardId: string, file: Express.Multer.File, userId?: string): Promise<Attachment> {
     // Validate card exists
-    await this.validateCardExists(cardId);
+    const card = await this.cardRepository.findOne({
+      where: { id: cardId },
+      relations: ['list'],
+    });
+
+    if (!card) {
+      throw new BusinessException(
+        ErrorCode.CARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     if (!file) {
       throw new BusinessException(
@@ -54,7 +66,28 @@ export class AttachmentsService {
       fileSize: file.size,
     });
 
-    return this.attachmentRepository.save(attachment);
+    const savedAttachment = await this.attachmentRepository.save(attachment);
+
+    // Log activity: attachment added
+    if (userId) {
+      this.activitiesService
+        .createLog({
+          userId,
+          boardId: card.list.boardId,
+          cardId,
+          action: ActivityAction.ATTACHMENT_ADDED,
+          entityTitle: file.originalname,
+          details: {
+            cardTitle: card.title,
+            fileType: file.mimetype,
+            fileSize: file.size,
+          },
+          content: `Đã đính kèm file "${file.originalname}" vào thẻ "${card.title}"`,
+        })
+        .catch((err) => console.error('Failed to log attachment:', err));
+    }
+
+    return savedAttachment;
   }
 
   /**

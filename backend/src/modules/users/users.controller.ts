@@ -16,7 +16,11 @@ import { User } from '../../database/entities';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { avatarMulterOptions } from './avatar-multer.config';
-import { ChangePasswordDto, UpdateProfileDto } from './dto';
+import {
+  ChangePasswordDto,
+  UpdateNotificationPreferencesDto,
+  UpdateProfileDto,
+} from './dto';
 
 @Controller('users')
 export class UsersController {
@@ -41,6 +45,19 @@ export class UsersController {
   ): Promise<{ success: true }> {
     await this.usersService.changePassword(userId, changePasswordDto);
     return { success: true };
+  }
+
+  @Patch('me/notification-preferences')
+  @UseGuards(JwtAuthGuard)
+  @ResponseMessage('Cập nhật tùy chọn thông báo thành công')
+  async updateNotificationPreferences(
+    @CurrentUser('userId') userId: string,
+    @Body() updateNotificationPreferencesDto: UpdateNotificationPreferencesDto,
+  ): Promise<Partial<User>> {
+    return this.usersService.updateNotificationPreferences(
+      userId,
+      updateNotificationPreferencesDto,
+    );
   }
 
   @Post('me/avatar')

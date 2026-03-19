@@ -7,7 +7,11 @@ import { unlink } from 'fs/promises';
 import { User } from '../../database/entities';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode } from '../../common/enums';
-import { ChangePasswordDto, UpdateProfileDto } from './dto';
+import {
+  ChangePasswordDto,
+  UpdateNotificationPreferencesDto,
+  UpdateProfileDto,
+} from './dto';
 
 @Injectable()
 export class UsersService {
@@ -64,6 +68,19 @@ export class UsersService {
 
     user.password = await bcrypt.hash(changePasswordDto.newPassword, 10);
     await this.userRepository.save(user);
+  }
+
+  async updateNotificationPreferences(
+    userId: string,
+    updateNotificationPreferencesDto: UpdateNotificationPreferencesDto,
+  ): Promise<Partial<User>> {
+    const user = await this.findUserOrThrow(userId);
+
+    user.notifyDueDateEmail = updateNotificationPreferencesDto.notifyDueDateEmail;
+    user.notifyMentionEmail = updateNotificationPreferencesDto.notifyMentionEmail;
+
+    const savedUser = await this.userRepository.save(user);
+    return this.sanitizeUser(savedUser);
   }
 
   async updateAvatar(

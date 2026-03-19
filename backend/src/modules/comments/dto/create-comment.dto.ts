@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -15,4 +16,8 @@ export class CreateCommentDto {
   @IsUUID('4', { each: true })
   @IsOptional()
   mentionedUserIds?: string[];
+
+  @IsBoolean()
+  @IsOptional()
+  mentionAll?: boolean;
 }

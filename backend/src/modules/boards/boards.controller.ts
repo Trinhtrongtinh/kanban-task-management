@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   ParseUUIDPipe,
+  Query,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
@@ -43,8 +44,13 @@ export class BoardsController {
   async findAllByWorkspace(
     @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
     @CurrentUser('userId') userId: string,
+    @Query('joinedOnly') joinedOnly?: string,
   ): Promise<Board[]> {
-    return this.boardsService.findAllByWorkspace(workspaceId, userId);
+    return this.boardsService.findAllByWorkspace(
+      workspaceId,
+      userId,
+      joinedOnly === 'true',
+    );
   }
 
   @Get(':id')
@@ -61,8 +67,9 @@ export class BoardsController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateBoardDto: UpdateBoardDto,
+    @CurrentUser('userId') userId: string,
   ): Promise<Board> {
-    return this.boardsService.update(id, updateBoardDto);
+    return this.boardsService.update(id, updateBoardDto, userId);
   }
 
   @Delete(':id')
@@ -87,11 +94,12 @@ export class BoardsController {
   async addMember(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('userId') memberId: string,
+    @CurrentUser('userId') userId: string,
   ) {
     if (!memberId) {
       throw new BadRequestException('Yêu cầu phải có userId');
     }
-    return this.boardsService.addMember(id, memberId);
+    return this.boardsService.addMember(id, memberId, userId);
   }
 
   @Delete(':id/members/:userId')
@@ -101,8 +109,9 @@ export class BoardsController {
   async removeMember(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('userId', ParseUUIDPipe) memberId: string,
+    @CurrentUser('userId') userId: string,
   ) {
-    return this.boardsService.removeMember(id, memberId);
+    return this.boardsService.removeMember(id, memberId, userId);
   }
 }
 

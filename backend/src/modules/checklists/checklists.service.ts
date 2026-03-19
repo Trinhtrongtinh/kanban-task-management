@@ -11,7 +11,8 @@ import {
   BulkDeleteChecklistItemDto,
 } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode } from '../../common/enums';
+import { ErrorCode, ActivityAction } from '../../common/enums';
+import { ActivitiesService } from '../activities/activities.service';
 
 @Injectable()
 export class ChecklistsService {
@@ -22,6 +23,7 @@ export class ChecklistsService {
     private readonly checklistItemRepository: Repository<ChecklistItem>,
     @InjectRepository(Card)
     private readonly cardRepository: Repository<Card>,
+    private readonly activitiesService: ActivitiesService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -159,12 +161,47 @@ export class ChecklistsService {
   async updateChecklistItem(
     id: string,
     updateChecklistItemDto: UpdateChecklistItemDto,
+    userId?: string,
   ): Promise<ChecklistItem> {
     const item = await this.findOneChecklistItem(id);
+    const wasCompleted = item.isDone;
 
     Object.assign(item, updateChecklistItemDto);
 
-    return this.checklistItemRepository.save(item);
+    const updatedItem = await this.checklistItemRepository.save(item);
+
+    // Log completion of whole checklist if item just marked as done
+    if (!wasCompleted && updatedItem.isDone && userId) {
+      // Get checklist to find all items
+      const checklist = await this.checklistRepository.findOne({
+        where: { id: item.checklistId },
+        relations: ['items', 'card', 'card.list'],
+      });
+
+      if (checklist && checklist.card) {
+        // Check if all items are now done
+        const allItems = checklist.items || [];
+        const allDone = allItems.every((i) => i.isDone);
+
+        if (allDone && allItems.length > 0) {
+          this.activitiesService
+            .createLog({
+              userId,
+              boardId: checklist.card.list.boardId,
+              cardId: checklist.cardId,
+              action: ActivityAction.CHECKLIST_COMPLETED,
+              entityTitle: checklist.title,
+              details: {
+                cardTitle: checklist.card.title,
+              },
+              content: `Đã hoàn thành checklist "${checklist.title}" trong thẻ "${checklist.card.title}"`,
+            })
+            .catch((err) => console.error('Failed to log checklist completion:', err));
+        }
+      }
+    }
+
+    return updatedItem;
   }
 
   async removeChecklistItem(id: string): Promise<void> {

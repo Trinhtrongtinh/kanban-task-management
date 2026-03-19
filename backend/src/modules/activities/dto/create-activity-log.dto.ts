@@ -1,20 +1,30 @@
-import { IsUUID, IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsEnum, IsObject, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { ActivityAction } from '../../../common/enums';
 
 export class CreateActivityLogDto {
   @IsUUID()
   userId: string;
 
-  @IsUUID()
-  boardId: string;
-
-  @IsUUID()
   @IsOptional()
+  @IsUUID()
+  boardId?: string;
+
+  @IsOptional()
+  @IsUUID()
   cardId?: string;
 
-  @IsString()
-  @MaxLength(50)
-  action: string;
+  @IsEnum(ActivityAction)
+  action: ActivityAction;
 
+  @IsString()
+  @MaxLength(255)
+  entityTitle: string;
+
+  @IsOptional()
+  @IsObject()
+  details?: Record<string, unknown>;
+
+  @IsOptional()
   @IsString()
   content: string;
 }

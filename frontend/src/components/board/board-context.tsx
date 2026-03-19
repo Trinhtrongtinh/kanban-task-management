@@ -16,11 +16,11 @@ import type { BoardCard, BoardList } from './types';
 import { BoardStatic } from './board-static';
 import { LIST_QUERY_KEYS, useListsByBoard, useUpdateList } from '@/hooks/data/use-lists';
 import { useMoveCard } from '@/hooks/data/use-cards';
-import { Loader2 } from 'lucide-react';
 import { useSocket } from '@/hooks/ui/useSocket';
 
 interface BoardContextValue {
   boardId: string;
+  boardBackgroundUrl?: string | null;
   lists: BoardList[];
   setLists: React.Dispatch<React.SetStateAction<BoardList[]>>;
 }
@@ -45,10 +45,11 @@ const BoardContext = createContext<BoardContextValue | null>(null);
 
 interface BoardProviderProps {
   boardId: string;
+  boardBackgroundUrl?: string | null;
   children: React.ReactNode;
 }
 
-export function BoardProvider({ boardId, children }: BoardProviderProps) {
+export function BoardProvider({ boardId, boardBackgroundUrl, children }: BoardProviderProps) {
   const queryClient = useQueryClient();
   const { data: fetchedLists, isLoading } = useListsByBoard(boardId);
   const [lists, setLists] = useState<BoardList[]>([]);
@@ -58,14 +59,18 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
   const { on } = useSocket(boardId, '/cards');
 
   useEffect(() => {
-    setIsMounted(true);
+    const frameId = requestAnimationFrame(() => {
+      setIsMounted(true);
+    });
+
+    return () => cancelAnimationFrame(frameId);
   }, []);
 
   useEffect(() => {
     if (fetchedLists) {
       const mappedLists = fetchedLists.map(list => ({
         ...list,
-        cards: (list.cards || []).map((card: any) => ({
+        cards: (list.cards || []).map((card: BoardCard) => ({
           ...card,
           // Normalize: convert single `assignee` to `members` array
           members: card.members?.length
@@ -75,7 +80,9 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
               : [],
         })),
       }));
-      setLists(mappedLists as BoardList[]);
+      queueMicrotask(() => {
+        setLists(mappedLists as BoardList[]);
+      });
     }
   }, [fetchedLists]);
 
@@ -287,6 +294,7 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
 
   const value: BoardContextValue = {
     boardId,
+    boardBackgroundUrl,
     lists,
     setLists,
   };
@@ -295,9 +303,9 @@ export function BoardProvider({ boardId, children }: BoardProviderProps) {
     <BoardContext.Provider value={value}>
       {!isMounted || isLoading ? (
         React.isValidElement(children) ? (
-          React.cloneElement(children, {}, <BoardStatic lists={lists} />)
+          React.cloneElement(children, {}, <BoardStatic lists={lists} boardBackgroundUrl={boardBackgroundUrl} />)
         ) : (
-          <BoardStatic lists={lists} />
+          <BoardStatic lists={lists} boardBackgroundUrl={boardBackgroundUrl} />
         )
       ) : (
         <DndContext

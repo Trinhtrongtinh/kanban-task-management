@@ -7,16 +7,20 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { BoardList } from './types';
+import { useBoard } from './board-context';
 import { CardItem } from './card-item';
 import { CardForm } from './card-form';
 import { ListHeader } from './list-header';
 import { cn } from '@/lib/utils';
+import { getBoardUiTheme } from '@/lib/board-themes';
 
 interface ListItemProps {
   list: BoardList;
 }
 
 export function ListItem({ list }: ListItemProps) {
+  const { boardBackgroundUrl } = useBoard();
+  const uiTheme = getBoardUiTheme(boardBackgroundUrl);
   const searchParams = useSearchParams();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -71,9 +75,10 @@ export function ListItem({ list }: ListItemProps) {
       ref={handleSetNodeRef}
       style={style}
       className={cn(
-        'flex h-fit max-h-full w-[272px] shrink-0 flex-col rounded-xl bg-[#f1f2f4] p-3',
+        'flex h-fit max-h-full w-[272px] shrink-0 flex-col rounded-xl p-3',
+        uiTheme.listClassName,
         isDragging && 'opacity-50',
-        isHighlighted && 'ring-2 ring-primary shadow-lg shadow-primary/15'
+        isHighlighted && uiTheme.highlightedListClassName,
       )}
     >
       {/* Header — drag handle is now inside ListHeader as a grip icon */}
@@ -88,7 +93,7 @@ export function ListItem({ list }: ListItemProps) {
         ref={setDropRef}
         className={cn(
           'flex min-h-[60px] flex-1 flex-col space-y-2 overflow-y-auto rounded-lg transition-colors',
-          isOver && 'bg-black/5'
+          isOver && uiTheme.listDropzoneClassName,
         )}
       >
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>

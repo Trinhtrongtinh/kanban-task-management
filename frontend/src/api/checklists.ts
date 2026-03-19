@@ -64,6 +64,34 @@ export function useAddChecklistMutation(cardId: string | undefined) {
   });
 }
 
+export function useUpdateChecklistMutation(cardId: string | undefined) {
+  const queryClient = useQueryClient();
+  const key = checklistKeys.byCard(cardId ?? '');
+
+  return useMutation({
+    mutationFn: ({ checklistId, title }: { checklistId: string; title: string }) =>
+      checklistsApi.update(checklistId, title),
+    onMutate: async ({ checklistId, title }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<Checklist[]>(key);
+
+      queryClient.setQueryData<Checklist[]>(key, (old) =>
+        (old ?? []).map((checklist) =>
+          checklist.id === checklistId
+            ? { ...checklist, title }
+            : checklist,
+        ),
+      );
+
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+}
+
 export function useAddChecklistItemMutation(
   cardId: string | undefined,
   checklistId: string

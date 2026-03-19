@@ -1,11 +1,17 @@
 'use client';
 
+import type { DraggableAttributes } from '@dnd-kit/core';
+import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { useState, useRef, useEffect } from 'react';
 import { GripVertical, MoreHorizontal } from 'lucide-react';
 import type { BoardList } from './types';
+import { useBoard } from './board-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUpdateList, useDeleteList } from '@/hooks/data/use-lists';
+import { useI18n } from '@/hooks/ui/use-i18n';
+import { cn } from '@/lib/utils';
+import { getBoardUiTheme } from '@/lib/board-themes';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,11 +22,14 @@ import {
 
 interface ListHeaderProps {
   list: BoardList;
-  dragListeners?: Record<string, any>;
-  dragAttributes?: Record<string, any>;
+  dragListeners?: SyntheticListenerMap;
+  dragAttributes?: DraggableAttributes;
 }
 
 export function ListHeader({ list, dragListeners, dragAttributes }: ListHeaderProps) {
+  const { t } = useI18n();
+  const { boardBackgroundUrl } = useBoard();
+  const uiTheme = getBoardUiTheme(boardBackgroundUrl);
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(list.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,10 +76,10 @@ export function ListHeader({ list, dragListeners, dragAttributes }: ListHeaderPr
   };
 
   return (
-    <div className="flex items-center justify-between pb-2 px-1 gap-x-2">
+    <div className={cn('flex items-center justify-between pb-2 px-1 gap-x-2', uiTheme.listHeaderClassName)}>
       {/* Drag handle */}
       <div
-        className="shrink-0 cursor-grab active:cursor-grabbing p-0.5 rounded hover:bg-black/10 transition-colors text-muted-foreground"
+        className={cn('shrink-0 cursor-grab active:cursor-grabbing p-0.5 rounded transition-colors', uiTheme.dragHandleClassName)}
         {...dragListeners}
         {...dragAttributes}
       >
@@ -86,12 +95,12 @@ export function ListHeader({ list, dragListeners, dragAttributes }: ListHeaderPr
             onChange={(e) => setTitle(e.target.value)}
             onBlur={handleSubmit}
             onKeyDown={onKeyDown}
-            className="h-7 px-2 font-semibold bg-white ring-0 outline-none w-full"
+            className={cn('h-7 px-2 font-semibold ring-0 outline-none w-full', uiTheme.listInputClassName)}
           />
         ) : (
           <div
             onClick={onEnableEditing}
-            className="w-full text-sm font-semibold px-2 h-7 flex items-center border-transparent hover:border-input focus:border-input transition truncate cursor-text"
+            className={cn('w-full text-sm font-semibold px-2 h-7 flex items-center border-transparent transition truncate cursor-text', uiTheme.listTitleClassName)}
           >
             {list.title}
           </div>
@@ -100,20 +109,20 @@ export function ListHeader({ list, dragListeners, dragAttributes }: ListHeaderPr
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-auto w-auto p-1.5 hover:bg-black/10">
+          <Button variant="ghost" className={cn('h-auto w-auto p-1.5', uiTheme.menuButtonClassName)}>
             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <div className="text-sm font-medium text-center text-muted-foreground pb-2 border-b mb-2">
-            List actions
+            {t('board.listActions')}
           </div>
           <DropdownMenuItem onClick={onEnableEditing} className="cursor-pointer">
-            Rename list...
+            {t('board.renameList')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onDelete} className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive">
-            Delete list
+            {t('board.deleteList')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
