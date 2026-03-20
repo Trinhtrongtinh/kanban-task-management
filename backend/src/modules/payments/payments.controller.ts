@@ -9,6 +9,7 @@ import { PaymentsService } from './payments.service';
 import { CreateCheckoutDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
+import { PaymentRateLimit } from '../../common/rate-limit';
 
 @Controller('payments')
 export class PaymentsController {
@@ -18,6 +19,7 @@ export class PaymentsController {
    * Create Stripe checkout session
    */
   @Post('create-checkout-session')
+  @PaymentRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Checkout session created successfully')
   async createCheckoutSession(
@@ -44,6 +46,7 @@ export class PaymentsController {
    * Create customer portal session for managing subscription
    */
   @Post('portal-session')
+  @PaymentRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Portal session created successfully')
   async createPortalSession(

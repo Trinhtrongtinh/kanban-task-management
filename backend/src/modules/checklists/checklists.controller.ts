@@ -23,12 +23,14 @@ import {
 import { JwtAuthGuard } from '../auth/guards';
 import { ChecklistBoardGuard } from '../../common/guards';
 import { BoardRole } from '../../common/enums';
+import { DangerousWriteRateLimit, WriteRateLimit } from '../../common/rate-limit';
 
 @Controller('checklists')
 export class ChecklistsController {
   constructor(private readonly checklistsService: ChecklistsService) {}
 
   @Patch(':id')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, ChecklistBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Checklist updated successfully')
@@ -40,6 +42,7 @@ export class ChecklistsController {
   }
 
   @Delete(':id')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, ChecklistBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Checklist deleted successfully')
@@ -48,6 +51,7 @@ export class ChecklistsController {
   }
 
   @Post(':checklistId/items')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, ChecklistBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Checklist item created successfully')
@@ -62,6 +66,7 @@ export class ChecklistsController {
   }
 
   @Patch('items/:id')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, ChecklistBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Checklist item updated successfully')
@@ -78,6 +83,7 @@ export class ChecklistsController {
   }
 
   @Delete('items/:id')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, ChecklistBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Đã xóa mục thành công')

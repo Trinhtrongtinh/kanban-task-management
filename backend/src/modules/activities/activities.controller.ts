@@ -4,12 +4,14 @@ import { CurrentUser, ResponseMessage } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { BoardMemberGuard } from '../../common/guards';
 import { GetActivitiesQueryDto } from './dto';
+import { ReadRateLimit } from '../../common/rate-limit';
 
 @Controller()
 export class ActivitiesController {
   constructor(private readonly activitiesService: ActivitiesService) {}
 
   @Get('activities/me')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('User activities retrieved successfully')
   findRecentByUser(
@@ -20,6 +22,7 @@ export class ActivitiesController {
   }
 
   @Get('boards/:boardId/activities')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, BoardMemberGuard)
   @ResponseMessage('Board activities retrieved successfully')
   findBoardActivities(

@@ -16,12 +16,14 @@ import { ResponseMessage, RequireBoardRole } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { BoardMemberGuard, ListBoardGuard } from '../../common/guards';
 import { BoardRole } from '../../common/enums';
+import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
 
 @Controller('lists')
 export class ListsController {
   constructor(private readonly listsService: ListsService) {}
 
   @Post()
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, BoardMemberGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('List created successfully')
@@ -30,6 +32,7 @@ export class ListsController {
   }
 
   @Get('board/:boardId')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, ListBoardGuard)
   @ResponseMessage('Lists retrieved successfully')
   async findAllByBoard(
@@ -46,6 +49,7 @@ export class ListsController {
   // }
 
   @Patch(':id')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, ListBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('List updated successfully')
@@ -57,6 +61,7 @@ export class ListsController {
   }
 
   @Delete(':id')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, ListBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('List deleted successfully')

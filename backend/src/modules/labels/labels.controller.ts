@@ -14,6 +14,7 @@ import { RequireBoardRole, ResponseMessage } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { BoardMemberGuard } from '../../common/guards';
 import { BoardRole } from '../../common/enums';
+import { ReadRateLimit } from '../../common/rate-limit';
 
 @Controller()
 export class LabelsController {
@@ -28,6 +29,7 @@ export class LabelsController {
   }
 
   @Get('labels/board/:boardId')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, BoardMemberGuard)
   @ResponseMessage('Labels retrieved successfully')
   async findAllByBoard(

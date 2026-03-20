@@ -23,12 +23,14 @@ import {
 import { JwtAuthGuard } from '../auth/guards';
 import { BoardMemberGuard, WorkspaceMemberGuard } from '../../common/guards';
 import { BoardRole, WorkspaceRole } from '../../common/enums';
+import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
 
 @Controller('boards')
 export class BoardsController {
   constructor(private readonly boardsService: BoardsService) { }
 
   @Post()
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Board created successfully')
   async create(
@@ -39,6 +41,7 @@ export class BoardsController {
   }
 
   @Get('workspace/:workspaceId')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
   @ResponseMessage('Boards retrieved successfully')
   async findAllByWorkspace(
@@ -54,6 +57,7 @@ export class BoardsController {
   }
 
   @Get(':id')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, BoardMemberGuard)
   @ResponseMessage('Board retrieved successfully')
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Board> {
@@ -61,6 +65,7 @@ export class BoardsController {
   }
 
   @Patch(':id')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, BoardMemberGuard)
   @RequireBoardRole(BoardRole.ADMIN)
   @ResponseMessage('Board updated successfully')
@@ -73,6 +78,7 @@ export class BoardsController {
   }
 
   @Delete(':id')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, BoardMemberGuard)
   @RequireBoardRole(BoardRole.ADMIN)
   @ResponseMessage('Board deleted successfully')
@@ -88,6 +94,7 @@ export class BoardsController {
   }
 
   @Post(':id/members')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, BoardMemberGuard)
   @RequireBoardRole(BoardRole.ADMIN)
   @ResponseMessage('Member added to board successfully')
@@ -103,6 +110,7 @@ export class BoardsController {
   }
 
   @Delete(':id/members/:userId')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, BoardMemberGuard)
   @RequireBoardRole(BoardRole.ADMIN)
   @ResponseMessage('Member removed from board successfully')

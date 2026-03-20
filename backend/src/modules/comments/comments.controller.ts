@@ -15,12 +15,14 @@ import { Comment } from '../../database/entities';
 import { ResponseMessage, CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { CardBoardGuard } from '../../common/guards';
+import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
 
 @Controller()
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
   @Post('cards/:cardId/comments')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @ResponseMessage('Comment created successfully')
   async create(
@@ -32,6 +34,7 @@ export class CommentsController {
   }
 
   @Get('cards/:cardId/comments')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @ResponseMessage('Comments retrieved successfully')
   async findAllByCard(
@@ -41,6 +44,7 @@ export class CommentsController {
   }
 
   @Patch('comments/:id')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Comment updated successfully')
   async update(
@@ -52,6 +56,7 @@ export class CommentsController {
   }
 
   @Delete('comments/:id')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Comment deleted successfully')
   async remove(

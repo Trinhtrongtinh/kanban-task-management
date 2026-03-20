@@ -20,12 +20,14 @@ import { BoardRole, ErrorCode } from '../../common/enums';
 import { JwtAuthGuard } from '../auth/guards';
 import { AttachmentBoardGuard, CardBoardGuard } from '../../common/guards';
 import { RequireBoardRole } from '../../common/decorators';
+import { DangerousWriteRateLimit, ReadRateLimit, UploadRateLimit } from '../../common/rate-limit';
 
 @Controller()
 export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}
 
   @Post('cards/:cardId/attachments')
+  @UploadRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('File uploaded successfully')
@@ -45,6 +47,7 @@ export class AttachmentsController {
   }
 
   @Get('cards/:cardId/attachments')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @ResponseMessage('Attachments retrieved successfully')
   async findAllByCard(
@@ -54,6 +57,7 @@ export class AttachmentsController {
   }
 
   @Delete('attachments/:id')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, AttachmentBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Attachment deleted successfully')

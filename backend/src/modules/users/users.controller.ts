@@ -21,12 +21,18 @@ import {
   UpdateNotificationPreferencesDto,
   UpdateProfileDto,
 } from './dto';
+import {
+  DangerousWriteRateLimit,
+  UploadRateLimit,
+  WriteRateLimit,
+} from '../../common/rate-limit';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Patch('me')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Cập nhật hồ sơ thành công')
   async updateProfile(
@@ -37,6 +43,7 @@ export class UsersController {
   }
 
   @Patch('me/password')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Đổi mật khẩu thành công')
   async changePassword(
@@ -48,6 +55,7 @@ export class UsersController {
   }
 
   @Patch('me/notification-preferences')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Cập nhật tùy chọn thông báo thành công')
   async updateNotificationPreferences(
@@ -61,6 +69,7 @@ export class UsersController {
   }
 
   @Post('me/avatar')
+  @UploadRateLimit()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', avatarMulterOptions))
   @ResponseMessage('Cập nhật ảnh đại diện thành công')
@@ -72,6 +81,7 @@ export class UsersController {
   }
 
   @Delete('me')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteAccount(@CurrentUser('userId') userId: string): Promise<void> {

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
 
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -19,7 +20,7 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Response interceptor — auto logout khi 401 ────────────────────────
+// ── Response interceptor — auto logout khi 401, toast khi 429 ─────────
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -29,6 +30,15 @@ apiClient.interceptors.response.use(
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
         window.location.href = '/login';
       }
+    } else if (error.response?.status === 429) {
+      const retryAfter: number | undefined = error.response.data?.retryAfter;
+      const description = retryAfter && retryAfter > 0
+        ? `Vui lòng thử lại sau ${retryAfter} giây.`
+        : 'Vui lòng thử lại sau.';
+      toast.error('Quá nhiều yêu cầu', {
+        description,
+        duration: Math.min((retryAfter ?? 5) * 1000, 10_000),
+      });
     }
     return Promise.reject(error);
   }

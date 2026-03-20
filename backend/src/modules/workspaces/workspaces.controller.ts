@@ -23,12 +23,14 @@ import {
 import { JwtAuthGuard } from '../auth/guards';
 import { WorkspaceMemberGuard } from '../../common/guards';
 import { WorkspaceRole } from '../../common/enums';
+import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
 
 @Controller('workspaces')
 export class WorkspacesController {
   constructor(private readonly workspacesService: WorkspacesService) {}
 
   @Post()
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Workspace created successfully')
   async create(
@@ -39,6 +41,7 @@ export class WorkspacesController {
   }
 
   @Get()
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Workspaces retrieved successfully')
   async findAll(@CurrentUser('userId') userId: string): Promise<Workspace[]> {
@@ -46,6 +49,7 @@ export class WorkspacesController {
   }
 
   @Get(':id')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
   @ResponseMessage('Workspace retrieved successfully')
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Workspace> {
@@ -53,6 +57,7 @@ export class WorkspacesController {
   }
 
   @Patch(':id')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
   @RequireWorkspaceRole(WorkspaceRole.OWNER)
   @ResponseMessage('Workspace updated successfully')
@@ -64,6 +69,7 @@ export class WorkspacesController {
   }
 
   @Delete(':id')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
   @RequireWorkspaceRole(WorkspaceRole.OWNER)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -79,6 +85,7 @@ export class WorkspacesController {
    * Only OWNER or ADMIN can invite
    */
   @Post(':id/invite')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
   @RequireWorkspaceRole(WorkspaceRole.OWNER, WorkspaceRole.ADMIN)
   @ResponseMessage('Lời mời đã được gửi thành công')
@@ -113,6 +120,7 @@ export class WorkspacesController {
    * Get workspace members
    */
   @Get(':id/members')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
   @ResponseMessage('Members retrieved successfully')
   async getMembers(
@@ -122,6 +130,7 @@ export class WorkspacesController {
   }
 
   @Delete(':id/members/:memberId')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
   @RequireWorkspaceRole(WorkspaceRole.OWNER)
   @HttpCode(HttpStatus.NO_CONTENT)

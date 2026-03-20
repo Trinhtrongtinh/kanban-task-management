@@ -3,6 +3,7 @@ import { SearchService } from './search.service';
 import { GlobalSearchDto } from './dto';
 import { ResponseMessage, CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
+import { SearchRateLimit } from '../../common/rate-limit';
 
 @Controller('search')
 @UseGuards(JwtAuthGuard)
@@ -14,6 +15,7 @@ export class SearchController {
    * GET /search/global?q=keyword
    */
   @Get('global')
+  @SearchRateLimit()
   @ResponseMessage('Tìm kiếm thành công')
   async globalSearch(
     @Query() dto: GlobalSearchDto,

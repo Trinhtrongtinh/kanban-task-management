@@ -20,6 +20,10 @@ import {
   ListBoardGuard,
   WorkspaceMemberGuard,
 } from './guards';
+import {
+  AppThrottlerGuard,
+  RedisThrottlerStorage,
+} from './rate-limit';
 
 @Module({
   imports: [
@@ -38,19 +42,23 @@ import {
   providers: [
     AppCacheService,
     AttachmentBoardGuard,
+    AppThrottlerGuard,
     BoardMemberGuard,
     CardBoardGuard,
     ChecklistBoardGuard,
     ListBoardGuard,
+    RedisThrottlerStorage,
     WorkspaceMemberGuard,
   ],
   exports: [
     AppCacheService,
     AttachmentBoardGuard,
+    AppThrottlerGuard,
     BoardMemberGuard,
     CardBoardGuard,
     ChecklistBoardGuard,
     ListBoardGuard,
+    RedisThrottlerStorage,
     WorkspaceMemberGuard,
     TypeOrmModule,
   ],

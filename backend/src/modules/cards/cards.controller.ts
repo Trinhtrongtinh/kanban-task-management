@@ -23,6 +23,7 @@ import { CreateChecklistDto } from '../checklists/dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { CardBoardGuard, ListBoardGuard } from '../../common/guards';
 import { BoardRole } from '../../common/enums';
+import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
 
 @Controller('cards')
 export class CardsController {
@@ -33,6 +34,7 @@ export class CardsController {
   ) { }
 
   @Post()
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, ListBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Card created successfully')
@@ -48,6 +50,7 @@ export class CardsController {
   }
 
   @Get(':id')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @ResponseMessage('Card retrieved successfully')
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Card> {
@@ -55,6 +58,7 @@ export class CardsController {
   }
 
   @Patch(':id')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Card updated successfully')
@@ -67,6 +71,7 @@ export class CardsController {
   }
 
   @Delete(':id')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Card deleted successfully')
@@ -75,6 +80,7 @@ export class CardsController {
   }
 
   @Patch(':id/move')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Card moved successfully')
@@ -88,6 +94,7 @@ export class CardsController {
 
   // Card-Label assignment endpoints
   @Post(':cardId/labels/:labelId')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Label assigned to card successfully')
@@ -99,6 +106,7 @@ export class CardsController {
   }
 
   @Delete(':cardId/labels/:labelId')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Label removed from card successfully')
@@ -111,6 +119,7 @@ export class CardsController {
 
   // Card-Checklist endpoints
   @Post(':cardId/checklists')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('Checklist created successfully')
@@ -122,6 +131,7 @@ export class CardsController {
   }
 
   @Get(':cardId/checklists')
+  @ReadRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @ResponseMessage('Checklists retrieved successfully')
   async findChecklistsByCard(
@@ -132,6 +142,7 @@ export class CardsController {
 
   // Card member (assignee) endpoints
   @Post(':cardId/members')
+  @WriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR, BoardRole.VIEWER)
   @ResponseMessage('Member assigned to card successfully')
@@ -144,6 +155,7 @@ export class CardsController {
   }
 
   @Delete(':cardId/members/:userId')
+  @DangerousWriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR, BoardRole.VIEWER)
   @ResponseMessage('Member unassigned from card successfully')

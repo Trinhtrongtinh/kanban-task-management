@@ -20,6 +20,13 @@ import {
 import { JwtAuthGuard } from './guards';
 import { User } from '../../database/entities';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
+import {
+  ForgotPasswordRateLimit,
+  LoginRateLimit,
+  RegisterRateLimit,
+  ResetPasswordRateLimit,
+  VerifyResetTokenRateLimit,
+} from '../../common/rate-limit';
 
 @Controller('auth')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -27,6 +34,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @RegisterRateLimit()
   @ResponseMessage('User registered successfully')
   async register(
     @Body() registerDto: RegisterDto,
@@ -35,6 +43,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @LoginRateLimit()
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Login successful')
   async login(
@@ -53,6 +62,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @ForgotPasswordRateLimit()
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('If the email exists, a password reset link has been sent')
   async forgotPassword(
@@ -62,6 +72,7 @@ export class AuthController {
   }
 
   @Post('verify-reset-token')
+  @VerifyResetTokenRateLimit()
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Reset token is valid')
   async verifyResetToken(
@@ -71,6 +82,7 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @ResetPasswordRateLimit()
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Password reset successful')
   async resetPassword(
