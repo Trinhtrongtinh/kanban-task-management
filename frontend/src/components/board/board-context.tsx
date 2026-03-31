@@ -130,8 +130,25 @@ export function BoardProvider({ boardId, boardBackgroundUrl, children }: BoardPr
       if (!sourceList) return prevLists;
 
       const sourceListId = sourceList.id;
-      // Không làm gì nếu thẻ vẫn thuộc cùng một list (tránh setState liên tục)
-      if (sourceListId === targetListId) return prevLists;
+      const overData = over.data?.current as DroppableData | undefined;
+
+      // Reorder mượt khi kéo trong cùng list
+      if (sourceListId === targetListId) {
+        if (overData?.type !== 'Card') {
+          return prevLists;
+        }
+
+        const oldIndex = sourceList.cards.findIndex((c) => c.id === cardId);
+        const newIndex = sourceList.cards.findIndex((c) => c.id === over.id);
+        if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) {
+          return prevLists;
+        }
+
+        const reordered = arrayMove(sourceList.cards, oldIndex, newIndex);
+        return prevLists.map((list) =>
+          list.id === sourceListId ? { ...list, cards: reordered } : list,
+        );
+      }
 
       const targetList = prevLists.find((l) => l.id === targetListId);
       if (!targetList) return prevLists;
@@ -144,7 +161,6 @@ export function BoardProvider({ boardId, boardBackgroundUrl, children }: BoardPr
 
       // Xác định vị trí chèn vào target list
       let insertIndex = targetList.cards.length;
-      const overData = over.data?.current as DroppableData | undefined;
       if (overData?.type === 'Card') {
         const overCardId = over.id as string;
         const idx = targetList.cards.findIndex((c) => c.id === overCardId);
@@ -209,60 +225,44 @@ export function BoardProvider({ boardId, boardBackgroundUrl, children }: BoardPr
     // Kéo Card
     if (activeData?.type === 'Card') {
       const cardId = active.id as string;
-      const sourceListId = activeData.listId;
-      const targetListId = overData?.listId ?? sourceListId;
+      setLists((prev) => {
+        const currentList = prev.find((l) => l.cards.some((c) => c.id === cardId));
+        if (!currentList) {
+          return prev;
+        }
 
-      if (sourceListId === targetListId) {
-        // Sắp xếp trong cùng cột
-        setLists((prev) =>
-          prev.map((list) => {
-            if (list.id !== sourceListId) return list;
-            const oldIndex = list.cards.findIndex((c) => c.id === cardId);
-            const newIndex = list.cards.findIndex((c) => c.id === over.id);
-            if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
-              const newCards = arrayMove(list.cards, oldIndex, newIndex);
-              const prevCardId = newIndex > 0 ? newCards[newIndex - 1].id : undefined;
-              const nextCardId = newIndex < newCards.length - 1 ? newCards[newIndex + 1].id : undefined;
+        const sourceListId = currentList.id;
+        const targetListId = overData?.listId ?? sourceListId;
+        const targetList = prev.find((l) => l.id === targetListId);
+        if (!targetList) {
+          return prev;
+        }
 
-              moveCard.mutate({
-                id: cardId,
-                payload: {
-                  targetListId,
-                  prevCardId,
-                  nextCardId,
-                },
-              });
-
-              return { ...list, cards: newCards };
-            }
-            return list;
-          })
-        );
-      }
-      // Cross-list: state đã được cập nhật trong onDragOver, đảm bảo vị trí cuối
-      else {
-        setLists((prev) => {
-          const sourceList = prev.find((l) => l.id === sourceListId);
-          const targetList = prev.find((l) => l.id === targetListId);
-          if (!sourceList || !targetList) return prev;
-
-          const cardIndex = sourceList.cards.findIndex((c) => c.id === cardId);
-          if (cardIndex < 0) return prev; // Đã chuyển trong onDragOver
-
-          const movedCard = sourceList.cards[cardIndex];
-          const newSourceCards = sourceList.cards.filter((_, i) => i !== cardIndex);
-
-          let insertIndex = targetList.cards.length;
-          if (overData?.type === 'Card') {
-            const idx = targetList.cards.findIndex((c) => c.id === over.id);
-            if (idx >= 0) insertIndex = idx;
+        if (sourceListId === targetListId) {
+          const oldIndex = currentList.cards.findIndex((c) => c.id === cardId);
+          if (oldIndex < 0) {
+            return prev;
           }
 
-          const newTargetCards = [...targetList.cards];
-          newTargetCards.splice(insertIndex, 0, movedCard);
+          let newIndex = oldIndex;
+          if (overData?.type === 'Card') {
+            const idx = currentList.cards.findIndex((c) => c.id === over.id);
+            if (idx >= 0) {
+              newIndex = idx;
+            }
+          }
 
-          const prevCardId = insertIndex > 0 ? newTargetCards[insertIndex - 1].id : undefined;
-          const nextCardId = insertIndex < newTargetCards.length - 1 ? newTargetCards[insertIndex + 1].id : undefined;
+          const newCards =
+            oldIndex !== newIndex
+              ? arrayMove(currentList.cards, oldIndex, newIndex)
+              : currentList.cards;
+
+          const finalIndex = newCards.findIndex((c) => c.id === cardId);
+          const prevCardId = finalIndex > 0 ? newCards[finalIndex - 1].id : undefined;
+          const nextCardId =
+            finalIndex >= 0 && finalIndex < newCards.length - 1
+              ? newCards[finalIndex + 1].id
+              : undefined;
 
           moveCard.mutate({
             id: cardId,
@@ -273,13 +273,52 @@ export function BoardProvider({ boardId, boardBackgroundUrl, children }: BoardPr
             },
           });
 
-          return prev.map((list) => {
-            if (list.id === sourceListId) return { ...list, cards: newSourceCards };
-            if (list.id === targetListId) return { ...list, cards: newTargetCards };
-            return list;
-          });
+          return prev.map((list) =>
+            list.id === sourceListId ? { ...list, cards: newCards } : list,
+          );
+        }
+
+        const sourceIndex = currentList.cards.findIndex((c) => c.id === cardId);
+        if (sourceIndex < 0) {
+          return prev;
+        }
+
+        const movedCard = currentList.cards[sourceIndex];
+        const newSourceCards = currentList.cards.filter((_, i) => i !== sourceIndex);
+
+        let insertIndex = targetList.cards.length;
+        if (overData?.type === 'Card') {
+          const idx = targetList.cards.findIndex((c) => c.id === over.id);
+          if (idx >= 0) {
+            insertIndex = idx;
+          }
+        }
+
+        const newTargetCards = [...targetList.cards];
+        newTargetCards.splice(insertIndex, 0, movedCard);
+
+        const finalIndex = newTargetCards.findIndex((c) => c.id === cardId);
+        const prevCardId = finalIndex > 0 ? newTargetCards[finalIndex - 1].id : undefined;
+        const nextCardId =
+          finalIndex >= 0 && finalIndex < newTargetCards.length - 1
+            ? newTargetCards[finalIndex + 1].id
+            : undefined;
+
+        moveCard.mutate({
+          id: cardId,
+          payload: {
+            targetListId,
+            prevCardId,
+            nextCardId,
+          },
         });
-      }
+
+        return prev.map((list) => {
+          if (list.id === sourceListId) return { ...list, cards: newSourceCards };
+          if (list.id === targetListId) return { ...list, cards: newTargetCards };
+          return list;
+        });
+      });
     }
   }, [boardId, lists, moveCard, updateList]);
 

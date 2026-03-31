@@ -9,11 +9,7 @@ const AUTH_PREFIXES = ['/login', '/register'];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Read token from the Zustand-persisted localStorage key via cookie
-  // Zustand persist stores as JSON string in localStorage under 'auth-storage'
-  // We can't access localStorage in middleware, so we use a cookie set after login instead.
-  // Check for token in the custom cookie we'll set on login.
-  const token = request.cookies.get('auth-token')?.value;
+  const token = request.cookies.get('access_token')?.value;
 
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   const isAuthPage = AUTH_PREFIXES.some((p) => pathname.startsWith(p));

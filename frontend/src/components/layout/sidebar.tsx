@@ -18,6 +18,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useProModal } from '@/hooks/ui/use-pro-modal';
+import { isProPlanActive } from '@/lib/plan';
 import { useAuthStore } from '@/stores/authStore';
 import { useI18n } from '@/hooks/ui/use-i18n';
 
@@ -92,7 +93,7 @@ function NavGroupSection({
 function DesktopSidebar({ isCollapsed, onToggleCollapse }: { isCollapsed: boolean; onToggleCollapse: () => void }) {
   const onOpen = useProModal((state) => state.onOpen);
   const user = useAuthStore((state) => state.user);
-  const isProUser = user?.planType === 'PRO';
+  const isProUser = isProPlanActive(user);
   const { t } = useI18n();
   const NAV_GROUPS: NavGroup[] = [
     {
@@ -185,7 +186,7 @@ function DesktopSidebar({ isCollapsed, onToggleCollapse }: { isCollapsed: boolea
 function MobileSidebar({ isOpen, onClose }: Pick<SidebarProps, 'isOpen' | 'onClose'>) {
   const onOpen = useProModal((state) => state.onOpen);
   const user = useAuthStore((state) => state.user);
-  const isProUser = user?.planType === 'PRO';
+  const isProUser = isProPlanActive(user);
   const { t } = useI18n();
   const NAV_GROUPS: NavGroup[] = [
     {

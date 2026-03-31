@@ -8,6 +8,12 @@ import { StripeService } from './stripe.service';
 import { CreateCheckoutDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode } from '../../common/enums';
+import {
+  getDefaultProExpiry,
+  isPlanExpired,
+  isProPlanActive,
+  toValidDate,
+} from '../../common/utils';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MailerService } from '../notifications/mailer.service';
 import { NotificationType } from '../../database/entities/notification.entity';
@@ -24,7 +30,7 @@ export class PaymentsService {
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
     private readonly mailerService: MailerService,
-  ) {}
+  ) { }
 
   /**
    * Create Stripe checkout session
@@ -180,12 +186,10 @@ export class PaymentsService {
         return;
       }
 
-      // Get subscription to determine expiration
-      const subscription =
-        await this.stripeService.retrieveSubscription(subscriptionId);
-      const expiredAt = new Date(
-        (subscription as any).current_period_end * 1000,
-      );
+      const subscription = subscriptionId
+        ? await this.stripeService.retrieveSubscription(subscriptionId)
+        : null;
+      const expiredAt = this.resolveProExpiryDate(subscription, user.expiredAt);
 
       // Update user
       await queryRunner.manager.update(User, userId, {
@@ -233,7 +237,7 @@ export class PaymentsService {
       return;
     }
 
-    const expiredAt = new Date((subscription as any).current_period_end * 1000);
+    const expiredAt = this.resolveProExpiryDate(subscription, user.expiredAt);
     const status = subscription.status;
 
     if (status === 'active') {
@@ -352,6 +356,56 @@ export class PaymentsService {
   }
 
   /**
+   * Verify a completed Stripe checkout session and upgrade the user if not yet done.
+   * Used as a reliable fallback from the payment success page.
+   */
+  async verifySession(
+    sessionId: string,
+    userId: string,
+  ): Promise<{ upgraded: boolean }> {
+    if (!this.stripeService.isInitialized()) {
+      throw new BusinessException(
+        ErrorCode.INTERNAL_ERROR,
+        HttpStatus.SERVICE_UNAVAILABLE,
+        'Payment service is not available',
+      );
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BusinessException(
+        ErrorCode.USER_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.syncExpiredPlanState(user);
+
+    if (isProPlanActive(user)) {
+      return { upgraded: true };
+    }
+
+    const session = await this.stripeService.retrieveSession(sessionId);
+
+    // Verify this session belongs to this user
+    if (session.client_reference_id !== userId) {
+      throw new BusinessException(
+        ErrorCode.VALIDATION_ERROR,
+        HttpStatus.FORBIDDEN,
+        'Session does not belong to this user',
+      );
+    }
+
+    // Only upgrade when Stripe confirms payment completed
+    if (session.status !== 'complete' || session.payment_status !== 'paid') {
+      return { upgraded: false };
+    }
+
+    await this.handleCheckoutCompleted(session);
+    return { upgraded: true };
+  }
+
+  /**
    * Get user's billing info
    */
   async getBillingInfo(userId: string): Promise<{
@@ -367,9 +421,11 @@ export class PaymentsService {
       );
     }
 
+    await this.syncExpiredPlanState(user);
+
     return {
-      planType: user.planType,
-      expiredAt: user.expiredAt,
+      planType: isProPlanActive(user) ? PlanType.PRO : PlanType.FREE,
+      expiredAt: isProPlanActive(user) ? user.expiredAt : null,
       hasStripeCustomer: !!user.stripeCustomerId,
     };
   }
@@ -405,5 +461,47 @@ export class PaymentsService {
     );
 
     return { url: session.url };
+  }
+
+  private resolveProExpiryDate(
+    subscription: Stripe.Subscription | null,
+    currentExpiry: Date | null,
+  ): Date {
+    const subscriptionWithPeriod = subscription as (Stripe.Subscription & {
+      current_period_end?: number;
+    }) | null;
+    const stripeExpiry = toValidDate(
+      typeof subscriptionWithPeriod?.current_period_end === 'number'
+        ? subscriptionWithPeriod.current_period_end * 1000
+        : null,
+    );
+
+    if (stripeExpiry) {
+      return stripeExpiry;
+    }
+
+    const baseDate =
+      currentExpiry && !isPlanExpired(currentExpiry) ? currentExpiry : new Date();
+    return getDefaultProExpiry(baseDate);
+  }
+
+  private async syncExpiredPlanState(user: User): Promise<void> {
+    if (user.planType !== PlanType.PRO) {
+      return;
+    }
+
+    if (!user.expiredAt) {
+      user.expiredAt = getDefaultProExpiry();
+      await this.userRepository.save(user);
+      return;
+    }
+
+    if (!isPlanExpired(user.expiredAt)) {
+      return;
+    }
+
+    user.planType = PlanType.FREE;
+    user.expiredAt = null;
+    await this.userRepository.save(user);
   }
 }

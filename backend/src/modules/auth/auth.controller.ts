@@ -8,7 +8,13 @@ import {
   UseGuards,
   UseInterceptors,
   ClassSerializerInterceptor,
+  Res,
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'crypto';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import {
   RegisterDto,
@@ -17,8 +23,11 @@ import {
   VerifyResetTokenDto,
   ResetPasswordDto,
 } from './dto';
-import { JwtAuthGuard } from './guards';
-import { User } from '../../database/entities';
+import {
+  GoogleAuthGuard,
+  JwtAuthGuard,
+} from './guards';
+import { AuthProvider, User } from '../../database/entities';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
 import {
   ForgotPasswordRateLimit,
@@ -27,19 +36,26 @@ import {
   ResetPasswordRateLimit,
   VerifyResetTokenRateLimit,
 } from '../../common/rate-limit';
+import { SocialAuthProfile } from './providers';
 
 @Controller('auth')
 @UseInterceptors(ClassSerializerInterceptor)
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post('register')
   @RegisterRateLimit()
   @ResponseMessage('User registered successfully')
   async register(
     @Body() registerDto: RegisterDto,
-  ): Promise<{ user: Partial<User>; accessToken: string }> {
-    return this.authService.register(registerDto);
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ user: Partial<User> }> {
+    const session = await this.authService.register(registerDto);
+    this.setAuthCookies(response, session.accessToken, session.refreshToken);
+    return { user: session.user };
   }
 
   @Post('login')
@@ -48,9 +64,61 @@ export class AuthController {
   @ResponseMessage('Login successful')
   async login(
     @Body() loginDto: LoginDto,
-  ): Promise<{ user: Partial<User>; accessToken: string }> {
-    return this.authService.login(loginDto);
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ user: Partial<User> }> {
+    const session = await this.authService.login(loginDto);
+    this.setAuthCookies(response, session.accessToken, session.refreshToken);
+    return { user: session.user };
   }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Session refreshed successfully')
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ user: Partial<User> }> {
+    const refreshToken = request.cookies?.[this.getRefreshCookieName()];
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is missing');
+    }
+
+    const session = await this.authService.refreshSession(refreshToken);
+    this.setAuthCookies(response, session.accessToken, session.refreshToken);
+    return { user: session.user };
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Logout successful')
+  async logout(
+    @CurrentUser('userId') userId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ success: boolean }> {
+    await this.authService.logout(userId);
+    this.clearAuthCookies(response);
+    return { success: true };
+  }
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  async googleLogin(): Promise<void> {}
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  async googleCallback(
+    @Req() request: Request,
+    @Res() response: Response,
+  ): Promise<void> {
+    await this.handleSocialCallback(
+      AuthProvider.GOOGLE,
+      request.user as SocialAuthProfile,
+      response,
+    );
+  }
+
+
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
@@ -89,5 +157,152 @@ export class AuthController {
     @Body() resetPasswordDto: ResetPasswordDto,
   ): Promise<{ success: boolean }> {
     return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  private setAuthCookies(
+    response: Response,
+    accessToken: string,
+    refreshToken: string,
+  ): void {
+    const secure = this.configService.get<string>('NODE_ENV') === 'production';
+    const sameSite =
+      (this.configService.get<string>('AUTH_COOKIE_SAME_SITE', 'lax').toLowerCase() as
+        | 'lax'
+        | 'strict'
+        | 'none');
+    const domain = this.configService.get<string>('AUTH_COOKIE_DOMAIN') || undefined;
+
+    response.cookie(this.getAccessCookieName(), accessToken, {
+      httpOnly: true,
+      secure,
+      sameSite,
+      domain,
+      path: '/',
+      maxAge: this.getCookieMaxAgeMs(
+        this.configService.get<string>('jwt.expiresIn', '15m'),
+      ),
+    });
+
+    response.cookie(this.getRefreshCookieName(), refreshToken, {
+      httpOnly: true,
+      secure,
+      sameSite,
+      domain,
+      path: '/auth/refresh',
+      maxAge: this.getCookieMaxAgeMs(
+        this.configService.get<string>('jwt.refreshExpiresIn', '7d'),
+      ),
+    });
+
+    response.cookie(this.getCsrfCookieName(), this.generateCsrfToken(), {
+      httpOnly: false,
+      secure,
+      sameSite,
+      domain,
+      path: '/',
+      maxAge: this.getCookieMaxAgeMs(
+        this.configService.get<string>('jwt.refreshExpiresIn', '7d'),
+      ),
+    });
+  }
+
+  private clearAuthCookies(response: Response): void {
+    const secure = this.configService.get<string>('NODE_ENV') === 'production';
+    const sameSite =
+      (this.configService.get<string>('AUTH_COOKIE_SAME_SITE', 'lax').toLowerCase() as
+        | 'lax'
+        | 'strict'
+        | 'none');
+    const domain = this.configService.get<string>('AUTH_COOKIE_DOMAIN') || undefined;
+
+    response.clearCookie(this.getAccessCookieName(), {
+      httpOnly: true,
+      secure,
+      sameSite,
+      domain,
+      path: '/',
+    });
+    response.clearCookie(this.getRefreshCookieName(), {
+      httpOnly: true,
+      secure,
+      sameSite,
+      domain,
+      path: '/auth/refresh',
+    });
+    response.clearCookie(this.getCsrfCookieName(), {
+      httpOnly: false,
+      secure,
+      sameSite,
+      domain,
+      path: '/',
+    });
+  }
+
+  private getAccessCookieName(): string {
+    return this.configService.get<string>('AUTH_ACCESS_COOKIE_NAME', 'access_token');
+  }
+
+  private getRefreshCookieName(): string {
+    return this.configService.get<string>('AUTH_REFRESH_COOKIE_NAME', 'refresh_token');
+  }
+
+  private getCsrfCookieName(): string {
+    return this.configService.get<string>('AUTH_CSRF_COOKIE_NAME', 'csrf_token');
+  }
+
+  private generateCsrfToken(): string {
+    return randomBytes(32).toString('hex');
+  }
+
+  private getCookieMaxAgeMs(duration: string): number {
+    const match = /^([0-9]+)([smhd])$/.exec(duration.trim());
+    if (!match) {
+      return 15 * 60 * 1000;
+    }
+
+    const value = Number(match[1]);
+    const unit = match[2];
+    const multiplier: Record<string, number> = {
+      s: 1000,
+      m: 60_000,
+      h: 3_600_000,
+      d: 86_400_000,
+    };
+
+    return value * (multiplier[unit] || 60_000);
+  }
+
+  private async handleSocialCallback(
+    provider: AuthProvider.GOOGLE,
+    socialProfile: SocialAuthProfile | undefined,
+    response: Response,
+  ): Promise<void> {
+    if (!socialProfile) {
+      response.redirect(this.getAuthFailureRedirectUrl());
+      return;
+    }
+
+    const session = await this.authService.loginWithSocialProvider(
+      provider,
+      socialProfile,
+    );
+    this.setAuthCookies(response, session.accessToken, session.refreshToken);
+    response.redirect(this.getAuthSuccessRedirectUrl());
+  }
+
+  private getAuthSuccessRedirectUrl(): string {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    return this.configService.get<string>(
+      'AUTH_SUCCESS_REDIRECT_URL',
+      `${frontendUrl}/social-callback`,
+    );
+  }
+
+  private getAuthFailureRedirectUrl(): string {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    return this.configService.get<string>(
+      'AUTH_FAILURE_REDIRECT_URL',
+      `${frontendUrl}/login?error=social_auth_failed`,
+    );
   }
 }

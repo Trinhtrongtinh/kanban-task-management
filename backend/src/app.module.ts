@@ -41,6 +41,7 @@ import { NotificationsModule } from './modules/notifications';
 import { PaymentsModule } from './modules/payments';
 import { CommonModule } from './common/common.module';
 import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
+import { CsrfCookieGuard } from './common/guards';
 
 @Module({
   imports: [
@@ -66,18 +67,21 @@ import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
             limit: (context) => {
               const request = context.switchToHttp().getRequest<Record<string, any>>();
               return request.user?.userId
-                ? configService.get<number>('rateLimit.default.limitAuthenticated', 240)
-                : configService.get<number>('rateLimit.default.limitAnonymous', 120);
+                ? configService.get<number>('rateLimit.default.limitAuthenticated', 600)
+                : configService.get<number>('rateLimit.default.limitAnonymous', 300);
             },
             blockDuration: configService.get<number>(
               'rateLimit.default.blockDurationMs',
-              60_000,
+              30_000,
             ),
           },
+          // Specialized throttlers have high module-level defaults so they are
+          // effectively disabled for routes without the matching decorator.
+          // Each decorator (e.g. @LoginRateLimit) overrides these with strict limits.
           {
             name: 'auth',
             ttl: configService.get<number>('rateLimit.auth.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.auth.limit', 10),
+            limit: configService.get<number>('rateLimit.auth.limit', 10_000),
             blockDuration: configService.get<number>(
               'rateLimit.auth.blockDurationMs',
               300_000,
@@ -86,7 +90,7 @@ import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
           {
             name: 'search',
             ttl: configService.get<number>('rateLimit.search.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.search.limit', 30),
+            limit: configService.get<number>('rateLimit.search.limit', 10_000),
             blockDuration: configService.get<number>(
               'rateLimit.search.blockDurationMs',
               60_000,
@@ -95,7 +99,7 @@ import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
           {
             name: 'upload',
             ttl: configService.get<number>('rateLimit.upload.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.upload.limit', 20),
+            limit: configService.get<number>('rateLimit.upload.limit', 10_000),
             blockDuration: configService.get<number>(
               'rateLimit.upload.blockDurationMs',
               300_000,
@@ -104,7 +108,7 @@ import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
           {
             name: 'write',
             ttl: configService.get<number>('rateLimit.write.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.write.limit', 120),
+            limit: configService.get<number>('rateLimit.write.limit', 10_000),
             blockDuration: configService.get<number>(
               'rateLimit.write.blockDurationMs',
               60_000,
@@ -113,7 +117,7 @@ import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
           {
             name: 'dangerous',
             ttl: configService.get<number>('rateLimit.dangerous.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.dangerous.limit', 20),
+            limit: configService.get<number>('rateLimit.dangerous.limit', 10_000),
             blockDuration: configService.get<number>(
               'rateLimit.dangerous.blockDurationMs',
               120_000,
@@ -127,7 +131,7 @@ import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
             ),
             limit: configService.get<number>(
               'rateLimit.notificationBulk.limit',
-              10,
+              10_000,
             ),
             blockDuration: configService.get<number>(
               'rateLimit.notificationBulk.blockDurationMs',
@@ -137,7 +141,7 @@ import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
           {
             name: 'payments',
             ttl: configService.get<number>('rateLimit.payments.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.payments.limit', 30),
+            limit: configService.get<number>('rateLimit.payments.limit', 10_000),
             blockDuration: configService.get<number>(
               'rateLimit.payments.blockDurationMs',
               120_000,
@@ -149,8 +153,8 @@ import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
             limit: (context) => {
               const request = context.switchToHttp().getRequest<Record<string, any>>();
               return request.user?.userId
-                ? configService.get<number>('rateLimit.read.limitAuthenticated', 120)
-                : configService.get<number>('rateLimit.read.limitAnonymous', 60);
+                ? configService.get<number>('rateLimit.read.limitAuthenticated', 10_000)
+                : configService.get<number>('rateLimit.read.limitAnonymous', 10_000);
             },
             blockDuration: configService.get<number>(
               'rateLimit.read.blockDurationMs',
@@ -225,6 +229,10 @@ import { AppThrottlerGuard, RedisThrottlerStorage } from './common/rate-limit';
     {
       provide: APP_GUARD,
       useClass: AppThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: CsrfCookieGuard,
     },
   ],
 })

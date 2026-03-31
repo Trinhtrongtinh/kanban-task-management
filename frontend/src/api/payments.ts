@@ -34,6 +34,18 @@ export const paymentsApi = {
   },
 
   /**
+   * Verify a Stripe checkout session and trigger Pro upgrade if payment completed.
+   * Call this from the payment success page as a reliable fallback.
+   */
+  verifySession: async (sessionId: string): Promise<{ upgraded: boolean }> => {
+    const response = await apiClient.post<{ data: { upgraded: boolean } }>(
+      '/payments/verify-session',
+      { sessionId },
+    );
+    return response.data.data;
+  },
+
+  /**
    * Create a Stripe Customer Portal session for managing an existing subscription.
    */
   createPortalSession: async (): Promise<{ url: string }> => {

@@ -19,6 +19,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { authApi } from '@/api/auth';
 import { WorkspaceSwitcher } from '@/components/workspaces/workspace-switcher';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { searchApi, type SearchEntityType } from '@/api/search';
+import { getEffectivePlanType } from '@/lib/plan';
 import { cn, resolveAvatarUrl } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useI18n } from '@/hooks/ui/use-i18n';
@@ -66,6 +68,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
   const { t } = useI18n();
   const { user, logout } = useAuthStore();
+  const effectivePlanType = getEffectivePlanType(user);
   const [query, setQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedType, setSelectedType] = useState<SearchEntityType>('all');
@@ -141,7 +144,12 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
   }, [pathname]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore network errors and clear local state anyway.
+    }
     logout();
     if (typeof window !== 'undefined') {
       window.location.href = '/login';
@@ -350,6 +358,18 @@ export function Header({ onMenuClick }: HeaderProps) {
                               <span className="block truncate text-xs text-muted-foreground">
                                 {getBreadcrumb([card.workspaceName, card.boardTitle, card.listTitle])}
                               </span>
+                              {card.labels && card.labels.length > 0 && (
+                                <span className="mt-1 flex flex-wrap gap-1">
+                                  {card.labels.slice(0, 3).map((label) => (
+                                    <span
+                                      key={`${card.id}-${label}`}
+                                      className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
+                                    >
+                                      #{label}
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
                             </span>
                           </button>
                         ))}
@@ -401,13 +421,13 @@ export function Header({ onMenuClick }: HeaderProps) {
             <Badge
               className={cn(
                 'h-6 text-xs font-semibold flex items-center gap-1',
-                user.planType === 'PRO'
+                effectivePlanType === 'PRO'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white border border-amber-400/50 shadow-lg shadow-amber-500/20'
                   : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-100'
               )}
             >
-              {user.planType === 'PRO' && <Zap className="h-3 w-3" />}
-              {user.planType}
+              {effectivePlanType === 'PRO' && <Zap className="h-3 w-3" />}
+              {effectivePlanType}
             </Badge>
           )}
           <DropdownMenu>

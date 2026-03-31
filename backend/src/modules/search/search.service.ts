@@ -145,10 +145,18 @@ async globalSearch(dto: GlobalSearchDto, userId: string) {
         .andWhere('card.isArchived = :isArchived', { isArchived: false })
         .andWhere(
           new Brackets((qb) => {
-            qb.where('card.title LIKE :keyword', { keyword }).orWhere(
-              'card.description LIKE :keyword',
-              { keyword },
-            );
+            qb.where('card.title LIKE :keyword', { keyword })
+              .orWhere('card.description LIKE :keyword', { keyword })
+              .orWhere(
+                `EXISTS (
+                  SELECT 1
+                  FROM card_labels cl
+                  INNER JOIN labels l ON l.id = cl.label_id
+                  WHERE cl.card_id = card.id
+                    AND l.name LIKE :keyword
+                )`,
+                { keyword },
+              );
           }),
         )
         .select('card.id', 'id')
@@ -208,17 +216,43 @@ async globalSearch(dto: GlobalSearchDto, userId: string) {
         .getRawMany(),
     ]);
 
+    const cardIds = cards.map((card) => card.id).filter(Boolean);
+    const cardLabelsRaw = cardIds.length
+      ? await this.cardRepository
+          .createQueryBuilder('card')
+          .leftJoin('card.labels', 'label')
+          .where('card.id IN (:...cardIds)', { cardIds })
+          .select('card.id', 'cardId')
+          .addSelect('label.name', 'labelName')
+          .getRawMany<{ cardId: string; labelName: string | null }>()
+      : [];
+
+    const labelMap = new Map<string, string[]>();
+    for (const row of cardLabelsRaw) {
+      if (!row.labelName) continue;
+      const current = labelMap.get(row.cardId) ?? [];
+      if (!current.includes(row.labelName)) {
+        current.push(row.labelName);
+      }
+      labelMap.set(row.cardId, current);
+    }
+
+    const cardsWithLabels = cards.map((card) => ({
+      ...card,
+      labels: labelMap.get(card.id) ?? [],
+    }));
+
     return {
       workspaces,
       boards,
       lists,
-      cards,
+      cards: cardsWithLabels,
       comments,
       total: {
         workspaces: workspaces.length,
         boards: boards.length,
         lists: lists.length,
-        cards: cards.length,
+        cards: cardsWithLabels.length,
         comments: comments.length,
       },
     };

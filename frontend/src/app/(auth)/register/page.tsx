@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { useEffect } from 'react';
 import { PasswordInput } from "@/components/ui/password-input"
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,14 @@ export default function RegisterPage() {
   const { t } = useI18n();
   const login = useAuthStore((s) => s.login);
   const [serverError, setServerError] = useState<string | null>(null);
+  const googleLoginUrl = authApi.getGoogleLoginUrl();
+
+  useEffect(() => {
+    const errorCode = new URLSearchParams(window.location.search).get('error');
+    if (errorCode === 'social_auth_failed') {
+      setServerError('Đăng ký bằng mạng xã hội thất bại. Vui lòng thử lại.');
+    }
+  }, []);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -67,12 +76,12 @@ export default function RegisterPage() {
   const onSubmit = async (values: RegisterFormValues) => {
     setServerError(null);
     try {
-      const { user, accessToken } = await authApi.register({
+      const { user } = await authApi.register({
         username: values.fullName,   // map fullName → username (backend field)
         email: values.email,
         password: values.password,
       });
-      login(user, accessToken);
+      login(user);
       router.replace('/dashboard');
     } catch (err: unknown) {
       const msg =
@@ -171,6 +180,21 @@ export default function RegisterPage() {
                 t('auth.register')
               )}
             </Button>
+
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Hoặc tiếp tục với</span>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Button type="button" variant="outline" asChild disabled={isSubmitting}>
+                <a href={googleLoginUrl}>Google</a>
+              </Button>
+            </div>
           </form>
         </Form>
       </CardContent>

@@ -11,6 +11,11 @@ export enum PlanType {
   PRO = 'PRO',
 }
 
+export enum AuthProvider {
+  LOCAL = 'LOCAL',
+  GOOGLE = 'GOOGLE',
+}
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -25,6 +30,14 @@ export class User {
 
   @Column({ length: 50 })
   username: string;
+
+  @Column({
+    type: 'enum',
+    enum: AuthProvider,
+    default: AuthProvider.LOCAL,
+    name: 'auth_provider',
+  })
+  authProvider: AuthProvider;
 
   @Column({ type: 'text', nullable: true, name: 'avatar_url' })
   avatarUrl: string | null;
@@ -68,6 +81,18 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true, name: 'reset_password_expires_at' })
   resetPasswordExpiresAt: Date | null;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'refresh_token_hash',
+  })
+  @Exclude()
+  refreshTokenHash: string | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'refresh_token_expires_at' })
+  refreshTokenExpiresAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

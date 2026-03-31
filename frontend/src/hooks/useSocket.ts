@@ -8,15 +8,12 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
 
 export function useSocket(boardId?: string, namespace = '/cards') {
   const socketRef = useRef<Socket | null>(null);
-  const { accessToken } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!isAuthenticated) return;
 
     socketRef.current = io(`${SOCKET_URL}${namespace}`, {
-      auth: {
-        token: accessToken,
-      },
       transports: ['websocket'],
     });
 
@@ -32,7 +29,7 @@ export function useSocket(boardId?: string, namespace = '/cards') {
       }
       socketRef.current?.disconnect();
     };
-  }, [accessToken, boardId, namespace]);
+  }, [isAuthenticated, boardId, namespace]);
 
   const emit = useCallback((event: string, data: unknown) => {
     socketRef.current?.emit(event, data);

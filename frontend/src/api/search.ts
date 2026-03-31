@@ -37,6 +37,7 @@ export interface SearchCard {
   id: string;
   title: string;
   description?: string | null;
+  labels?: string[];
   listId: string;
   listTitle: string;
   boardId: string;

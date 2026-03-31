@@ -30,7 +30,7 @@ export class DeadlineReminderService {
    * Cron job runs every 30 minutes
    * Checks for cards with deadlines within 24 hours that haven't been reminded
    */
-  @Cron(CronExpression.EVERY_30_MINUTES)
+  @Cron(CronExpression.EVERY_5_HOURS)
   async checkDeadlines(): Promise<void> {
     // Prevent concurrent executions
     if (this.isProcessing) {

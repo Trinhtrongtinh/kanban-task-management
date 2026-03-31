@@ -5,8 +5,9 @@ import { Board, Workspace, BoardMember, WorkspaceMember } from '../../database/e
 import { CreateBoardDto, UpdateBoardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode, BoardRole, MemberStatus, ActivityAction } from '../../common/enums';
-import { User, PlanType } from '../../database/entities';
+import { User } from '../../database/entities';
 import { AppCacheService, CACHE_TTL, CacheKeys } from '../../common/cache';
+import { isProPlanActive } from '../../common/utils';
 import { ActivitiesService } from '../activities/activities.service';
 
 const FREE_PLAN_BOARD_LIMIT = 3;
@@ -225,7 +226,7 @@ export class BoardsService {
 
     // Check FREE plan board limit
     const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (user && user.planType === PlanType.FREE) {
+    if (user && !isProPlanActive(user)) {
       const boardCount = await this.boardRepository.count({ where: { workspaceId } });
       if (boardCount >= FREE_PLAN_BOARD_LIMIT) {
         throw new BusinessException(

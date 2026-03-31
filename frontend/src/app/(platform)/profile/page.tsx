@@ -53,6 +53,7 @@ import {
 import { toast } from 'sonner';
 import { usersApi, type RecentActivity } from '@/api/users';
 import { useAuthStore } from '@/stores/authStore';
+import { getEffectivePlanType, getProExpiryDate, isProPlanActive } from '@/lib/plan';
 import { cn, resolveAvatarUrl } from '@/lib/utils';
 import { formatDateTimeVN } from '@/lib/date-time';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -148,6 +149,9 @@ export default function ProfilePage() {
   const router = useRouter();
   const { t } = useI18n();
   const user = useAuthStore((s) => s.user);
+  const effectivePlanType = getEffectivePlanType(user);
+  const isActivePro = isProPlanActive(user);
+  const proExpiryDate = getProExpiryDate(user);
   const setUser = useAuthStore((s) => s.setUser);
   const logout = useAuthStore((s) => s.logout);
   const resolvedAvatarUrl = resolveAvatarUrl(user?.avatarUrl) || '';
@@ -258,9 +262,10 @@ export default function ProfilePage() {
   const deleteAccountMutation = useMutation({
     mutationFn: usersApi.deleteAccount,
     onSuccess: () => {
+      queryClient.clear();
       logout();
       toast.success(t('profile.toast.accountDeleted'));
-      router.push('/login');
+      window.location.replace('/login');
     },
     onError: (error: unknown) => {
       toast.error(getApiErrorMessage(error) || t('profile.toast.accountDeleteFailed'));
@@ -383,24 +388,24 @@ export default function ProfilePage() {
       </div>
 
       {/* Plan Info Card */}
-      <Card className={cn('mb-6 border-2 overflow-hidden', user?.planType === 'PRO' ? 'border-amber-400/50 bg-gradient-to-br from-amber-50/50 to-transparent dark:from-amber-950/20' : 'border-border')}>
+      <Card className={cn('mb-6 border-2 overflow-hidden', isActivePro ? 'border-amber-400/50 bg-gradient-to-br from-amber-50/50 to-transparent dark:from-amber-950/20' : 'border-border')}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {user?.planType === 'PRO' && <Zap className="h-5 w-5 text-amber-500" />}
-              <CardTitle className={user?.planType === 'PRO' ? 'text-amber-900 dark:text-amber-100' : ''}>
-                {user?.planType === 'PRO' ? 'Kanban Pro' : 'Free Plan'}
+              {isActivePro && <Zap className="h-5 w-5 text-amber-500" />}
+              <CardTitle className={isActivePro ? 'text-amber-900 dark:text-amber-100' : ''}>
+                {isActivePro ? 'Kanban Pro' : 'Free Plan'}
               </CardTitle>
             </div>
             <Badge
               className={cn(
                 'px-3 py-1 font-semibold',
-                user?.planType === 'PRO'
+                isActivePro
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20'
                   : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-100'
               )}
             >
-              {user?.planType}
+              {effectivePlanType}
             </Badge>
           </div>
         </CardHeader>
@@ -409,20 +414,14 @@ export default function ProfilePage() {
             <div>
               <p className="text-muted-foreground">{t('profile.plan.status')}</p>
               <p className="font-semibold flex items-center gap-2 mt-1">
-                <CheckCircle2 className={`h-4 w-4 ${user?.planType === 'PRO' ? 'text-amber-500' : 'text-green-500'}`} />
-                {user?.planType === 'PRO' ? t('profile.plan.active') : t('profile.plan.free')}
+                <CheckCircle2 className={`h-4 w-4 ${isActivePro ? 'text-amber-500' : 'text-green-500'}`} />
+                {isActivePro ? t('profile.plan.active') : t('profile.plan.free')}
               </p>
             </div>
-            {user?.planType === 'PRO' && user?.expiredAt && (
+            {isActivePro && proExpiryDate && (
               <div>
                 <p className="text-muted-foreground">{t('profile.plan.expiryLabel')}</p>
-                <p className="font-semibold mt-1">{formatDateTimeVN(user.expiredAt)}</p>
-              </div>
-            )}
-            {user?.planType === 'PRO' && !user?.expiredAt && (
-              <div>
-                <p className="text-muted-foreground">{t('profile.plan.expiryLabel')}</p>
-                <p className="font-semibold mt-1">{t('profile.plan.updating')}</p>
+                <p className="font-semibold mt-1">{formatDateTimeVN(proExpiryDate)}</p>
               </div>
             )}
           </div>

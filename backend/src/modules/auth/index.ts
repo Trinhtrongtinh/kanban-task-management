@@ -4,3 +4,4 @@ export * from './auth.controller';
 export * from './dto';
 export * from './guards';
 export * from './strategies';
+export * from './providers';

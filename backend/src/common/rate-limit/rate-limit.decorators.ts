@@ -114,7 +114,7 @@ export const PaymentRateLimit = () =>
 export const ReadRateLimit = () =>
   Throttle({
     read: {
-      limit: 120,
+      limit: 300,
       ttl: MINUTE,
       blockDuration: MINUTE,
     },

@@ -5,7 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
-import { User, Workspace, WorkspaceType } from '../../database/entities';
+import { AuthProvider, PlanType, User } from '../../database/entities';
 import {
   RegisterDto,
   LoginDto,
@@ -14,97 +14,139 @@ import {
   ResetPasswordDto,
 } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode, WorkspaceRole, MemberStatus } from '../../common/enums';
+import { ErrorCode } from '../../common/enums';
+import { getDefaultProExpiry, isPlanExpired } from '../../common/utils';
 import { MailerService } from '../notifications/mailer.service';
+import { AuthProviderRegistry, SocialAuthProfile } from './providers';
 
 const RESET_TOKEN_EXPIRES_MINUTES = 30;
+
+interface SessionTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+interface AuthSessionResult extends SessionTokens {
+  user: Partial<User>;
+}
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Workspace)
-    private readonly workspaceRepository: Repository<Workspace>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailerService: MailerService,
+    private readonly authProviderRegistry: AuthProviderRegistry,
   ) {}
 
   async register(
     registerDto: RegisterDto,
-  ): Promise<{ user: Partial<User>; accessToken: string }> {
-    const { username, email, password } = registerDto;
+  ): Promise<AuthSessionResult> {
+    const provider = this.authProviderRegistry.get(AuthProvider.LOCAL);
+    const user = await provider.register(registerDto);
 
-    const existingUser = await this.userRepository.findOne({
-      where: { email },
-    });
-
-    if (existingUser) {
-      throw new BusinessException(
-        ErrorCode.USER_EMAIL_EXISTS,
-        HttpStatus.CONFLICT,
-      );
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = this.userRepository.create({
-      username,
-      email,
-      password: hashedPassword,
-    });
-
-    await this.userRepository.save(user);
-
-    const accessToken = this.generateToken(user);
+    const session = await this.issueSessionForUser(user);
 
     return {
       user: this.sanitizeUser(user),
-      accessToken,
+      ...session,
     };
   }
 
   async login(
     loginDto: LoginDto,
-  ): Promise<{ user: Partial<User>; accessToken: string }> {
-    const { email, password } = loginDto;
+  ): Promise<AuthSessionResult> {
+    const provider = this.authProviderRegistry.get(AuthProvider.LOCAL);
+    const user = await provider.login(loginDto);
 
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
-
-    if (!user) {
-      throw new BusinessException(
-        ErrorCode.INVALID_CREDENTIALS,
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
-      throw new BusinessException(
-        ErrorCode.INVALID_CREDENTIALS,
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-
-    const accessToken = this.generateToken(user);
+    const session = await this.issueSessionForUser(user);
 
     return {
       user: this.sanitizeUser(user),
-      accessToken,
+      ...session,
     };
   }
 
+  async loginWithSocialProvider(
+    provider: AuthProvider.GOOGLE,
+    socialProfile: SocialAuthProfile,
+  ): Promise<AuthSessionResult> {
+    const authProvider = this.authProviderRegistry.get(provider);
+    const user = await authProvider.authenticateSocial(socialProfile);
+    const session = await this.issueSessionForUser(user);
+
+    return {
+      user: this.sanitizeUser(user),
+      ...session,
+    };
+  }
+
+  async refreshSession(refreshToken: string): Promise<AuthSessionResult> {
+    const payload = this.verifyRefreshToken(refreshToken);
+    const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+
+    if (!user || !user.refreshTokenHash) {
+      throw new BusinessException(
+        ErrorCode.INVALID_CREDENTIALS,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    if (
+      !user.refreshTokenExpiresAt ||
+      user.refreshTokenExpiresAt.getTime() < Date.now()
+    ) {
+      user.refreshTokenHash = null;
+      user.refreshTokenExpiresAt = null;
+      await this.userRepository.save(user);
+      throw new BusinessException(
+        ErrorCode.INVALID_CREDENTIALS,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const incomingHash = this.hashToken(refreshToken);
+    if (incomingHash !== user.refreshTokenHash) {
+      throw new BusinessException(
+        ErrorCode.INVALID_CREDENTIALS,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    await this.syncExpiredPlanState(user);
+
+    const session = await this.issueSessionForUser(user);
+    return {
+      user: this.sanitizeUser(user),
+      ...session,
+    };
+  }
+
+  async logout(userId: string): Promise<void> {
+    await this.userRepository.update(
+      { id: userId },
+      { refreshTokenHash: null, refreshTokenExpiresAt: null },
+    );
+  }
+
   async validateUser(userId: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      return null;
+    }
+
+    await this.syncExpiredPlanState(user);
+    return user;
   }
 
   async getProfile(userId: string): Promise<Partial<User> | null> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) return null;
+
+    await this.syncExpiredPlanState(user);
+
     return this.sanitizeUser(user);
   }
 
@@ -184,13 +226,118 @@ export class AuthService {
     return { success: true };
   }
 
-  private generateToken(user: User): string {
+  private generateAccessToken(user: User): string {
     const payload = { sub: user.id, email: user.email };
     return this.jwtService.sign(payload);
   }
 
+  private generateRefreshToken(user: User): string {
+    const payload = { sub: user.id, email: user.email, type: 'refresh' };
+    return this.jwtService.sign(payload, {
+      secret:
+        this.configService.get<string>('jwt.refreshSecret') ||
+        this.configService.get<string>('jwt.secret') ||
+        'default_secret',
+      expiresIn:
+        (this.configService.get<string>('jwt.refreshExpiresIn') || '7d') as any,
+    });
+  }
+
+  private async issueSessionForUser(user: User): Promise<SessionTokens> {
+    await this.syncExpiredPlanState(user);
+
+    const accessToken = this.generateAccessToken(user);
+    const refreshToken = this.generateRefreshToken(user);
+    const refreshExpiresAt = new Date(
+      Date.now() + this.parseDurationToMs(
+        this.configService.get<string>('jwt.refreshExpiresIn', '7d'),
+      ),
+    );
+
+    user.refreshTokenHash = this.hashToken(refreshToken);
+    user.refreshTokenExpiresAt = refreshExpiresAt;
+    await this.userRepository.save(user);
+
+    return { accessToken, refreshToken };
+  }
+
+  private async syncExpiredPlanState(user: User): Promise<void> {
+    if (user.planType !== PlanType.PRO) {
+      return;
+    }
+
+    if (!user.expiredAt) {
+      user.expiredAt = getDefaultProExpiry();
+      await this.userRepository.save(user);
+      return;
+    }
+
+    if (!isPlanExpired(user.expiredAt)) {
+      return;
+    }
+
+    user.planType = PlanType.FREE;
+    user.expiredAt = null;
+    await this.userRepository.save(user);
+  }
+
+  private verifyRefreshToken(refreshToken: string): { sub: string; email: string; type?: string } {
+    try {
+      const payload = this.jwtService.verify<{ sub: string; email: string; type?: string }>(
+        refreshToken,
+        {
+          secret:
+            this.configService.get<string>('jwt.refreshSecret') ||
+            this.configService.get<string>('jwt.secret') ||
+            'default_secret',
+        },
+      );
+
+      if (payload.type !== 'refresh') {
+        throw new Error('Invalid token type');
+      }
+
+      return payload;
+    } catch {
+      throw new BusinessException(
+        ErrorCode.INVALID_CREDENTIALS,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private parseDurationToMs(duration: string): number {
+    const match = /^([0-9]+)([smhd])$/.exec(duration.trim());
+    if (!match) {
+      return 7 * 24 * 60 * 60 * 1000;
+    }
+
+    const value = Number(match[1]);
+    const unit = match[2];
+
+    const multiplier: Record<string, number> = {
+      s: 1000,
+      m: 60_000,
+      h: 3_600_000,
+      d: 86_400_000,
+    };
+
+    return value * (multiplier[unit] || 86_400_000);
+  }
+
   private sanitizeUser(user: User): Partial<User> {
-    const { password, ...result } = user;
+    const {
+      password,
+      resetPasswordTokenHash,
+      resetPasswordExpiresAt,
+      refreshTokenHash,
+      refreshTokenExpiresAt,
+      ...result
+    } = user;
     return result;
   }
 
@@ -266,88 +413,4 @@ export class AuthService {
     ].join('\n');
   }
 
-  /**
-   * Generate slug from name for workspace
-   */
-  private generateSlug(name: string): string {
-    const vietnameseMap: Record<string, string> = {
-      à: 'a',
-      á: 'a',
-      ả: 'a',
-      ã: 'a',
-      ạ: 'a',
-      ă: 'a',
-      ằ: 'a',
-      ắ: 'a',
-      ẳ: 'a',
-      ẵ: 'a',
-      ặ: 'a',
-      â: 'a',
-      ầ: 'a',
-      ấ: 'a',
-      ẩ: 'a',
-      ẫ: 'a',
-      ậ: 'a',
-      đ: 'd',
-      è: 'e',
-      é: 'e',
-      ẻ: 'e',
-      ẽ: 'e',
-      ẹ: 'e',
-      ê: 'e',
-      ề: 'e',
-      ế: 'e',
-      ể: 'e',
-      ễ: 'e',
-      ệ: 'e',
-      ì: 'i',
-      í: 'i',
-      ỉ: 'i',
-      ĩ: 'i',
-      ị: 'i',
-      ò: 'o',
-      ó: 'o',
-      ỏ: 'o',
-      õ: 'o',
-      ọ: 'o',
-      ô: 'o',
-      ồ: 'o',
-      ố: 'o',
-      ổ: 'o',
-      ỗ: 'o',
-      ộ: 'o',
-      ơ: 'o',
-      ờ: 'o',
-      ớ: 'o',
-      ở: 'o',
-      ỡ: 'o',
-      ợ: 'o',
-      ù: 'u',
-      ú: 'u',
-      ủ: 'u',
-      ũ: 'u',
-      ụ: 'u',
-      ư: 'u',
-      ừ: 'u',
-      ứ: 'u',
-      ử: 'u',
-      ữ: 'u',
-      ự: 'u',
-      ỳ: 'y',
-      ý: 'y',
-      ỷ: 'y',
-      ỹ: 'y',
-      ỵ: 'y',
-    };
-
-    return name
-      .toLowerCase()
-      .split('')
-      .map((char) => vietnameseMap[char] || char)
-      .join('')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
 }

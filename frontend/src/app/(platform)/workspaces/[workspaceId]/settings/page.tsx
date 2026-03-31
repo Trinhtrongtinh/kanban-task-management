@@ -16,6 +16,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember, useRemoveWorkspaceMember, useDeleteWorkspace } from '@/hooks/data/use-workspaces';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { getProExpiryDate, isProPlanActive } from '@/lib/plan';
 import { resolveAvatarUrl } from '@/lib/utils';
 import { paymentsApi } from '@/api/payments';
 import { useI18n } from '@/hooks/ui/use-i18n';
@@ -54,7 +55,8 @@ export default function WorkspaceSettingsPage({
   const deleteWorkspaceMutation = useDeleteWorkspace();
 
   const onOpen = useProModal((state) => state.onOpen);
-  const isPro = user?.planType === 'PRO';
+  const isPro = isProPlanActive(user);
+  const proExpiryDate = getProExpiryDate(user);
   const [isPortalLoading, setIsPortalLoading] = useState(false);
 
   const handleManageSubscription = async () => {
@@ -450,7 +452,7 @@ export default function WorkspaceSettingsPage({
                       </div>
                       <p className="text-sm text-muted-foreground pt-1">
                         {isPro
-                          ? `${t('workspaceSettings.billing.proActive')}${user?.expiredAt ? ` — ${t('workspaceSettings.billing.expiresOn')} ${new Date(user.expiredAt).toLocaleDateString(isEn ? 'en-US' : 'vi-VN')}` : ''}`
+                          ? `${t('workspaceSettings.billing.proActive')}${proExpiryDate ? ` — ${t('workspaceSettings.billing.expiresOn')} ${proExpiryDate.toLocaleDateString(isEn ? 'en-US' : 'vi-VN')}` : ''}`
                           : t('workspaceSettings.billing.freeDescription')}
                       </p>
                     </div>

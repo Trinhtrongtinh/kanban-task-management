@@ -1,6 +1,6 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { basename, join } from 'path';
 import { unlink } from 'fs/promises';
@@ -18,6 +18,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(username: string, email: string): Promise<User> {
@@ -110,12 +111,59 @@ export class UsersService {
 
   async deleteAccount(userId: string): Promise<void> {
     const user = await this.findUserOrThrow(userId);
+    const avatarUrl = user.avatarUrl;
 
-    if (user.avatarUrl) {
-      await this.removeLocalAvatar(user.avatarUrl);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Remove explicit user references from join tables and logs first.
+      await queryRunner.query('DELETE FROM card_members WHERE user_id = ?', [userId]);
+      await queryRunner.query('DELETE FROM board_members WHERE user_id = ?', [userId]);
+      await queryRunner.query('DELETE FROM workspace_members WHERE user_id = ?', [userId]);
+      await queryRunner.query('DELETE FROM comments WHERE user_id = ?', [userId]);
+      await queryRunner.query('DELETE FROM activity_logs WHERE user_id = ?', [userId]);
+      await queryRunner.query('DELETE FROM notifications WHERE user_id = ?', [userId]);
+
+      // Some DB constraint orders can delete labels before cards, so clear
+      // card-label join rows for owner workspaces first to avoid FK violations.
+      await queryRunner.query(
+        `DELETE cl
+         FROM card_labels cl
+         INNER JOIN labels l ON l.id = cl.label_id
+         INNER JOIN boards b ON b.id = l.board_id
+         INNER JOIN workspaces w ON w.id = b.workspace_id
+         WHERE w.owner_id = ?`,
+        [userId],
+      );
+
+      // Keep cards alive when this user is assignee.
+      await queryRunner.query('UPDATE cards SET assignee_id = NULL WHERE assignee_id = ?', [
+        userId,
+      ]);
+
+      // Remove owned workspaces (and dependent boards/lists/cards via FK cascades).
+      await queryRunner.query('DELETE FROM workspaces WHERE owner_id = ?', [userId]);
+
+      // Finally remove user.
+      await queryRunner.query('DELETE FROM users WHERE id = ?', [userId]);
+
+      await queryRunner.commitTransaction();
+    } catch {
+      await queryRunner.rollbackTransaction();
+      throw new BusinessException(
+        ErrorCode.INTERNAL_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        'Không thể xóa tài khoản. Vui lòng thử lại',
+      );
+    } finally {
+      await queryRunner.release();
     }
 
-    await this.userRepository.remove(user);
+    if (avatarUrl) {
+      await this.removeLocalAvatar(avatarUrl);
+    }
   }
 
   private async findUserOrThrow(userId: string): Promise<User> {

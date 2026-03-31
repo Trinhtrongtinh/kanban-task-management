@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, BASE_URL } from './client';
 
 // ── Types matching backend responses ─────────────────────────────────
 
@@ -22,7 +22,6 @@ export interface AuthUser {
 export interface AuthResponse {
   data: {
     user: AuthUser;
-    accessToken: string;
   };
   message: string;
   statusCode: number;
@@ -57,9 +56,11 @@ export interface ResetPasswordPayload {
 // ── API calls ─────────────────────────────────────────────────────────
 
 export const authApi = {
+  getGoogleLoginUrl: (): string => `${BASE_URL.replace(/\/$/, '')}/auth/google`,
+
   /**
    * POST /api/auth/login
-   * Returns { user, accessToken }
+   * Returns { user }, auth cookies are set by backend
    */
   login: async (payload: LoginPayload): Promise<AuthResponse['data']> => {
     const res = await apiClient.post<AuthResponse>('/auth/login', payload);
@@ -68,10 +69,20 @@ export const authApi = {
 
   /**
    * POST /api/auth/register
-   * Returns { user, accessToken }
+   * Returns { user }, auth cookies are set by backend
    */
   register: async (payload: RegisterPayload): Promise<AuthResponse['data']> => {
     const res = await apiClient.post<AuthResponse>('/auth/register', payload);
+    return res.data.data;
+  },
+
+  refresh: async (): Promise<AuthResponse['data']> => {
+    const res = await apiClient.post<AuthResponse>('/auth/refresh');
+    return res.data.data;
+  },
+
+  logout: async (): Promise<{ success: boolean }> => {
+    const res = await apiClient.post<{ data: { success: boolean } }>('/auth/logout');
     return res.data.data;
   },
 

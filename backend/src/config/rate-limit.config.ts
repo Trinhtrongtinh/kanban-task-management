@@ -1,24 +1,29 @@
 import { registerAs } from '@nestjs/config';
 
 export default registerAs('rateLimit', () => ({
+  // Global safety net — applies to every route that has no specific decorator.
+  // Keep high enough that a dashboard with 20+ concurrent requests never trips this.
   default: {
     ttlMs: parseInt(process.env.RATE_LIMIT_DEFAULT_TTL_MS || '60000', 10),
     limitAuthenticated: parseInt(
-      process.env.RATE_LIMIT_DEFAULT_AUTH_LIMIT || '240',
+      process.env.RATE_LIMIT_DEFAULT_AUTH_LIMIT || '600',
       10,
     ),
     limitAnonymous: parseInt(
-      process.env.RATE_LIMIT_DEFAULT_ANON_LIMIT || '120',
+      process.env.RATE_LIMIT_DEFAULT_ANON_LIMIT || '300',
       10,
     ),
     blockDurationMs: parseInt(
-      process.env.RATE_LIMIT_DEFAULT_BLOCK_MS || '60000',
+      process.env.RATE_LIMIT_DEFAULT_BLOCK_MS || '30000',
       10,
     ),
   },
+  // Specialized throttlers — module-level defaults are set very high (effectively
+  // disabled) so that normal routes are not affected. Only endpoints that carry
+  // the matching decorator (e.g. @LoginRateLimit) override these with strict limits.
   auth: {
     ttlMs: parseInt(process.env.RATE_LIMIT_AUTH_TTL_MS || '60000', 10),
-    limit: parseInt(process.env.RATE_LIMIT_AUTH_LIMIT || '10', 10),
+    limit: parseInt(process.env.RATE_LIMIT_AUTH_LIMIT || '10000', 10),
     blockDurationMs: parseInt(
       process.env.RATE_LIMIT_AUTH_BLOCK_MS || '300000',
       10,
@@ -26,7 +31,7 @@ export default registerAs('rateLimit', () => ({
   },
   search: {
     ttlMs: parseInt(process.env.RATE_LIMIT_SEARCH_TTL_MS || '60000', 10),
-    limit: parseInt(process.env.RATE_LIMIT_SEARCH_LIMIT || '30', 10),
+    limit: parseInt(process.env.RATE_LIMIT_SEARCH_LIMIT || '10000', 10),
     blockDurationMs: parseInt(
       process.env.RATE_LIMIT_SEARCH_BLOCK_MS || '60000',
       10,
@@ -34,7 +39,7 @@ export default registerAs('rateLimit', () => ({
   },
   upload: {
     ttlMs: parseInt(process.env.RATE_LIMIT_UPLOAD_TTL_MS || '60000', 10),
-    limit: parseInt(process.env.RATE_LIMIT_UPLOAD_LIMIT || '20', 10),
+    limit: parseInt(process.env.RATE_LIMIT_UPLOAD_LIMIT || '10000', 10),
     blockDurationMs: parseInt(
       process.env.RATE_LIMIT_UPLOAD_BLOCK_MS || '300000',
       10,
@@ -42,7 +47,7 @@ export default registerAs('rateLimit', () => ({
   },
   write: {
     ttlMs: parseInt(process.env.RATE_LIMIT_WRITE_TTL_MS || '60000', 10),
-    limit: parseInt(process.env.RATE_LIMIT_WRITE_LIMIT || '120', 10),
+    limit: parseInt(process.env.RATE_LIMIT_WRITE_LIMIT || '10000', 10),
     blockDurationMs: parseInt(
       process.env.RATE_LIMIT_WRITE_BLOCK_MS || '60000',
       10,
@@ -50,7 +55,7 @@ export default registerAs('rateLimit', () => ({
   },
   dangerous: {
     ttlMs: parseInt(process.env.RATE_LIMIT_DANGEROUS_TTL_MS || '60000', 10),
-    limit: parseInt(process.env.RATE_LIMIT_DANGEROUS_LIMIT || '20', 10),
+    limit: parseInt(process.env.RATE_LIMIT_DANGEROUS_LIMIT || '10000', 10),
     blockDurationMs: parseInt(
       process.env.RATE_LIMIT_DANGEROUS_BLOCK_MS || '120000',
       10,
@@ -62,7 +67,7 @@ export default registerAs('rateLimit', () => ({
       10,
     ),
     limit: parseInt(
-      process.env.RATE_LIMIT_NOTIFICATION_BULK_LIMIT || '10',
+      process.env.RATE_LIMIT_NOTIFICATION_BULK_LIMIT || '10000',
       10,
     ),
     blockDurationMs: parseInt(
@@ -72,20 +77,22 @@ export default registerAs('rateLimit', () => ({
   },
   payments: {
     ttlMs: parseInt(process.env.RATE_LIMIT_PAYMENTS_TTL_MS || '60000', 10),
-    limit: parseInt(process.env.RATE_LIMIT_PAYMENTS_LIMIT || '30', 10),
+    limit: parseInt(process.env.RATE_LIMIT_PAYMENTS_LIMIT || '10000', 10),
     blockDurationMs: parseInt(
       process.env.RATE_LIMIT_PAYMENTS_BLOCK_MS || '120000',
       10,
     ),
   },
+  // Read throttler module-level default is also high — the real limit is applied
+  // only on endpoints decorated with @ReadRateLimit() (300 req/min).
   read: {
     ttlMs: parseInt(process.env.RATE_LIMIT_READ_TTL_MS || '60000', 10),
     limitAuthenticated: parseInt(
-      process.env.RATE_LIMIT_READ_AUTH_LIMIT || '120',
+      process.env.RATE_LIMIT_READ_AUTH_LIMIT || '10000',
       10,
     ),
     limitAnonymous: parseInt(
-      process.env.RATE_LIMIT_READ_ANON_LIMIT || '60',
+      process.env.RATE_LIMIT_READ_ANON_LIMIT || '10000',
       10,
     ),
     blockDurationMs: parseInt(

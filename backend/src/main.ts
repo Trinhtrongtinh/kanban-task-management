@@ -2,6 +2,7 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors';
 import { AllExceptionsFilter } from './common/filters';
@@ -35,6 +36,12 @@ async function bootstrap() {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
   });
+
+  // Required for reading auth cookies from requests.
+  app.use(cookieParser());
+
+  // Ensure secure cookies work correctly when running behind reverse proxies.
+  app.set('trust proxy', 1);
 
   await app.listen(process.env.PORT ?? 3001);
 }
