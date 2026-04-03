@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Zap, Check, Users, CreditCard, Settings, Loader2, Trash2, ArrowLeft } from 'lucide-react';
 import { useProModal } from '@/hooks/ui/use-pro-modal';
-import { use, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember, useRemoveWorkspaceMember, useDeleteWorkspace } from '@/hooks/data/use-workspaces';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
@@ -29,15 +29,12 @@ function getApiErrorMessage(error: unknown): string | undefined {
   return (error as AxiosError<ApiErrorResponse>)?.response?.data?.message;
 }
 
-export default function WorkspaceSettingsPage({
-  params
-}: {
-  params: Promise<{ workspaceId: string }>
-}) {
+export default function WorkspaceSettingsPage() {
   const router = useRouter();
+  const params = useParams<{ workspaceId: string }>();
   const { t, locale } = useI18n();
   const isEn = locale === 'en';
-  const { workspaceId } = use(params);
+  const workspaceId = params.workspaceId;
   const { user } = useAuthStore();
 
   const { data: workspace, isLoading: isLoadingWs } = useWorkspace(workspaceId);

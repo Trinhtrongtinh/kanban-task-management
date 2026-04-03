@@ -9,4 +9,6 @@ export default registerAs('database', () => ({
   database: process.env.DB_DATABASE || 'trello_clone',
   synchronize: process.env.NODE_ENV !== 'production',
   logging: process.env.NODE_ENV === 'development',
+  // Set DB_SSL=true when connecting to cloud databases (TiDB, PlanetScale, etc.)
+  ssl: process.env.DB_SSL === 'true',
 }));

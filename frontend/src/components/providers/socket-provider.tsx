@@ -5,6 +5,9 @@ import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/authStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { notificationKeys } from '@/hooks/data/use-notifications';
+import { workspaceKeys } from '@/hooks/data/use-workspaces';
+import { BOARD_MEMBERS_KEYS } from '@/api/board-members';
+import { NotificationType } from '@/api/notifications';
 import { toast } from 'sonner';
 
 interface SocketContextType {
@@ -48,6 +51,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         socketInstance.on('new_notification', (notification) => {
             // Invalidate queries to refresh notification list and count
             queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+
+            // When the current user is added to a board, refresh the board lists
+            // so the new board appears in their workspace view immediately.
+            if (notification.type === NotificationType.BOARD_MEMBER_ADDED) {
+                queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
+                if (notification.metadata?.boardId) {
+                    queryClient.invalidateQueries({
+                        queryKey: BOARD_MEMBERS_KEYS.byBoard(notification.metadata.boardId),
+                    });
+                }
+            }
 
             // Show a toast for the new notification
             toast(notification.title, {

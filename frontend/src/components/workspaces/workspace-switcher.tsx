@@ -13,18 +13,21 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useRouter, usePathname } from 'next/navigation';
 import { useI18n } from '@/hooks/ui/use-i18n';
+import { useAuthStore } from '@/stores/authStore';
 
 export function WorkspaceSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
   const onOpenWorkspaceModal = useWorkspaceModal((s) => s.onOpen);
+  const currentUserId = useAuthStore((s) => s.user?.id);
   // Try to determine active workspace from URL (e.g. /workspaces/:workspaceId)
   const match = pathname.match(/\/workspaces\/([^\/]+)/);
   const activeWorkspaceId = match ? match[1] : null;
 
   const { data: workspaces = [], isLoading } = useWorkspaces();
-  const isWorkspaceLimitReached = workspaces.length >= 1;
+  // Only count workspaces this user actually OWNS (not ones they joined as a member)
+  const isWorkspaceLimitReached = workspaces.some((ws) => ws.ownerId === currentUserId);
   const activeWorkspace = workspaces.find((ws) => ws.id === activeWorkspaceId);
 
   return (

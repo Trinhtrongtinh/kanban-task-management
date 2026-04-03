@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpStatus, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Attachment, Card } from '../../database/entities';
@@ -10,6 +10,8 @@ import * as path from 'path';
 
 @Injectable()
 export class AttachmentsService {
+  private readonly logger = new Logger(AttachmentsService.name);
+
   constructor(
     @InjectRepository(Attachment)
     private readonly attachmentRepository: Repository<Attachment>,
@@ -17,6 +19,17 @@ export class AttachmentsService {
     private readonly cardRepository: Repository<Card>,
     private readonly activitiesService: ActivitiesService,
   ) {}
+
+  /**
+   * Remove a file from disk asynchronously, ignoring missing-file errors.
+   */
+  private async cleanupFile(filePath: string): Promise<void> {
+    try {
+      await fs.promises.unlink(filePath);
+    } catch {
+      // file may not exist — safe to ignore
+    }
+  }
 
   /**
    * Validate card exists
@@ -58,15 +71,24 @@ export class AttachmentsService {
       );
     }
 
-    const attachment = this.attachmentRepository.create({
-      cardId,
-      fileName: file.originalname,
-      fileUrl: `/uploads/attachments/${file.filename}`,
-      fileType: file.mimetype,
-      fileSize: file.size,
-    });
+    const storedPath = path.join(process.cwd(), 'uploads', 'attachments', file.filename);
 
-    const savedAttachment = await this.attachmentRepository.save(attachment);
+    let savedAttachment: Attachment;
+    try {
+      const attachment = this.attachmentRepository.create({
+        cardId,
+        fileName: file.originalname,
+        fileUrl: `/uploads/attachments/${file.filename}`,
+        fileType: file.mimetype,
+        fileSize: file.size,
+      });
+
+      savedAttachment = await this.attachmentRepository.save(attachment);
+    } catch (err) {
+      // DB save failed — remove the already-written file so disk doesn't leak
+      await this.cleanupFile(storedPath);
+      throw err;
+    }
 
     // Log activity: attachment added
     if (userId) {
@@ -84,7 +106,7 @@ export class AttachmentsService {
           },
           content: `Đã đính kèm file "${file.originalname}" vào thẻ "${card.title}"`,
         })
-        .catch((err) => console.error('Failed to log attachment:', err));
+        .catch((err) => this.logger.error('Failed to log attachment activity', err));
     }
 
     return savedAttachment;
@@ -127,13 +149,11 @@ export class AttachmentsService {
   async remove(id: string): Promise<void> {
     const attachment = await this.findOne(id);
 
-    // Delete physical file
-    const filePath = path.join(process.cwd(), attachment.fileUrl);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    // Delete DB record
+    // Delete DB record first so the file is unreachable even if unlink is slow
     await this.attachmentRepository.remove(attachment);
+
+    // Delete physical file asynchronously — non-blocking, ignore missing-file errors
+    const filePath = path.join(process.cwd(), attachment.fileUrl);
+    await this.cleanupFile(filePath);
   }
 }

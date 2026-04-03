@@ -9,6 +9,8 @@ import { User } from '../../database/entities';
 import { AppCacheService, CACHE_TTL, CacheKeys } from '../../common/cache';
 import { isProPlanActive } from '../../common/utils';
 import { ActivitiesService } from '../activities/activities.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../../database/entities/notification.entity';
 
 const FREE_PLAN_BOARD_LIMIT = 3;
 
@@ -25,6 +27,7 @@ export class BoardsService {
     private readonly userRepository: Repository<User>,
     private readonly cacheService: AppCacheService,
     private readonly activitiesService: ActivitiesService,
+    private readonly notificationsService: NotificationsService,
   ) { }
 
   private async getWorkspaceAudienceUserIds(workspaceId: string): Promise<string[]> {
@@ -457,6 +460,25 @@ export class BoardsService {
 
     const savedMember = await this.boardMemberRepository.save(newMember);
     await this.invalidateBoardsByWorkspace(board.workspaceId);
+
+    // Fetch actor name for a human-friendly notification message
+    const actor = await this.userRepository.findOne({
+      where: { id: actorId },
+      select: ['username', 'email'],
+    });
+    const actorName = actor?.username || actor?.email || 'Ai đó';
+
+    // Send real-time notification to the invited user
+    this.notificationsService
+      .create({
+        userId,
+        type: NotificationType.BOARD_MEMBER_ADDED,
+        title: 'Bạn được thêm vào bảng',
+        message: `${actorName} đã thêm bạn vào bảng "${board.title}"`,
+        link: `/b/${boardId}`,
+        metadata: { boardId, boardTitle: board.title, actorId },
+      })
+      .catch(() => null);
 
     this.activitiesService
       .createLog({

@@ -5,12 +5,14 @@ import { BoardsService } from './boards.service';
 import { Board, Workspace, BoardMember, User } from '../../database/entities';
 import { CommonModule } from '../../common/common.module';
 import { ActivitiesModule } from '../activities/activities.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Board, Workspace, BoardMember, User]),
     ActivitiesModule,
     CommonModule,
+    NotificationsModule,
   ],
   controllers: [BoardsController],
   providers: [BoardsService],

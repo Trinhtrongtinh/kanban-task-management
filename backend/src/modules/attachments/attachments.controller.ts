@@ -9,18 +9,44 @@ import {
   UseInterceptors,
   UploadedFile,
   HttpStatus,
+  BadRequestException,
+  CallHandler,
+  ExecutionContext,
+  NestInterceptor,
+  Injectable,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { MulterError } from 'multer';
+import { Observable, catchError, throwError } from 'rxjs';
 import { AttachmentsService } from './attachments.service';
 import { Attachment } from '../../database/entities';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
-import { multerOptions } from './multer.config';
+import { multerOptions, MAX_FILE_SIZE } from './multer.config';
 import { BusinessException } from '../../common/exceptions';
 import { BoardRole, ErrorCode } from '../../common/enums';
 import { JwtAuthGuard } from '../auth/guards';
 import { AttachmentBoardGuard, CardBoardGuard } from '../../common/guards';
 import { RequireBoardRole } from '../../common/decorators';
 import { DangerousWriteRateLimit, ReadRateLimit, UploadRateLimit } from '../../common/rate-limit';
+
+/** Converts MulterError / oversized-payload errors into clean HTTP 400 responses. */
+@Injectable()
+class MulterExceptionInterceptor implements NestInterceptor {
+  intercept(_ctx: ExecutionContext, next: CallHandler): Observable<any> {
+    return next.handle().pipe(
+      catchError((err) => {
+        if (err instanceof MulterError) {
+          const message =
+            err.code === 'LIMIT_FILE_SIZE'
+              ? `File vượt quá giới hạn ${MAX_FILE_SIZE / 1024 / 1024}MB`
+              : `Lỗi upload: ${err.message}`;
+          return throwError(() => new BadRequestException(message));
+        }
+        return throwError(() => err);
+      }),
+    );
+  }
+}
 
 @Controller()
 export class AttachmentsController {
@@ -31,7 +57,7 @@ export class AttachmentsController {
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('File uploaded successfully')
-  @UseInterceptors(FileInterceptor('file', multerOptions))
+  @UseInterceptors(MulterExceptionInterceptor, FileInterceptor('file', multerOptions))
   async upload(
     @Param('cardId', ParseUUIDPipe) cardId: string,
     @UploadedFile() file: Express.Multer.File,

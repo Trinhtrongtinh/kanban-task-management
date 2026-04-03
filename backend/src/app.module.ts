@@ -204,6 +204,9 @@ import { CsrfCookieGuard } from './common/guards';
         ],
         synchronize: configService.get<boolean>('database.synchronize'),
         logging: configService.get<boolean>('database.logging'),
+        ssl: configService.get<boolean>('database.ssl')
+          ? { minVersion: 'TLSv1.2', rejectUnauthorized: true }
+          : false,
       }),
       inject: [ConfigService],
     }),

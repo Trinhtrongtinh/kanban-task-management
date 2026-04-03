@@ -8,6 +8,7 @@ export enum NotificationType {
     MENTION = 'MENTION',
     WORKSPACE_INVITE = 'WORKSPACE_INVITE',
     PAYMENT_NOTIFICATION = 'PAYMENT_NOTIFICATION',
+    BOARD_MEMBER_ADDED = 'BOARD_MEMBER_ADDED',
 }
 
 export interface Notification {

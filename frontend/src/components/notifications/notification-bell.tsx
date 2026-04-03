@@ -75,6 +75,17 @@ export function NotificationBell() {
             return;
         }
 
+        // Board-member-added: navigate directly to the board
+        if (notification.type === NotificationType.BOARD_MEMBER_ADDED) {
+            if (!notification.isRead) {
+                markAsRead.mutate(notification.id);
+            }
+            if (notification.link) {
+                router.push(notification.link);
+            }
+            return;
+        }
+
         // For payment notifications, just mark as read without navigating
         if (notification.type === NotificationType.PAYMENT_NOTIFICATION) {
             if (!notification.isRead) {
