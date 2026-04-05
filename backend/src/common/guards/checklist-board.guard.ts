@@ -62,6 +62,7 @@ export class ChecklistBoardGuard implements CanActivate {
 
       const item = await this.checklistItemRepository.findOne({
         where: { id: itemId },
+        withDeleted: true,
       });
 
       if (!item) {
@@ -80,6 +81,7 @@ export class ChecklistBoardGuard implements CanActivate {
 
     const checklist = await this.checklistRepository.findOne({
       where: { id: checklistId },
+      withDeleted: true,
     });
 
     if (!checklist) {

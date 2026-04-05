@@ -8,6 +8,7 @@ import { QUERY_STALE_TIME } from '@/lib/cache-ttl';
 export const BOARD_QUERY_KEYS = {
     all: ['boards'] as const,
     byWorkspace: (workspaceId: string) => [...BOARD_QUERY_KEYS.all, 'workspace', workspaceId] as const,
+    deletedByWorkspace: (workspaceId: string) => [...BOARD_QUERY_KEYS.all, 'workspace', workspaceId, 'deleted'] as const,
     detail: (id: string) => [...BOARD_QUERY_KEYS.all, 'detail', id] as const,
 };
 
@@ -25,6 +26,27 @@ export function useBoardById(id: string | undefined | null) {
         queryKey: BOARD_QUERY_KEYS.detail(id!),
         queryFn: () => boardsApi.getBoardById(id!),
         enabled: !!id,
+    });
+}
+
+export function useDeletedBoardsByWorkspace(workspaceId: string | undefined | null) {
+    return useQuery({
+        queryKey: BOARD_QUERY_KEYS.deletedByWorkspace(workspaceId!),
+        queryFn: () => boardsApi.getDeletedBoardsByWorkspace(workspaceId!),
+        enabled: !!workspaceId,
+    });
+}
+
+export function useRestoreBoard() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => boardsApi.restore(id),
+        onSuccess: (restored) => {
+            queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.byWorkspace(restored.workspaceId) });
+            queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.deletedByWorkspace(restored.workspaceId) });
+            queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.detail(restored.id) });
+        },
     });
 }
 
@@ -93,10 +115,33 @@ export function useDeleteBoard() {
 
     return useMutation({
         mutationFn: ({ id, workspaceId }: { id: string; workspaceId: string }) =>
-            boardsApi.delete(id).then(() => workspaceId), // Pass workspaceId to onSuccess
-        onSuccess: (workspaceId) => {
+            boardsApi.delete(id).then(() => ({ workspaceId, id })),
+        onSuccess: ({ workspaceId, id }) => {
             toast.success('Thành công', {
                 description: 'Đã xóa bảng công việc',
+                action: {
+                    label: 'Hoàn tác',
+                    onClick: () => {
+                        boardsApi
+                            .restore(id)
+                            .then((restored) => {
+                                queryClient.invalidateQueries({
+                                    queryKey: BOARD_QUERY_KEYS.byWorkspace(workspaceId),
+                                });
+                                queryClient.invalidateQueries({
+                                    queryKey: BOARD_QUERY_KEYS.detail(restored.id),
+                                });
+                                toast.success('Đã khôi phục bảng');
+                                router.push(`/b/${restored.id}`);
+                            })
+                            .catch((error: any) => {
+                                toast.error('Không thể hoàn tác', {
+                                    description:
+                                        error.response?.data?.message || 'Bảng không thể khôi phục',
+                                });
+                            });
+                    },
+                },
             });
             // Clear out references manually to be safe
             queryClient.invalidateQueries({

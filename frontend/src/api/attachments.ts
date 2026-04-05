@@ -36,4 +36,9 @@ export const attachmentsApi = {
     delete: async (id: string): Promise<void> => {
         await apiClient.delete(`/attachments/${id}`);
     },
+
+    restore: async (id: string): Promise<Attachment> => {
+        const response = await apiClient.patch<{ data: Attachment }>(`/attachments/${id}/restore`);
+        return response.data.data;
+    },
 };

@@ -44,6 +44,7 @@ export class WorkspaceMemberGuard implements CanActivate {
     // Check if user is owner of the workspace
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
+      withDeleted: true,
     });
 
     if (!workspace) {

@@ -51,6 +51,7 @@ export class AttachmentBoardGuard implements CanActivate {
 
     const attachment = await this.attachmentRepository.findOne({
       where: { id: attachmentId },
+      withDeleted: true,
     });
 
     if (!attachment) {
@@ -60,6 +61,7 @@ export class AttachmentBoardGuard implements CanActivate {
     const card = await this.cardRepository.findOne({
       where: { id: attachment.cardId },
       relations: ['list'],
+      withDeleted: true,
     });
 
     if (!card) {

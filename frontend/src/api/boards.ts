@@ -9,6 +9,7 @@ export interface Board {
     workspaceId: string;
     createdAt: string;
     updatedAt: string;
+    deletedAt?: string | null;
 }
 
 export interface CreateBoardPayload {
@@ -44,6 +45,11 @@ export const boardsApi = {
         return response.data.data;
     },
 
+    getDeletedBoardsByWorkspace: async (workspaceId: string): Promise<Board[]> => {
+        const response = await apiClient.get<{ data: Board[] }>(`/boards/workspace/${workspaceId}/deleted`);
+        return response.data.data;
+    },
+
     // Get a single board by ID
     getBoardById: async (id: string): Promise<Board> => {
         const response = await apiClient.get<{ data: Board }>(`/boards/${id}`);
@@ -65,5 +71,11 @@ export const boardsApi = {
     // Delete a board
     delete: async (id: string): Promise<void> => {
         await apiClient.delete(`/boards/${id}`);
+    },
+
+    // Restore a soft-deleted board
+    restore: async (id: string): Promise<Board> => {
+        const response = await apiClient.patch<{ data: Board }>(`/boards/${id}/restore`);
+        return response.data.data;
     },
 };

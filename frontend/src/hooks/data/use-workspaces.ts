@@ -5,6 +5,7 @@ import { QUERY_STALE_TIME } from '@/lib/cache-ttl';
 export const workspaceKeys = {
   all: ['workspaces'] as const,
   lists: () => [...workspaceKeys.all, 'list'] as const,
+  deletedOwned: () => [...workspaceKeys.all, 'deleted-owned'] as const,
   details: () => [...workspaceKeys.all, 'detail'] as const,
   detail: (id: string) => [...workspaceKeys.details(), id] as const,
   members: (id: string) => [...workspaceKeys.detail(id), 'members'] as const,
@@ -33,6 +34,13 @@ export function useWorkspaceMembers(id: string) {
     queryKey: workspaceKeys.members(id),
     queryFn: () => workspacesApi.getMembers(id),
     enabled: !!id,
+  });
+}
+
+export function useDeletedOwnedWorkspaces() {
+  return useQuery({
+    queryKey: workspaceKeys.deletedOwned(),
+    queryFn: workspacesApi.getDeletedOwned,
   });
 }
 
@@ -71,6 +79,20 @@ export function useDeleteWorkspace() {
       queryClient.removeQueries({ queryKey: workspaceKeys.detail(id) });
       queryClient.removeQueries({ queryKey: workspaceKeys.members(id) });
       queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.deletedOwned() });
+    },
+  });
+}
+
+export function useRestoreWorkspace() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => workspacesApi.restore(id),
+    onSuccess: (restored) => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.deletedOwned() });
+      queryClient.setQueryData(workspaceKeys.detail(restored.id), restored);
     },
   });
 }

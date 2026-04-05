@@ -1,7 +1,15 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Board, Workspace, BoardMember, WorkspaceMember } from '../../database/entities';
+import { DataSource, Repository } from 'typeorm';
+import {
+  Board,
+  Workspace,
+  BoardMember,
+  WorkspaceMember,
+  List,
+  Card,
+  Attachment,
+} from '../../database/entities';
 import { CreateBoardDto, UpdateBoardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode, BoardRole, MemberStatus, ActivityAction } from '../../common/enums';
@@ -25,6 +33,7 @@ export class BoardsService {
     private readonly boardMemberRepository: Repository<BoardMember>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly dataSource: DataSource,
     private readonly cacheService: AppCacheService,
     private readonly activitiesService: ActivitiesService,
     private readonly notificationsService: NotificationsService,
@@ -214,6 +223,7 @@ export class BoardsService {
     const existingBoardWithSameTitle = await this.boardRepository
       .createQueryBuilder('board')
       .where('board.workspace_id = :workspaceId', { workspaceId })
+      .andWhere('board.deleted_at IS NULL')
       .andWhere('LOWER(TRIM(board.title)) = LOWER(TRIM(:title))', {
         title: normalizedTitle,
       })
@@ -306,7 +316,8 @@ export class BoardsService {
     const query = this.boardRepository
       .createQueryBuilder('board')
       .leftJoinAndSelect('board.workspace', 'workspace')
-      .where('board.workspace_id = :workspaceId', { workspaceId });
+      .where('board.workspace_id = :workspaceId', { workspaceId })
+      .andWhere('board.deleted_at IS NULL');
 
     // joinedOnly=true: only show boards user joined/invited to
     // joinedOnly=false: preserve old behavior (owner sees all boards)
@@ -323,6 +334,14 @@ export class BoardsService {
       CACHE_TTL.BOARDS_BY_WORKSPACE_SECONDS,
     );
     return boards;
+  }
+
+  async findDeletedByWorkspace(workspaceId: string): Promise<Board[]> {
+    return this.boardRepository.find({
+      where: { workspaceId },
+      withDeleted: true,
+      order: { updatedAt: 'DESC' },
+    }).then((boards) => boards.filter((board) => !!board.deletedAt));
   }
 
   async findOne(id: string): Promise<Board> {
@@ -369,6 +388,7 @@ export class BoardsService {
         .createQueryBuilder('b')
         .where('b.workspace_id = :workspaceId', { workspaceId: board.workspaceId })
         .andWhere('b.id != :id', { id: board.id })
+        .andWhere('b.deleted_at IS NULL')
         .andWhere('LOWER(TRIM(b.title)) = LOWER(TRIM(:title))', {
           title: normalizedTitle,
         })
@@ -412,8 +432,81 @@ export class BoardsService {
 
   async remove(id: string): Promise<void> {
     const board = await this.findOne(id);
-    await this.boardRepository.remove(board);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager
+        .createQueryBuilder()
+        .softDelete()
+        .from(Attachment)
+        .where(
+          'card_id IN (SELECT c.id FROM cards c INNER JOIN lists l ON c.list_id = l.id WHERE l.board_id = :boardId AND c.deleted_at IS NULL AND l.deleted_at IS NULL)',
+          { boardId: id },
+        )
+        .execute();
+
+      await manager
+        .createQueryBuilder()
+        .softDelete()
+        .from(Card)
+        .where('list_id IN (SELECT id FROM lists WHERE board_id = :boardId AND deleted_at IS NULL)', {
+          boardId: id,
+        })
+        .execute();
+
+      await manager.softDelete(List, { boardId: id });
+      await manager.softDelete(Board, { id });
+    });
+
     await this.invalidateBoardsByWorkspace(board.workspaceId);
+  }
+
+  async restore(id: string): Promise<Board> {
+    const board = await this.boardRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!board) {
+      throw new BusinessException(
+        ErrorCode.BOARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!board.deletedAt) {
+      return this.findOne(id);
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.restore(Board, { id });
+
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(List)
+        .where('board_id = :boardId', { boardId: id })
+        .execute();
+
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(Card)
+        .where('list_id IN (SELECT id FROM lists WHERE board_id = :boardId)', { boardId: id })
+        .execute();
+
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(Attachment)
+        .where(
+          'card_id IN (SELECT c.id FROM cards c INNER JOIN lists l ON c.list_id = l.id WHERE l.board_id = :boardId)',
+          { boardId: id },
+        )
+        .execute();
+    });
+
+    await this.invalidateBoardsByWorkspace(board.workspaceId);
+    return this.findOne(id);
   }
 
   async getMembers(boardId: string): Promise<(User & { role: string })[]> {

@@ -143,17 +143,43 @@ export class AttachmentsService {
     return attachment;
   }
 
+  async restore(id: string): Promise<Attachment> {
+    const attachment = await this.attachmentRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!attachment) {
+      throw new BusinessException(
+        ErrorCode.ATTACHMENT_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!attachment.deletedAt) {
+      return attachment;
+    }
+
+    await this.attachmentRepository.restore(id);
+
+    const restored = await this.attachmentRepository.findOne({ where: { id } });
+    if (!restored) {
+      throw new BusinessException(
+        ErrorCode.ATTACHMENT_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return restored;
+  }
+
   /**
    * Delete attachment (DB record + physical file)
    */
   async remove(id: string): Promise<void> {
     const attachment = await this.findOne(id);
 
-    // Delete DB record first so the file is unreachable even if unlink is slow
-    await this.attachmentRepository.remove(attachment);
-
-    // Delete physical file asynchronously — non-blocking, ignore missing-file errors
-    const filePath = path.join(process.cwd(), attachment.fileUrl);
-    await this.cleanupFile(filePath);
+    // Soft delete to allow undo/restore.
+    await this.attachmentRepository.softDelete(attachment.id);
   }
 }

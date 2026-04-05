@@ -5,6 +5,7 @@ import {
 } from '@tanstack/react-query';
 import { apiClient } from './client';
 import type { Checklist, ChecklistItem } from '@/types';
+import { toast } from 'sonner';
 
 // ── API calls ────────────────────────────────────────────────────────
 
@@ -24,6 +25,10 @@ const checklistsApi = {
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/checklists/${id}`);
   },
+  restore: async (id: string): Promise<Checklist> => {
+    const response = await apiClient.patch(`/checklists/${id}/restore`);
+    return response.data.data;
+  },
   createItem: async (checklistId: string, content: string): Promise<ChecklistItem> => {
     const response = await apiClient.post(`/checklists/${checklistId}/items`, { content: content });
     return response.data.data;
@@ -34,6 +39,10 @@ const checklistsApi = {
   },
   deleteItem: async (itemId: string): Promise<void> => {
     await apiClient.delete(`/checklists/items/${itemId}`);
+  },
+  restoreItem: async (itemId: string): Promise<ChecklistItem> => {
+    const response = await apiClient.patch(`/checklists/items/${itemId}/restore`);
+    return response.data.data;
   },
 };
 
@@ -138,7 +147,26 @@ export function useDeleteChecklistMutation(cardId: string | undefined) {
 
   return useMutation({
     mutationFn: (checklistId: string) => checklistsApi.delete(checklistId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+    onSuccess: (_data, checklistId) => {
+      queryClient.invalidateQueries({ queryKey: key });
+      toast.success('Đã xóa checklist', {
+        action: {
+          label: 'Hoàn tác',
+          onClick: () => {
+            checklistsApi.restore(checklistId)
+              .then(() => {
+                queryClient.invalidateQueries({ queryKey: key });
+                toast.success('Đã khôi phục checklist');
+              })
+              .catch((error: any) => {
+                toast.error('Không thể hoàn tác', {
+                  description: error.response?.data?.message || 'Checklist không thể khôi phục',
+                });
+              });
+          },
+        },
+      });
+    },
   });
 }
 
@@ -148,6 +176,25 @@ export function useDeleteItemMutation(cardId: string | undefined) {
 
   return useMutation({
     mutationFn: (itemId: string) => checklistsApi.deleteItem(itemId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+    onSuccess: (_data, itemId) => {
+      queryClient.invalidateQueries({ queryKey: key });
+      toast.success('Đã xóa mục checklist', {
+        action: {
+          label: 'Hoàn tác',
+          onClick: () => {
+            checklistsApi.restoreItem(itemId)
+              .then(() => {
+                queryClient.invalidateQueries({ queryKey: key });
+                toast.success('Đã khôi phục mục checklist');
+              })
+              .catch((error: any) => {
+                toast.error('Không thể hoàn tác', {
+                  description: error.response?.data?.message || 'Mục checklist không thể khôi phục',
+                });
+              });
+          },
+        },
+      });
+    },
   });
 }

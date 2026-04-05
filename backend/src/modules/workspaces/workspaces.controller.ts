@@ -48,6 +48,16 @@ export class WorkspacesController {
     return this.workspacesService.findAllByUser(userId);
   }
 
+  @Get('deleted/owned')
+  @ReadRateLimit()
+  @UseGuards(JwtAuthGuard)
+  @ResponseMessage('Deleted workspaces retrieved successfully')
+  async findDeletedOwned(
+    @CurrentUser('userId') userId: string,
+  ): Promise<Workspace[]> {
+    return this.workspacesService.findDeletedOwnedByUser(userId);
+  }
+
   @Get(':id')
   @ReadRateLimit()
   @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
@@ -78,6 +88,18 @@ export class WorkspacesController {
     @CurrentUser('userId') requesterId: string,
   ): Promise<void> {
     return this.workspacesService.remove(id, requesterId);
+  }
+
+  @Patch(':id/restore')
+  @WriteRateLimit()
+  @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
+  @RequireWorkspaceRole(WorkspaceRole.OWNER)
+  @ResponseMessage('Workspace restored successfully')
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') requesterId: string,
+  ): Promise<Workspace> {
+    return this.workspacesService.restore(id, requesterId);
   }
 
   /**

@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { vi, enUS } from 'date-fns/locale';
 
 const hasTimezone = (input: string) => /([zZ]|[+-]\d{2}:\d{2})$/.test(input);
 
@@ -45,5 +45,12 @@ export function formatRelativeVN(value: string | Date): string {
   return formatDistanceToNow(parseApiDate(value), {
     addSuffix: true,
     locale: vi,
+  });
+}
+
+export function formatRelative(value: string | Date, locale: 'vi' | 'en' = 'vi'): string {
+  return formatDistanceToNow(parseApiDate(value), {
+    addSuffix: true,
+    locale: locale === 'en' ? enUS : vi,
   });
 }

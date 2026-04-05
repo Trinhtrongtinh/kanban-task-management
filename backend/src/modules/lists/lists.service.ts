@@ -1,7 +1,7 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { List, Board } from '../../database/entities';
+import { DataSource, Repository } from 'typeorm';
+import { List, Board, Card, Attachment } from '../../database/entities';
 import { CreateListDto, UpdateListDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode } from '../../common/enums';
@@ -18,6 +18,7 @@ export class ListsService {
     @InjectRepository(Board)
     private readonly boardRepository: Repository<Board>,
     private readonly cardsGateway: CardsGateway,
+    private readonly dataSource: DataSource,
   ) { }
 
   /**
@@ -63,6 +64,7 @@ export class ListsService {
     const existingListWithSameTitle = await this.listRepository
       .createQueryBuilder('list')
       .where('list.board_id = :boardId', { boardId })
+      .andWhere('list.deleted_at IS NULL')
       .andWhere('LOWER(TRIM(list.title)) = LOWER(TRIM(:title))', {
         title: normalizedTitle,
       })
@@ -132,6 +134,7 @@ export class ListsService {
         .createQueryBuilder('l')
         .where('l.board_id = :boardId', { boardId: list.boardId })
         .andWhere('l.id != :id', { id: list.id })
+        .andWhere('l.deleted_at IS NULL')
         .andWhere('LOWER(TRIM(l.title)) = LOWER(TRIM(:title))', {
           title: normalizedTitle,
         })
@@ -158,7 +161,59 @@ export class ListsService {
   async remove(id: string): Promise<void> {
     const list = await this.findOne(id);
     const boardId = list.boardId;
-    await this.listRepository.remove(list);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager
+        .createQueryBuilder()
+        .softDelete()
+        .from(Attachment)
+        .where('card_id IN (SELECT id FROM cards WHERE list_id = :listId AND deleted_at IS NULL)', {
+          listId: id,
+        })
+        .execute();
+
+      await manager.softDelete(Card, { listId: id });
+      await manager.softDelete(List, { id });
+    });
+
     this.cardsGateway.emitListDeleted(boardId, { id, boardId });
+  }
+
+  async restore(id: string): Promise<List> {
+    const list = await this.listRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!list) {
+      throw new BusinessException(
+        ErrorCode.LIST_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!list.deletedAt) {
+      return this.findOne(id);
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.restore(List, { id });
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(Card)
+        .where('list_id = :listId', { listId: id })
+        .execute();
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(Attachment)
+        .where('card_id IN (SELECT id FROM cards WHERE list_id = :listId)', { listId: id })
+        .execute();
+    });
+
+    const restored = await this.findOne(id);
+    this.cardsGateway.emitListUpdated(restored.boardId, restored);
+    return restored;
   }
 }

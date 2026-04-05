@@ -1,7 +1,14 @@
 import { Injectable, HttpStatus, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Not } from 'typeorm';
-import { Card, List, BoardMember, NotificationType, User } from '../../database/entities';
+import {
+  Card,
+  List,
+  BoardMember,
+  NotificationType,
+  User,
+  Attachment,
+} from '../../database/entities';
 import { CreateCardDto, UpdateCardDto, MoveCardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ActivityAction, ErrorCode } from '../../common/enums';
@@ -362,8 +369,46 @@ export class CardsService {
   async remove(id: string): Promise<void> {
     const card = await this.findOne(id);
     const boardId = card.list.boardId;
-    await this.cardRepository.remove(card);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.softDelete(Attachment, { cardId: id });
+      await manager.softDelete(Card, { id });
+    });
+
     this.cardsGateway.emitCardDeleted(boardId, id);
+  }
+
+  async restore(id: string): Promise<Card> {
+    const card = await this.cardRepository.findOne({
+      where: { id },
+      withDeleted: true,
+      relations: ['list'],
+    });
+
+    if (!card) {
+      throw new BusinessException(
+        ErrorCode.CARD_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!card.deletedAt) {
+      return this.findOne(id);
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.restore(Card, { id });
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(Attachment)
+        .where('card_id = :cardId', { cardId: id })
+        .execute();
+    });
+
+    const restoredCard = await this.findOne(id);
+    this.cardsGateway.emitCardUpdated(restoredCard.list.boardId, restoredCard);
+    return restoredCard;
   }
 
   /**

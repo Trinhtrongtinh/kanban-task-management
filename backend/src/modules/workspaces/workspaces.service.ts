@@ -3,7 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
-import { Workspace, WorkspaceMember, User } from '../../database/entities';
+import {
+  Workspace,
+  WorkspaceMember,
+  User,
+  Board,
+  List,
+  Card,
+  Attachment,
+} from '../../database/entities';
 import { NotificationType } from '../../database/entities/notification.entity';
 import { CreateWorkspaceDto, UpdateWorkspaceDto, InviteMemberDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
@@ -168,6 +176,7 @@ export class WorkspacesService implements OnModuleInit {
     while (true) {
       const existingWorkspace = await this.workspaceRepository.findOne({
         where: { slug: uniqueSlug },
+        withDeleted: true,
       });
 
       if (!existingWorkspace || existingWorkspace.id === excludeId) {
@@ -195,14 +204,17 @@ export class WorkspacesService implements OnModuleInit {
     }
 
     // System rule: each account can only own 1 workspace
-    const workspaceCount = await this.workspaceRepository.count({
+    const existingOwnedWorkspace = await this.workspaceRepository.findOne({
       where: { ownerId: userId },
+      withDeleted: true,
     });
-    if (workspaceCount >= 1) {
+    if (existingOwnedWorkspace) {
       throw new BusinessException(
         ErrorCode.PLAN_LIMIT_EXCEEDED,
         HttpStatus.FORBIDDEN,
-        'Mỗi tài khoản chỉ có thể tạo tối đa 1 workspace.',
+        existingOwnedWorkspace.deletedAt
+          ? 'Bạn đã có workspace đã xóa. Hãy khôi phục workspace đó thay vì tạo mới.'
+          : 'Mỗi tài khoản chỉ có thể tạo tối đa 1 workspace.',
       );
     }
 
@@ -342,8 +354,115 @@ export class WorkspacesService implements OnModuleInit {
     }
 
     const memberIds = await this.getActiveMemberUserIds(id);
-    await this.workspaceRepository.delete(id);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager
+        .createQueryBuilder()
+        .softDelete()
+        .from(Attachment)
+        .where(
+          'card_id IN (SELECT c.id FROM cards c INNER JOIN lists l ON c.list_id = l.id INNER JOIN boards b ON l.board_id = b.id WHERE b.workspace_id = :workspaceId AND c.deleted_at IS NULL AND l.deleted_at IS NULL AND b.deleted_at IS NULL)',
+          { workspaceId: id },
+        )
+        .execute();
+
+      await manager
+        .createQueryBuilder()
+        .softDelete()
+        .from(Card)
+        .where(
+          'list_id IN (SELECT l.id FROM lists l INNER JOIN boards b ON l.board_id = b.id WHERE b.workspace_id = :workspaceId AND l.deleted_at IS NULL AND b.deleted_at IS NULL)',
+          { workspaceId: id },
+        )
+        .execute();
+
+      await manager
+        .createQueryBuilder()
+        .softDelete()
+        .from(List)
+        .where('board_id IN (SELECT id FROM boards WHERE workspace_id = :workspaceId AND deleted_at IS NULL)', {
+          workspaceId: id,
+        })
+        .execute();
+
+      await manager.softDelete(Board, { workspaceId: id });
+      await manager.softDelete(Workspace, { id });
+    });
+
     await this.invalidateWorkspaceLists(memberIds);
+  }
+
+  async restore(id: string, requesterId: string): Promise<Workspace> {
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id },
+      withDeleted: true,
+      relations: ['owner'],
+    });
+
+    if (!workspace) {
+      throw new BusinessException(
+        ErrorCode.WORKSPACE_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (workspace.ownerId !== requesterId) {
+      throw new BusinessException(
+        ErrorCode.FORBIDDEN,
+        HttpStatus.FORBIDDEN,
+        'Chỉ chủ sở hữu workspace mới có thể khôi phục workspace',
+      );
+    }
+
+    if (!workspace.deletedAt) {
+      return this.findOne(id);
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.restore(Workspace, { id });
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(Board)
+        .where('workspace_id = :workspaceId', { workspaceId: id })
+        .execute();
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(List)
+        .where('board_id IN (SELECT id FROM boards WHERE workspace_id = :workspaceId)', { workspaceId: id })
+        .execute();
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(Card)
+        .where(
+          'list_id IN (SELECT l.id FROM lists l INNER JOIN boards b ON l.board_id = b.id WHERE b.workspace_id = :workspaceId)',
+          { workspaceId: id },
+        )
+        .execute();
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(Attachment)
+        .where(
+          'card_id IN (SELECT c.id FROM cards c INNER JOIN lists l ON c.list_id = l.id INNER JOIN boards b ON l.board_id = b.id WHERE b.workspace_id = :workspaceId)',
+          { workspaceId: id },
+        )
+        .execute();
+    });
+
+    const memberIds = await this.getActiveMemberUserIds(id);
+    await this.invalidateWorkspaceLists(memberIds);
+    return this.findOne(id);
+  }
+
+  async findDeletedOwnedByUser(userId: string): Promise<Workspace[]> {
+    return this.workspaceRepository.find({
+      where: { ownerId: userId },
+      withDeleted: true,
+      order: { updatedAt: 'DESC' },
+    }).then((items) => items.filter((workspace) => !!workspace.deletedAt));
   }
 
   /**

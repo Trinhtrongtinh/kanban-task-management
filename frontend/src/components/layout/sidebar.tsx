@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Zap,
   UserCircle,
+  Briefcase,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -104,6 +105,11 @@ function DesktopSidebar({ isCollapsed, onToggleCollapse }: { isCollapsed: boolea
           href: '/dashboard',
           icon: LayoutDashboard,
         },
+        {
+          title: t('common.workspaces'),
+          href: '/workspaces',
+          icon: Briefcase,
+        },
       ],
     },
     {
@@ -196,6 +202,11 @@ function MobileSidebar({ isOpen, onClose }: Pick<SidebarProps, 'isOpen' | 'onClo
           title: t('common.dashboard'),
           href: '/dashboard',
           icon: LayoutDashboard,
+        },
+        {
+          title: t('common.workspaces'),
+          href: '/workspaces',
+          icon: Briefcase,
         },
       ],
     },

@@ -79,6 +79,15 @@ export class CardsController {
     return this.cardsService.remove(id);
   }
 
+  @Patch(':id/restore')
+  @WriteRateLimit()
+  @UseGuards(JwtAuthGuard, CardBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
+  @ResponseMessage('Card restored successfully')
+  async restore(@Param('id', ParseUUIDPipe) id: string): Promise<Card> {
+    return this.cardsService.restore(id);
+  }
+
   @Patch(':id/move')
   @WriteRateLimit()
   @UseGuards(JwtAuthGuard, CardBoardGuard)

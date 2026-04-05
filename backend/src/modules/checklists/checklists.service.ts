@@ -108,7 +108,41 @@ export class ChecklistsService {
 
   async removeChecklist(id: string): Promise<void> {
     const checklist = await this.findOneChecklist(id);
-    await this.checklistRepository.remove(checklist);
+    await this.dataSource.transaction(async (manager) => {
+      await manager.softDelete(ChecklistItem, { checklistId: checklist.id });
+      await manager.softDelete(Checklist, { id: checklist.id });
+    });
+  }
+
+  async restoreChecklist(id: string): Promise<Checklist> {
+    const checklist = await this.checklistRepository.findOne({
+      where: { id },
+      withDeleted: true,
+      relations: ['items'],
+    });
+
+    if (!checklist) {
+      throw new BusinessException(
+        ErrorCode.CHECKLIST_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!checklist.deletedAt) {
+      return this.findOneChecklist(id);
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.restore(Checklist, { id });
+      await manager
+        .createQueryBuilder()
+        .restore()
+        .from(ChecklistItem)
+        .where('checklist_id = :checklistId', { checklistId: id })
+        .execute();
+    });
+
+    return this.findOneChecklist(id);
   }
 
   async updateChecklist(
@@ -206,7 +240,37 @@ export class ChecklistsService {
 
   async removeChecklistItem(id: string): Promise<void> {
     const item = await this.findOneChecklistItem(id);
-    await this.checklistItemRepository.remove(item);
+    await this.checklistItemRepository.softDelete(item.id);
+  }
+
+  async restoreChecklistItem(id: string): Promise<ChecklistItem> {
+    const item = await this.checklistItemRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!item) {
+      throw new BusinessException(
+        ErrorCode.CHECKLIST_ITEM_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!item.deletedAt) {
+      return item;
+    }
+
+    await this.checklistItemRepository.restore(item.id);
+
+    const restored = await this.checklistItemRepository.findOne({ where: { id } });
+    if (!restored) {
+      throw new BusinessException(
+        ErrorCode.CHECKLIST_ITEM_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return restored;
   }
 
   /**

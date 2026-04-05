@@ -67,6 +67,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { resolveAvatarUrl } from '@/lib/utils';
 import { useI18n } from '@/hooks/ui/use-i18n';
+import { toast } from 'sonner';
 
 // ── Collapsible Section ───────────────────────────────────────────────
 function CollapsibleSection({
@@ -330,6 +331,30 @@ export function CardModal() {
 
       try {
         await attachmentsApi.delete(attachmentId);
+        toast.success('Đã xóa tệp đính kèm', {
+          action: {
+            label: 'Hoàn tác',
+            onClick: () => {
+              attachmentsApi
+                .restore(attachmentId)
+                .then((restoredAttachment) => {
+                  const restoredAttachments = prevAttachments.some((attachment) => attachment.id === restoredAttachment.id)
+                    ? prevAttachments
+                    : [...prevAttachments, restoredAttachment];
+                  updateCard({
+                    attachments: restoredAttachments,
+                  });
+                  toast.success('Đã khôi phục tệp đính kèm');
+                })
+                .catch((restoreError: any) => {
+                  toast.error('Không thể hoàn tác', {
+                    description:
+                      restoreError.response?.data?.message || 'Tệp đính kèm không thể khôi phục',
+                  });
+                });
+            },
+          },
+        });
       } catch (error) {
         // Rollback
         updateCard({ attachments: prevAttachments });
@@ -375,7 +400,15 @@ export function CardModal() {
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       {/* Wide modal — 5xl (~1024px) */}
-      <DialogContent className="sm:max-w-5xl p-0 gap-0 overflow-hidden">
+      <DialogContent
+        className="sm:max-w-5xl p-0 gap-0 overflow-hidden"
+        onInteractOutside={(e) => {
+          // Don't close modal when clicking Sonner toast actions
+          if ((e.target as HTMLElement)?.closest('[data-sonner-toast],[data-sonner-toaster]')) {
+            e.preventDefault();
+          }
+        }}
+      >
         {/* ── 3-Zone grid ─────────────────────────────────────────── */}
         <div className="grid h-[85vh] min-h-0 grid-cols-[minmax(0,1fr)_10rem_18rem] overflow-hidden xl:grid-cols-[minmax(0,1fr)_10.5rem_18.5rem]">
 

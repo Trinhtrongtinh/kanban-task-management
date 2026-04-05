@@ -51,6 +51,7 @@ export class BoardMemberGuard implements CanActivate {
     const board = await this.boardRepository.findOne({
       where: { id: boardId },
       relations: ['workspace'],
+      withDeleted: true,
     });
 
     if (board && board.workspace?.ownerId === userId) {

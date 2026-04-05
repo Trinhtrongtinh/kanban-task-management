@@ -9,6 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -80,6 +88,7 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
 
   // Settings popover
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDeleteBoardOpen, setIsDeleteBoardOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(title);
   const [editedBg, setEditedBg] = useState(backgroundUrl || DEFAULT_BOARD_BACKGROUND);
   const updateBoardMutation = useUpdateBoard();
@@ -90,11 +99,15 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
   const uiTheme = getBoardUiTheme(backgroundUrl);
 
   const handleDeleteBoard = useCallback(() => {
-    const confirmed = window.confirm(t('board.deleteBoardConfirm'));
-    if (!confirmed) return;
+    setIsSettingsOpen(false);
+    setIsDeleteBoardOpen(true);
+  }, []);
 
-    deleteBoardMutation.mutate({ id: boardId, workspaceId });
-  }, [boardId, workspaceId, deleteBoardMutation, t]);
+  const handleConfirmDeleteBoard = useCallback(() => {
+    deleteBoardMutation.mutate({ id: boardId, workspaceId }, {
+      onSuccess: () => setIsDeleteBoardOpen(false),
+    });
+  }, [boardId, workspaceId, deleteBoardMutation]);
 
   const handleUpdateBoard = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +144,7 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
   }, [boardMemberIds, addMemberMutation, removeMemberMutation, boardId]);
 
   return (
+    <>
     <div className={cn('mb-2 flex w-full items-center justify-between rounded-lg px-4 py-2 backdrop-blur-sm', uiTheme.navbarClassName)}>
       <div className="flex items-center gap-x-4">
         <Button variant="ghost" size="sm" asChild className={cn(uiTheme.navbarButtonClassName, 'border')}>
@@ -314,52 +328,43 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
                       </div>
                     </div>
 
-                    <div className="space-y-3 pt-1">
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {t('board.funThemes')}
-                        </p>
-                        <div className="grid grid-cols-2 gap-2">
+                    <div className="pt-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                        {t('board.backgroundStyle')}
+                      </p>
+                      {/* 2-row horizontal scroll grid */}
+                      <div className="overflow-x-auto pb-1">
+                        <div className="grid grid-rows-2 grid-flow-col gap-2 w-max">
                           {themedOptions.map((option) => {
                             const optionBackground = resolveBoardBackground(option.token);
-
                             return (
                               <button
                                 key={option.token}
                                 type="button"
                                 onClick={() => setEditedBg(option.token)}
                                 className={cn(
-                                  'relative h-20 overflow-hidden rounded-lg border text-left transition-transform hover:scale-[1.02]',
+                                  'relative h-16 w-28 overflow-hidden rounded-lg border text-left transition-transform hover:scale-[1.02] shrink-0',
                                   editedBg === option.token ? 'ring-2 ring-primary ring-offset-2' : '',
                                   optionBackground.className,
                                 )}
                                 style={optionBackground.style}
                               >
                                 <div className="absolute inset-0 bg-black/20" />
-                                <span className="absolute inset-x-0 bottom-0 p-2 text-xs font-semibold text-white drop-shadow-sm">
+                                <span className="absolute inset-x-0 bottom-0 p-1.5 text-[10px] font-semibold text-white drop-shadow-sm leading-tight">
                                   {option.label[locale]}
                                 </span>
                               </button>
                             );
                           })}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {t('board.classicGradients')}
-                        </p>
-                        <div className="grid grid-cols-4 gap-2">
                           {gradientOptions.map((option) => {
                             const optionBackground = resolveBoardBackground(option.token);
-
                             return (
                               <button
                                 key={option.token}
                                 type="button"
                                 onClick={() => setEditedBg(option.token)}
                                 className={cn(
-                                  'h-10 rounded-md transition-all hover:scale-105',
+                                  'h-16 w-28 rounded-lg border transition-all hover:scale-105 shrink-0',
                                   editedBg === option.token ? 'ring-2 ring-primary ring-offset-2' : '',
                                   optionBackground.className,
                                 )}
@@ -405,6 +410,36 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
         </div>
       </div>
     </div>
+
+    {/* ── Delete Board Confirmation Dialog ─────────── */}
+    <Dialog open={isDeleteBoardOpen} onOpenChange={setIsDeleteBoardOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('board.deleteBoard')}</DialogTitle>
+          <DialogDescription>
+            {t('board.deleteBoardConfirm')}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsDeleteBoardOpen(false)}
+            disabled={deleteBoardMutation.isPending}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleConfirmDeleteBoard}
+            disabled={deleteBoardMutation.isPending}
+          >
+            {deleteBoardMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {t('board.deleteBoard')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

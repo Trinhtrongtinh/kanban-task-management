@@ -41,10 +41,32 @@ export function useUpdateCard() {
 }
 
 export function useDeleteCard() {
+    const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: (id: string) => cardsApi.delete(id),
-        onSuccess: () => {
-            toast.success('Thành công', { description: 'Đã xóa thẻ' });
+        onSuccess: (_data, id) => {
+            queryClient.invalidateQueries({ queryKey: ['lists'] });
+            toast.success('Thành công', {
+                description: 'Đã xóa thẻ',
+                action: {
+                    label: 'Hoàn tác',
+                    onClick: () => {
+                        cardsApi
+                            .restore(id)
+                            .then(() => {
+                                queryClient.invalidateQueries({ queryKey: ['lists'] });
+                                toast.success('Đã khôi phục thẻ');
+                            })
+                            .catch((error: any) => {
+                                toast.error('Không thể hoàn tác', {
+                                    description:
+                                        error.response?.data?.message || 'Thẻ không thể khôi phục',
+                                });
+                            });
+                    },
+                },
+            });
         },
         onError: (error: any) => {
             toast.error('Lỗi', { description: error.response?.data?.message || 'Không thể xóa thẻ' });

@@ -65,12 +65,33 @@ export function useDeleteList() {
 
     return useMutation({
         mutationFn: ({ id, boardId }: { id: string; boardId: string }) =>
-            listsApi.delete(id).then(() => boardId),
-        onSuccess: (boardId) => {
+            listsApi.delete(id).then(() => ({ boardId, id })),
+        onSuccess: ({ boardId, id }) => {
             queryClient.invalidateQueries({
                 queryKey: LIST_QUERY_KEYS.byBoard(boardId),
             });
-            toast.success('Thành công', { description: 'Đã xóa danh sách' });
+            toast.success('Thành công', {
+                description: 'Đã xóa danh sách',
+                action: {
+                    label: 'Hoàn tác',
+                    onClick: () => {
+                        listsApi
+                            .restore(id)
+                            .then(() => {
+                                queryClient.invalidateQueries({
+                                    queryKey: LIST_QUERY_KEYS.byBoard(boardId),
+                                });
+                                toast.success('Đã khôi phục danh sách');
+                            })
+                            .catch((error: any) => {
+                                toast.error('Không thể hoàn tác', {
+                                    description:
+                                        error.response?.data?.message || 'Danh sách không thể khôi phục',
+                                });
+                            });
+                    },
+                },
+            });
         },
         onError: (error: any) => {
             toast.error('Lỗi', { description: error.response?.data?.message || 'Không thể xóa danh sách' });

@@ -56,6 +56,17 @@ export class BoardsController {
     );
   }
 
+  @Get('workspace/:workspaceId/deleted')
+  @ReadRateLimit()
+  @UseGuards(JwtAuthGuard, WorkspaceMemberGuard)
+  @RequireWorkspaceRole(WorkspaceRole.OWNER)
+  @ResponseMessage('Deleted boards retrieved successfully')
+  async findDeletedByWorkspace(
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+  ): Promise<Board[]> {
+    return this.boardsService.findDeletedByWorkspace(workspaceId);
+  }
+
   @Get(':id')
   @ReadRateLimit()
   @UseGuards(JwtAuthGuard, BoardMemberGuard)
@@ -84,6 +95,15 @@ export class BoardsController {
   @ResponseMessage('Board deleted successfully')
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.boardsService.remove(id);
+  }
+
+  @Patch(':id/restore')
+  @WriteRateLimit()
+  @UseGuards(JwtAuthGuard, BoardMemberGuard)
+  @RequireBoardRole(BoardRole.ADMIN)
+  @ResponseMessage('Board restored successfully')
+  async restore(@Param('id', ParseUUIDPipe) id: string): Promise<Board> {
+    return this.boardsService.restore(id);
   }
 
   @Get(':id/members')

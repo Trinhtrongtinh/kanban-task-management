@@ -52,6 +52,7 @@ export class ListBoardGuard implements CanActivate {
     // Get list to find boardId
     const list = await this.listRepository.findOne({
       where: { id: listId },
+      withDeleted: true,
     });
 
     if (!list) {

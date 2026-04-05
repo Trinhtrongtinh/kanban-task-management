@@ -18,6 +18,7 @@ export interface Workspace {
   boards?: WorkspaceBoard[];
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface WorkspaceMember {
@@ -82,6 +83,16 @@ export const workspacesApi = {
   /** DELETE /workspaces/:id - Delete workspace */
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/workspaces/${id}`);
+  },
+
+  restore: async (id: string): Promise<Workspace> => {
+    const res = await apiClient.patch<{ data: Workspace }>(`/workspaces/${id}/restore`);
+    return res.data.data;
+  },
+
+  getDeletedOwned: async (): Promise<Workspace[]> => {
+    const res = await apiClient.get<{ data: Workspace[] }>('/workspaces/deleted/owned');
+    return res.data.data;
   },
 
   // ── Members ───────────────────────────────────────────────────────────

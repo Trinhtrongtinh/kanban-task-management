@@ -50,6 +50,15 @@ export class ChecklistsController {
     return this.checklistsService.removeChecklist(id);
   }
 
+  @Patch(':id/restore')
+  @WriteRateLimit()
+  @UseGuards(JwtAuthGuard, ChecklistBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
+  @ResponseMessage('Checklist restored successfully')
+  async restoreChecklist(@Param('id', ParseUUIDPipe) id: string) {
+    return this.checklistsService.restoreChecklist(id);
+  }
+
   @Post(':checklistId/items')
   @WriteRateLimit()
   @UseGuards(JwtAuthGuard, ChecklistBoardGuard)
@@ -91,5 +100,16 @@ export class ChecklistsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     return this.checklistsService.removeChecklistItem(id);
+  }
+
+  @Patch('items/:id/restore')
+  @WriteRateLimit()
+  @UseGuards(JwtAuthGuard, ChecklistBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
+  @ResponseMessage('Checklist item restored successfully')
+  async restoreChecklistItem(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ChecklistItem> {
+    return this.checklistsService.restoreChecklistItem(id);
   }
 }

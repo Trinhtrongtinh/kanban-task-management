@@ -68,4 +68,13 @@ export class ListsController {
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.listsService.remove(id);
   }
+
+  @Patch(':id/restore')
+  @WriteRateLimit()
+  @UseGuards(JwtAuthGuard, ListBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
+  @ResponseMessage('List restored successfully')
+  async restore(@Param('id', ParseUUIDPipe) id: string): Promise<List> {
+    return this.listsService.restore(id);
+  }
 }

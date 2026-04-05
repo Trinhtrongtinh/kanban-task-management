@@ -8,16 +8,18 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Zap, Check, Users, CreditCard, Settings, Loader2, Trash2, ArrowLeft } from 'lucide-react';
+import { Zap, Check, Users, CreditCard, Settings, Loader2, Trash2, ArrowLeft, RotateCcw } from 'lucide-react';
 import { useProModal } from '@/hooks/ui/use-pro-modal';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useWorkspace, useUpdateWorkspace, useWorkspaceMembers, useInviteMember, useRemoveWorkspaceMember, useDeleteWorkspace } from '@/hooks/data/use-workspaces';
+import { useDeletedBoardsByWorkspace, useRestoreBoard } from '@/hooks/data/use-boards';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { getProExpiryDate, isProPlanActive } from '@/lib/plan';
 import { resolveAvatarUrl } from '@/lib/utils';
+import { formatRelative } from '@/lib/date-time';
 import { paymentsApi } from '@/api/payments';
 import { useI18n } from '@/hooks/ui/use-i18n';
 
@@ -50,6 +52,8 @@ export default function WorkspaceSettingsPage() {
 
   const updateMutation = useUpdateWorkspace();
   const deleteWorkspaceMutation = useDeleteWorkspace();
+  const { data: deletedBoards = [], isLoading: isLoadingDeletedBoards } = useDeletedBoardsByWorkspace(workspaceId);
+  const restoreBoardMutation = useRestoreBoard();
 
   const onOpen = useProModal((state) => state.onOpen);
   const isPro = isProPlanActive(user);
@@ -145,6 +149,17 @@ export default function WorkspaceSettingsPage() {
       },
       onError: (err: unknown) => {
         toast.error(getApiErrorMessage(err) || t('workspaceSettings.toast.workspaceDeleteFailed'));
+      },
+    });
+  };
+
+  const handleRestoreBoard = (boardId: string) => {
+    restoreBoardMutation.mutate(boardId, {
+      onSuccess: () => {
+        toast.success(t('workspaceSettings.boardTrash.restoreSuccess'));
+      },
+      onError: (err: unknown) => {
+        toast.error(getApiErrorMessage(err) || t('workspaceSettings.boardTrash.restoreFailed'));
       },
     });
   };
@@ -297,6 +312,56 @@ export default function WorkspaceSettingsPage() {
                   </Dialog>
                 </CardFooter>
               </Card>
+
+              {/* ── Board Trash (restore only) ── */}
+              <Card className="border-border/50 shadow-sm overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-base">{t('workspaceSettings.boardTrash.title')}</CardTitle>
+                  <CardDescription>
+                    {t('workspaceSettings.boardTrash.description')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y">
+                    {isLoadingDeletedBoards ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : deletedBoards.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <Trash2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground">{t('workspaceSettings.boardTrash.empty')}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('workspaceSettings.boardTrash.emptyHint')}</p>
+                      </div>
+                    ) : (
+                      deletedBoards.map((board) => (
+                        <div key={board.id} className="flex items-center justify-between px-6 py-3 hover:bg-muted/30 transition-colors">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-8 w-12 rounded-md shrink-0 border border-dashed border-border bg-muted/50" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-muted-foreground truncate">{board.title}</p>
+                              {board.deletedAt && (
+                                <p className="text-xs text-muted-foreground">{t('workspaceSettings.boardTrash.deletedAgo')} {formatRelative(board.deletedAt, locale)}</p>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => handleRestoreBoard(board.id)}
+                            disabled={restoreBoardMutation.isPending}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                            {t('workspaceSettings.boardTrash.restore')}
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
             </TabsContent>
 
             {/* ── MEMBERS TAB ── */}

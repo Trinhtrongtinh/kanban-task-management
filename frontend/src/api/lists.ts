@@ -49,4 +49,10 @@ export const listsApi = {
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/lists/${id}`);
   },
+
+  // Restore a soft-deleted list
+  restore: async (id: string): Promise<List> => {
+    const response = await apiClient.patch<{ data: List }>(`/lists/${id}/restore`);
+    return response.data.data;
+  },
 };

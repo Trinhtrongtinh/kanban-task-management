@@ -52,6 +52,7 @@ export class CardBoardGuard implements CanActivate {
     const card = await this.cardRepository.findOne({
       where: { id: cardId },
       relations: ['list'],
+      withDeleted: true,
     });
 
     if (!card) {

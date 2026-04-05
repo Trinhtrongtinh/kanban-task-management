@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Param,
   Delete,
   ParseUUIDPipe,
@@ -27,7 +28,12 @@ import { BoardRole, ErrorCode } from '../../common/enums';
 import { JwtAuthGuard } from '../auth/guards';
 import { AttachmentBoardGuard, CardBoardGuard } from '../../common/guards';
 import { RequireBoardRole } from '../../common/decorators';
-import { DangerousWriteRateLimit, ReadRateLimit, UploadRateLimit } from '../../common/rate-limit';
+import {
+  DangerousWriteRateLimit,
+  ReadRateLimit,
+  UploadRateLimit,
+  WriteRateLimit,
+} from '../../common/rate-limit';
 
 /** Converts MulterError / oversized-payload errors into clean HTTP 400 responses. */
 @Injectable()
@@ -89,5 +95,14 @@ export class AttachmentsController {
   @ResponseMessage('Attachment deleted successfully')
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.attachmentsService.remove(id);
+  }
+
+  @Patch('attachments/:id/restore')
+  @WriteRateLimit()
+  @UseGuards(JwtAuthGuard, AttachmentBoardGuard)
+  @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
+  @ResponseMessage('Attachment restored successfully')
+  async restore(@Param('id', ParseUUIDPipe) id: string): Promise<Attachment> {
+    return this.attachmentsService.restore(id);
   }
 }

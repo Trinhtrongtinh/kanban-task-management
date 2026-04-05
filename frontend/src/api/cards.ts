@@ -64,6 +64,12 @@ export const cardsApi = {
         await apiClient.delete(`/cards/${id}`);
     },
 
+    // Restore a soft-deleted card
+    restore: async (id: string): Promise<Card> => {
+        const response = await apiClient.patch<{ data: Card }>(`/cards/${id}/restore`);
+        return response.data.data;
+    },
+
     // Move a card (drag and drop)
     move: async (id: string, payload: MoveCardPayload): Promise<Card> => {
         const response = await apiClient.patch<{ data: Card }>(`/cards/${id}/move`, payload);
