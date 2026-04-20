@@ -15,7 +15,11 @@ import { Comment } from '../../database/entities';
 import { ResponseMessage, CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { CardBoardGuard } from '../../common/guards';
-import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
+import {
+  DangerousWriteRateLimit,
+  ReadRateLimit,
+  WriteRateLimit,
+} from '../../common/rate-limit';
 
 @Controller()
 export class CommentsController {

@@ -23,7 +23,11 @@ export const avatarMulterOptions = {
     file: Express.Multer.File,
     callback: (error: Error | null, acceptFile: boolean) => void,
   ) => {
-    if (['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.mimetype)) {
+    if (
+      ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(
+        file.mimetype,
+      )
+    ) {
       callback(null, true);
       return;
     }

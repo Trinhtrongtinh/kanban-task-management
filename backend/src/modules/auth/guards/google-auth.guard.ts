@@ -2,13 +2,20 @@ import {
   ExecutionContext,
   Injectable,
   ServiceUnavailableException,
+  Inject,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigType } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
+import { authConfig, googleConfig } from '../../../config';
 
 @Injectable()
 export class GoogleAuthGuard extends AuthGuard('google') {
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    @Inject(authConfig.KEY)
+    private readonly auth: ConfigType<typeof authConfig>,
+    @Inject(googleConfig.KEY)
+    private readonly google: ConfigType<typeof googleConfig>,
+  ) {
     super();
   }
 
@@ -26,18 +33,19 @@ export class GoogleAuthGuard extends AuthGuard('google') {
   }
 
   private getFailureRedirectUrl(): string {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    return this.configService.get<string>(
-      'AUTH_FAILURE_REDIRECT_URL',
-      `${frontendUrl}/login?error=social_auth_failed`,
-    );
+    return this.auth.redirects.failureUrl;
   }
 
   private ensureOAuthConfigured(): void {
-    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-    const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const clientId = this.google.clientId;
+    const clientSecret = this.google.clientSecret;
 
-    if (!clientId || !clientSecret) {
+    if (
+      !clientId ||
+      !clientSecret ||
+      clientId === 'not-configured' ||
+      clientSecret === 'not-configured'
+    ) {
       throw new ServiceUnavailableException(
         'Google login is not configured on server',
       );

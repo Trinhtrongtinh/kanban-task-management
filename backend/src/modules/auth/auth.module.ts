@@ -2,14 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigType } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import {
-  GoogleStrategy,
-  JwtStrategy,
-  LocalStrategy,
-} from './strategies';
+import { jwtConfig } from '../../config';
+import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
 import { User } from '../../database/entities';
 import { NotificationsModule } from '../notifications/notifications.module';
 import {
@@ -26,15 +23,13 @@ import { GoogleAuthGuard } from './guards';
     NotificationsModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.secret') || 'default_secret',
+      inject: [jwtConfig.KEY],
+      useFactory: (jwt: ConfigType<typeof jwtConfig>) => ({
+        secret: jwt.secret,
         signOptions: {
-          expiresIn: (configService.get<string>('jwt.expiresIn') ||
-            '15m') as any,
+          expiresIn: jwt.expiresIn,
         },
       }),
-      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],

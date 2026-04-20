@@ -15,7 +15,11 @@ import {
   ExecutionContext,
   NestInterceptor,
   Injectable,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import * as fs from 'fs';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MulterError } from 'multer';
 import { Observable, catchError, throwError } from 'rxjs';
@@ -63,7 +67,10 @@ export class AttachmentsController {
   @UseGuards(JwtAuthGuard, CardBoardGuard)
   @RequireBoardRole(BoardRole.ADMIN, BoardRole.EDITOR)
   @ResponseMessage('File uploaded successfully')
-  @UseInterceptors(MulterExceptionInterceptor, FileInterceptor('file', multerOptions))
+  @UseInterceptors(
+    MulterExceptionInterceptor,
+    FileInterceptor('file', multerOptions),
+  )
   async upload(
     @Param('cardId', ParseUUIDPipe) cardId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -86,6 +93,26 @@ export class AttachmentsController {
     @Param('cardId', ParseUUIDPipe) cardId: string,
   ): Promise<Attachment[]> {
     return this.attachmentsService.findAllByCard(cardId);
+  }
+
+  @Get('attachments/:id/download')
+  @ReadRateLimit()
+  @UseGuards(JwtAuthGuard, AttachmentBoardGuard)
+  async download(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { attachment, absoluteFilePath } =
+      await this.attachmentsService.getDownloadInfo(id);
+
+    const encodedFileName = encodeURIComponent(attachment.fileName);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename*=UTF-8''${encodedFileName}`,
+    );
+    res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
+
+    return new StreamableFile(fs.createReadStream(absoluteFilePath));
   }
 
   @Delete('attachments/:id')

@@ -230,7 +230,9 @@ export class ChecklistsService {
               },
               content: `Đã hoàn thành checklist "${checklist.title}" trong thẻ "${checklist.card.title}"`,
             })
-            .catch((err) => console.error('Failed to log checklist completion:', err));
+            .catch((err) =>
+              console.error('Failed to log checklist completion:', err),
+            );
         }
       }
     }
@@ -262,7 +264,9 @@ export class ChecklistsService {
 
     await this.checklistItemRepository.restore(item.id);
 
-    const restored = await this.checklistItemRepository.findOne({ where: { id } });
+    const restored = await this.checklistItemRepository.findOne({
+      where: { id },
+    });
     if (!restored) {
       throw new BusinessException(
         ErrorCode.CHECKLIST_ITEM_NOT_FOUND,

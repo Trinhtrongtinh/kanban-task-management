@@ -16,7 +16,11 @@ import { ResponseMessage, RequireBoardRole } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';
 import { BoardMemberGuard, ListBoardGuard } from '../../common/guards';
 import { BoardRole } from '../../common/enums';
-import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
+import {
+  DangerousWriteRateLimit,
+  ReadRateLimit,
+  WriteRateLimit,
+} from '../../common/rate-limit';
 
 @Controller('lists')
 export class ListsController {

@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
+import { appConfig, mailConfig } from '../../config';
 
 export interface SendEmailOptions {
   to: string;
@@ -15,15 +16,17 @@ export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private transporter: Transporter;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    @Inject(mailConfig.KEY)
+    private readonly mail: ConfigType<typeof mailConfig>,
+    @Inject(appConfig.KEY)
+    private readonly app: ConfigType<typeof appConfig>,
+  ) {
     this.initializeTransporter();
   }
 
   private initializeTransporter(): void {
-    const host = this.configService.get<string>('MAIL_HOST', 'smtp.gmail.com');
-    const port = this.configService.get<number>('MAIL_PORT', 587);
-    const user = this.configService.get<string>('MAIL_USER');
-    const pass = this.configService.get<string>('MAIL_PASS');
+    const { host, port, user, pass } = this.mail;
 
     if (!user || !pass) {
       this.logger.warn(
@@ -57,14 +60,8 @@ export class MailerService {
     }
 
     try {
-      const fromEmail = this.configService.get<string>(
-        'MAIL_FROM',
-        'noreply@kanban.app',
-      );
-      const fromName = this.configService.get<string>(
-        'MAIL_FROM_NAME',
-        'Kanban App',
-      );
+      const fromEmail = this.mail.from;
+      const fromName = this.mail.fromName;
 
       await this.transporter.sendMail({
         from: `"${fromName}" <${fromEmail}>`,
@@ -254,13 +251,10 @@ export class MailerService {
       return pathOrUrl;
     }
 
-    const frontendUrl = this.configService.get<string>(
-      'FRONTEND_URL',
-      'http://localhost:3000',
-    );
-
-    const normalizedBase = frontendUrl.replace(/\/$/, '');
-    const normalizedPath = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+    const normalizedBase = this.app.frontendUrl.replace(/\/$/, '');
+    const normalizedPath = pathOrUrl.startsWith('/')
+      ? pathOrUrl
+      : `/${pathOrUrl}`;
 
     return `${normalizedBase}${normalizedPath}`;
   }

@@ -1,0 +1,12 @@
+export declare const LoginRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const RegisterRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const ForgotPasswordRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const VerifyResetTokenRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const ResetPasswordRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const SearchRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const UploadRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const WriteRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const DangerousWriteRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const NotificationBulkRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const PaymentRateLimit: () => MethodDecorator & ClassDecorator;
+export declare const ReadRateLimit: () => MethodDecorator & ClassDecorator;

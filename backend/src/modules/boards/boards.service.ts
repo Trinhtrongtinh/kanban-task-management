@@ -12,7 +12,12 @@ import {
 } from '../../database/entities';
 import { CreateBoardDto, UpdateBoardDto } from './dto';
 import { BusinessException } from '../../common/exceptions';
-import { ErrorCode, BoardRole, MemberStatus, ActivityAction } from '../../common/enums';
+import {
+  ErrorCode,
+  BoardRole,
+  MemberStatus,
+  ActivityAction,
+} from '../../common/enums';
 import { User } from '../../database/entities';
 import { AppCacheService, CACHE_TTL, CacheKeys } from '../../common/cache';
 import { isProPlanActive } from '../../common/utils';
@@ -37,9 +42,11 @@ export class BoardsService {
     private readonly cacheService: AppCacheService,
     private readonly activitiesService: ActivitiesService,
     private readonly notificationsService: NotificationsService,
-  ) { }
+  ) {}
 
-  private async getWorkspaceAudienceUserIds(workspaceId: string): Promise<string[]> {
+  private async getWorkspaceAudienceUserIds(
+    workspaceId: string,
+  ): Promise<string[]> {
     const workspace = await this.workspaceRepository.findOne({
       where: { id: workspaceId },
       select: ['ownerId'],
@@ -59,7 +66,9 @@ export class BoardsService {
     );
   }
 
-  private async invalidateBoardsByWorkspace(workspaceId: string): Promise<void> {
+  private async invalidateBoardsByWorkspace(
+    workspaceId: string,
+  ): Promise<void> {
     const userIds = await this.getWorkspaceAudienceUserIds(workspaceId);
     const keys = userIds.flatMap((userId) => {
       const baseKey = CacheKeys.boardsByWorkspaceAndUser(workspaceId, userId);
@@ -240,7 +249,9 @@ export class BoardsService {
     // Check FREE plan board limit
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (user && !isProPlanActive(user)) {
-      const boardCount = await this.boardRepository.count({ where: { workspaceId } });
+      const boardCount = await this.boardRepository.count({
+        where: { workspaceId },
+      });
       if (boardCount >= FREE_PLAN_BOARD_LIMIT) {
         throw new BusinessException(
           ErrorCode.PLAN_LIMIT_EXCEEDED,
@@ -337,11 +348,13 @@ export class BoardsService {
   }
 
   async findDeletedByWorkspace(workspaceId: string): Promise<Board[]> {
-    return this.boardRepository.find({
-      where: { workspaceId },
-      withDeleted: true,
-      order: { updatedAt: 'DESC' },
-    }).then((boards) => boards.filter((board) => !!board.deletedAt));
+    return this.boardRepository
+      .find({
+        where: { workspaceId },
+        withDeleted: true,
+        order: { updatedAt: 'DESC' },
+      })
+      .then((boards) => boards.filter((board) => !!board.deletedAt));
   }
 
   async findOne(id: string): Promise<Board> {
@@ -360,7 +373,11 @@ export class BoardsService {
     return board;
   }
 
-  async update(id: string, updateBoardDto: UpdateBoardDto, userId: string): Promise<Board> {
+  async update(
+    id: string,
+    updateBoardDto: UpdateBoardDto,
+    userId: string,
+  ): Promise<Board> {
     const board = await this.findOne(id);
     const previousTitle = board.title;
 
@@ -386,7 +403,9 @@ export class BoardsService {
       const normalizedTitle = title.trim();
       const existingBoardWithSameTitle = await this.boardRepository
         .createQueryBuilder('b')
-        .where('b.workspace_id = :workspaceId', { workspaceId: board.workspaceId })
+        .where('b.workspace_id = :workspaceId', {
+          workspaceId: board.workspaceId,
+        })
         .andWhere('b.id != :id', { id: board.id })
         .andWhere('b.deleted_at IS NULL')
         .andWhere('LOWER(TRIM(b.title)) = LOWER(TRIM(:title))', {
@@ -448,9 +467,12 @@ export class BoardsService {
         .createQueryBuilder()
         .softDelete()
         .from(Card)
-        .where('list_id IN (SELECT id FROM lists WHERE board_id = :boardId AND deleted_at IS NULL)', {
-          boardId: id,
-        })
+        .where(
+          'list_id IN (SELECT id FROM lists WHERE board_id = :boardId AND deleted_at IS NULL)',
+          {
+            boardId: id,
+          },
+        )
         .execute();
 
       await manager.softDelete(List, { boardId: id });
@@ -491,7 +513,9 @@ export class BoardsService {
         .createQueryBuilder()
         .restore()
         .from(Card)
-        .where('list_id IN (SELECT id FROM lists WHERE board_id = :boardId)', { boardId: id })
+        .where('list_id IN (SELECT id FROM lists WHERE board_id = :boardId)', {
+          boardId: id,
+        })
         .execute();
 
       await manager
@@ -514,41 +538,52 @@ export class BoardsService {
       where: { boardId },
       relations: ['user'],
     });
-    return boardMembers.map(bm => ({ ...bm.user, role: bm.role }));
+    return boardMembers.map((bm) => ({ ...bm.user, role: bm.role }));
   }
 
-  async addMember(boardId: string, userId: string, actorId: string): Promise<BoardMember> {
+  async addMember(
+    boardId: string,
+    userId: string,
+    actorId: string,
+  ): Promise<BoardMember> {
     const board = await this.findOne(boardId);
 
     // Check if user is in workspace
-    const workspaceMember = await this.boardRepository.manager.findOne(WorkspaceMember, {
-      where: { workspaceId: board.workspaceId, userId, status: MemberStatus.ACTIVE },
-    });
+    const workspaceMember = await this.boardRepository.manager.findOne(
+      WorkspaceMember,
+      {
+        where: {
+          workspaceId: board.workspaceId,
+          userId,
+          status: MemberStatus.ACTIVE,
+        },
+      },
+    );
 
     if (!workspaceMember) {
       throw new BusinessException(
         ErrorCode.FORBIDDEN,
         HttpStatus.FORBIDDEN,
-        'Thành viên phải thuộc Workspace mới có thể thêm vào bảng'
+        'Thành viên phải thuộc Workspace mới có thể thêm vào bảng',
       );
     }
 
     const existing = await this.boardMemberRepository.findOne({
-      where: { boardId, userId }
+      where: { boardId, userId },
     });
 
     if (existing) {
       throw new BusinessException(
         ErrorCode.USER_ALREADY_EXISTS,
         HttpStatus.BAD_REQUEST,
-        'Người dùng đã ở trong bảng này'
+        'Người dùng đã ở trong bảng này',
       );
     }
 
     const newMember = this.boardMemberRepository.create({
       boardId,
       userId,
-      role: BoardRole.EDITOR
+      role: BoardRole.EDITOR,
     });
 
     const savedMember = await this.boardMemberRepository.save(newMember);
@@ -589,10 +624,14 @@ export class BoardsService {
     return savedMember;
   }
 
-  async removeMember(boardId: string, userId: string, actorId: string): Promise<void> {
+  async removeMember(
+    boardId: string,
+    userId: string,
+    actorId: string,
+  ): Promise<void> {
     const board = await this.findOne(boardId);
     const existing = await this.boardMemberRepository.findOne({
-      where: { boardId, userId }
+      where: { boardId, userId },
     });
     if (existing) {
       await this.boardMemberRepository.remove(existing);

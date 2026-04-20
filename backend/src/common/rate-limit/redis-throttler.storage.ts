@@ -1,7 +1,8 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, OnModuleDestroy, Inject } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import Redis from 'ioredis';
+import { redisConfig } from '../../config';
 
 interface RateLimitStorageRecord {
   totalHits: number;
@@ -16,11 +17,14 @@ export class RedisThrottlerStorage
 {
   private readonly redis: Redis;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    @Inject(redisConfig.KEY)
+    redisConfigValues: ConfigType<typeof redisConfig>,
+  ) {
     this.redis = new Redis({
-      host: this.configService.get<string>('redis.host'),
-      port: this.configService.get<number>('redis.port'),
-      password: this.configService.get<string>('redis.password') || undefined,
+      host: redisConfigValues.host,
+      port: redisConfigValues.port,
+      password: redisConfigValues.password,
       lazyConnect: true,
       maxRetriesPerRequest: 1,
     });
@@ -59,7 +63,11 @@ export class RedisThrottlerStorage
 
     if (!isBlocked && totalHits > limit) {
       const nextBlockedUntil = now + blockDuration;
-      await this.redis.psetex(blockKey, blockDuration, String(nextBlockedUntil));
+      await this.redis.psetex(
+        blockKey,
+        blockDuration,
+        String(nextBlockedUntil),
+      );
       isBlocked = true;
       timeToBlockExpire = blockDuration;
     }

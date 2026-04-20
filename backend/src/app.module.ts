@@ -1,13 +1,23 @@
 import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigType } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { databaseConfig, jwtConfig, rateLimitConfig, redisConfig } from './config';
+import {
+  appConfig,
+  authConfig,
+  databaseConfig,
+  googleConfig,
+  jwtConfig,
+  mailConfig,
+  rateLimitConfig,
+  redisConfig,
+  stripeConfig,
+} from './config';
 import { redisStore } from 'cache-manager-ioredis-yet';
 import {
   User,
@@ -47,15 +57,25 @@ import { CsrfCookieGuard } from './common/guards';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, jwtConfig, redisConfig, rateLimitConfig],
+      load: [
+        appConfig,
+        authConfig,
+        databaseConfig,
+        googleConfig,
+        jwtConfig,
+        mailConfig,
+        rateLimitConfig,
+        redisConfig,
+        stripeConfig,
+      ],
       envFilePath: ['.env', 'backend/.env'],
     }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule, CommonModule],
-      inject: [ConfigService, RedisThrottlerStorage],
+      inject: [rateLimitConfig.KEY, RedisThrottlerStorage],
       useFactory: (
-        configService: ConfigService,
+        rateLimit: ConfigType<typeof rateLimitConfig>,
         storage: RedisThrottlerStorage,
       ) => ({
         storage,
@@ -63,103 +83,74 @@ import { CsrfCookieGuard } from './common/guards';
         throttlers: [
           {
             name: 'default',
-            ttl: configService.get<number>('rateLimit.default.ttlMs', 60_000),
+            ttl: rateLimit.default.ttlMs,
             limit: (context) => {
-              const request = context.switchToHttp().getRequest<Record<string, any>>();
+              const request = context
+                .switchToHttp()
+                .getRequest<Record<string, any>>();
               return request.user?.userId
-                ? configService.get<number>('rateLimit.default.limitAuthenticated', 600)
-                : configService.get<number>('rateLimit.default.limitAnonymous', 300);
+                ? rateLimit.default.limitAuthenticated
+                : rateLimit.default.limitAnonymous;
             },
-            blockDuration: configService.get<number>(
-              'rateLimit.default.blockDurationMs',
-              30_000,
-            ),
+            blockDuration: rateLimit.default.blockDurationMs,
           },
           // Specialized throttlers have high module-level defaults so they are
           // effectively disabled for routes without the matching decorator.
           // Each decorator (e.g. @LoginRateLimit) overrides these with strict limits.
           {
             name: 'auth',
-            ttl: configService.get<number>('rateLimit.auth.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.auth.limit', 10_000),
-            blockDuration: configService.get<number>(
-              'rateLimit.auth.blockDurationMs',
-              300_000,
-            ),
+            ttl: rateLimit.auth.ttlMs,
+            limit: rateLimit.auth.limit,
+            blockDuration: rateLimit.auth.blockDurationMs,
           },
           {
             name: 'search',
-            ttl: configService.get<number>('rateLimit.search.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.search.limit', 10_000),
-            blockDuration: configService.get<number>(
-              'rateLimit.search.blockDurationMs',
-              60_000,
-            ),
+            ttl: rateLimit.search.ttlMs,
+            limit: rateLimit.search.limit,
+            blockDuration: rateLimit.search.blockDurationMs,
           },
           {
             name: 'upload',
-            ttl: configService.get<number>('rateLimit.upload.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.upload.limit', 10_000),
-            blockDuration: configService.get<number>(
-              'rateLimit.upload.blockDurationMs',
-              300_000,
-            ),
+            ttl: rateLimit.upload.ttlMs,
+            limit: rateLimit.upload.limit,
+            blockDuration: rateLimit.upload.blockDurationMs,
           },
           {
             name: 'write',
-            ttl: configService.get<number>('rateLimit.write.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.write.limit', 10_000),
-            blockDuration: configService.get<number>(
-              'rateLimit.write.blockDurationMs',
-              60_000,
-            ),
+            ttl: rateLimit.write.ttlMs,
+            limit: rateLimit.write.limit,
+            blockDuration: rateLimit.write.blockDurationMs,
           },
           {
             name: 'dangerous',
-            ttl: configService.get<number>('rateLimit.dangerous.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.dangerous.limit', 10_000),
-            blockDuration: configService.get<number>(
-              'rateLimit.dangerous.blockDurationMs',
-              120_000,
-            ),
+            ttl: rateLimit.dangerous.ttlMs,
+            limit: rateLimit.dangerous.limit,
+            blockDuration: rateLimit.dangerous.blockDurationMs,
           },
           {
             name: 'notificationBulk',
-            ttl: configService.get<number>(
-              'rateLimit.notificationBulk.ttlMs',
-              60_000,
-            ),
-            limit: configService.get<number>(
-              'rateLimit.notificationBulk.limit',
-              10_000,
-            ),
-            blockDuration: configService.get<number>(
-              'rateLimit.notificationBulk.blockDurationMs',
-              60_000,
-            ),
+            ttl: rateLimit.notificationBulk.ttlMs,
+            limit: rateLimit.notificationBulk.limit,
+            blockDuration: rateLimit.notificationBulk.blockDurationMs,
           },
           {
             name: 'payments',
-            ttl: configService.get<number>('rateLimit.payments.ttlMs', 60_000),
-            limit: configService.get<number>('rateLimit.payments.limit', 10_000),
-            blockDuration: configService.get<number>(
-              'rateLimit.payments.blockDurationMs',
-              120_000,
-            ),
+            ttl: rateLimit.payments.ttlMs,
+            limit: rateLimit.payments.limit,
+            blockDuration: rateLimit.payments.blockDurationMs,
           },
           {
             name: 'read',
-            ttl: configService.get<number>('rateLimit.read.ttlMs', 60_000),
+            ttl: rateLimit.read.ttlMs,
             limit: (context) => {
-              const request = context.switchToHttp().getRequest<Record<string, any>>();
+              const request = context
+                .switchToHttp()
+                .getRequest<Record<string, any>>();
               return request.user?.userId
-                ? configService.get<number>('rateLimit.read.limitAuthenticated', 10_000)
-                : configService.get<number>('rateLimit.read.limitAnonymous', 10_000);
+                ? rateLimit.read.limitAuthenticated
+                : rateLimit.read.limitAnonymous;
             },
-            blockDuration: configService.get<number>(
-              'rateLimit.read.blockDurationMs',
-              60_000,
-            ),
+            blockDuration: rateLimit.read.blockDurationMs,
           },
         ],
       }),
@@ -167,25 +158,26 @@ import { CsrfCookieGuard } from './common/guards';
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
+      inject: [redisConfig.KEY],
+      useFactory: async (redis: ConfigType<typeof redisConfig>) => ({
         store: await redisStore({
-          host: configService.get<string>('redis.host'),
-          port: configService.get<number>('redis.port'),
-          password: configService.get<string>('redis.password') || undefined,
+          host: redis.host,
+          port: redis.port,
+          password: redis.password,
           ttl: 60,
         }),
       }),
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
+      inject: [databaseConfig.KEY],
+      useFactory: (database: ConfigType<typeof databaseConfig>) => ({
         type: 'mysql',
-        host: configService.get<string>('database.host'),
-        port: configService.get<number>('database.port'),
-        username: configService.get<string>('database.username'),
-        password: configService.get<string>('database.password'),
-        database: configService.get<string>('database.database'),
+        host: database.host,
+        port: database.port,
+        username: database.username,
+        password: database.password,
+        database: database.database,
         entities: [
           User,
           Workspace,
@@ -202,13 +194,12 @@ import { CsrfCookieGuard } from './common/guards';
           ActivityLog,
           Notification,
         ],
-        synchronize: configService.get<boolean>('database.synchronize'),
-        logging: configService.get<boolean>('database.logging'),
-        ssl: configService.get<boolean>('database.ssl')
+        synchronize: database.synchronize,
+        logging: database.logging,
+        ssl: database.ssl
           ? { minVersion: 'TLSv1.2', rejectUnauthorized: true }
           : false,
       }),
-      inject: [ConfigService],
     }),
     UsersModule,
     AuthModule,

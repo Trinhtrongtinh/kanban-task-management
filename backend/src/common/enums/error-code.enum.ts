@@ -80,10 +80,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
     'You are not authorized to access this resource',
   [ErrorCode.TOKEN_EXPIRED]: 'Your session has expired. Please login again',
   [ErrorCode.TOKEN_INVALID]: 'Invalid authentication token',
-  [ErrorCode.PASSWORD_RESET_TOKEN_INVALID]:
-    'Invalid password reset token',
-  [ErrorCode.PASSWORD_RESET_TOKEN_EXPIRED]:
-    'Password reset token has expired',
+  [ErrorCode.PASSWORD_RESET_TOKEN_INVALID]: 'Invalid password reset token',
+  [ErrorCode.PASSWORD_RESET_TOKEN_EXPIRED]: 'Password reset token has expired',
 
   // User
   [ErrorCode.USER_NOT_FOUND]: 'User not found',
@@ -102,7 +100,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.BOARD_ACCESS_DENIED]: 'You do not have access to this board',
   [ErrorCode.BOARD_SLUG_EXISTS]: 'Board slug is already taken',
   [ErrorCode.BOARD_TITLE_EXISTS]: 'Board name already exists in this workspace',
-  [ErrorCode.PLAN_LIMIT_EXCEEDED]: 'Bạn đã đạt giới hạn gói Free. Nâng cấp lên Pro để tiếp tục.',
+  [ErrorCode.PLAN_LIMIT_EXCEEDED]:
+    'Bạn đã đạt giới hạn gói Free. Nâng cấp lên Pro để tiếp tục.',
 
   // List
   [ErrorCode.LIST_NOT_FOUND]: 'List not found',

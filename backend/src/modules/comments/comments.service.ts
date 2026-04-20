@@ -109,7 +109,9 @@ export class CommentsService {
       mentionedBoardMembers = mentionedBoardMembers.filter(
         (member, index, members) =>
           member.userId !== userId &&
-          members.findIndex((candidate) => candidate.userId === member.userId) === index,
+          members.findIndex(
+            (candidate) => candidate.userId === member.userId,
+          ) === index,
       );
 
       for (const mentionedMember of mentionedBoardMembers) {
@@ -132,7 +134,10 @@ export class CommentsService {
           })
           .catch(() => null);
 
-        if (mentionedMember.user?.email && mentionedMember.user.notifyMentionEmail) {
+        if (
+          mentionedMember.user?.email &&
+          mentionedMember.user.notifyMentionEmail
+        ) {
           this.mailerService
             .sendMentionNotification(
               mentionedMember.user.email,

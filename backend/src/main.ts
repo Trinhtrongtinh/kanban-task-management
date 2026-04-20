@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors';
 import { AllExceptionsFilter } from './common/filters';
+import { appConfig } from './config';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -32,8 +33,12 @@ async function bootstrap() {
   // Register global response interceptor
   app.useGlobalInterceptors(new TransformInterceptor(app.get(Reflector)));
 
+  const appSettings = app.get(appConfig.KEY);
+  const frontendUrl = appSettings.frontendUrl;
+  const port = appSettings.port;
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: frontendUrl,
     credentials: true,
   });
 
@@ -43,6 +48,6 @@ async function bootstrap() {
   // Ensure secure cookies work correctly when running behind reverse proxies.
   app.set('trust proxy', 1);
 
-  await app.listen(process.env.PORT ?? 3001);
+  await app.listen(port);
 }
 bootstrap();

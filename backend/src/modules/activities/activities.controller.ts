@@ -1,4 +1,11 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards';

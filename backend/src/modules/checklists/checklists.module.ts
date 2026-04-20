@@ -7,7 +7,11 @@ import { ActivitiesModule } from '../activities/activities.module';
 import { CommonModule } from '../../common/common.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Checklist, ChecklistItem, Card]), ActivitiesModule, CommonModule],
+  imports: [
+    TypeOrmModule.forFeature([Checklist, ChecklistItem, Card]),
+    ActivitiesModule,
+    CommonModule,
+  ],
   controllers: [ChecklistsController],
   providers: [ChecklistsService],
   exports: [ChecklistsService],

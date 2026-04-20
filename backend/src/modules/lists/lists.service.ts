@@ -19,7 +19,7 @@ export class ListsService {
     private readonly boardRepository: Repository<Board>,
     private readonly cardsGateway: CardsGateway,
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   /**
    * Validate board exists
@@ -167,9 +167,12 @@ export class ListsService {
         .createQueryBuilder()
         .softDelete()
         .from(Attachment)
-        .where('card_id IN (SELECT id FROM cards WHERE list_id = :listId AND deleted_at IS NULL)', {
-          listId: id,
-        })
+        .where(
+          'card_id IN (SELECT id FROM cards WHERE list_id = :listId AND deleted_at IS NULL)',
+          {
+            listId: id,
+          },
+        )
         .execute();
 
       await manager.softDelete(Card, { listId: id });
@@ -208,7 +211,9 @@ export class ListsService {
         .createQueryBuilder()
         .restore()
         .from(Attachment)
-        .where('card_id IN (SELECT id FROM cards WHERE list_id = :listId)', { listId: id })
+        .where('card_id IN (SELECT id FROM cards WHERE list_id = :listId)', {
+          listId: id,
+        })
         .execute();
     });
 

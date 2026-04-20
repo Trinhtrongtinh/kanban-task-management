@@ -363,6 +363,19 @@ export function CardModal() {
     [currentCard, updateCard]
   );
 
+  const handleDownloadAttachment = useCallback(
+    async (attachmentId: string, fileName: string) => {
+      try {
+        await attachmentsApi.download(attachmentId, fileName);
+      } catch (error: any) {
+        toast.error('Không thể tải tệp đính kèm', {
+          description: error?.response?.data?.message || 'Vui lòng thử lại sau.',
+        });
+      }
+    },
+    []
+  );
+
   const handleDeleteCard = useCallback(() => {
     if (!id || !setLists) return;
     deleteCardApi.mutate(id);
@@ -524,14 +537,18 @@ export function CardModal() {
                             {t('cardModal.attachments.added', { date: addedDate })}
                           </p>
                           <div className="flex gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <a
-                              href={fileUrl}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDownloadAttachment(
+                                  attachment.id,
+                                  attachment.fileName
+                                )
+                              }
                               className="text-xs underline text-muted-foreground hover:text-foreground"
                             >
                               {t('cardModal.attachments.download')}
-                            </a>
+                            </button>
                             <span className="text-muted-foreground text-xs">·</span>
                             <button
                               type="button"

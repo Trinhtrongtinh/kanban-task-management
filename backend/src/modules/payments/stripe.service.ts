@@ -1,14 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
 import Stripe from 'stripe';
+import { stripeConfig } from '../../config';
 
 @Injectable()
 export class StripeService {
   private readonly logger = new Logger(StripeService.name);
   private stripe: Stripe;
 
-  constructor(private readonly configService: ConfigService) {
-    const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+  constructor(
+    @Inject(stripeConfig.KEY)
+    private readonly stripeSettings: ConfigType<typeof stripeConfig>,
+  ) {
+    const secretKey = this.stripeSettings.secretKey;
 
     if (!secretKey || secretKey === 'sk_test_xxx') {
       this.logger.warn(

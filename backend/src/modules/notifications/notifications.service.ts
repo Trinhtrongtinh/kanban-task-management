@@ -24,7 +24,7 @@ export class NotificationsService {
     private readonly notificationRepository: Repository<Notification>,
     private readonly notificationsGateway: NotificationsGateway,
     private readonly cacheService: AppCacheService,
-  ) { }
+  ) {}
 
   private async invalidateNotificationCache(userId: string): Promise<void> {
     await this.cacheService.delMany([

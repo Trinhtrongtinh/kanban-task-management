@@ -32,9 +32,12 @@ export class CardsService {
     private readonly activitiesService: ActivitiesService,
     private readonly cardsGateway: CardsGateway,
     private readonly notificationsService: NotificationsService,
-  ) { }
+  ) {}
 
-  private async validateAssigneeInBoard(listId: string, userId: string): Promise<void> {
+  private async validateAssigneeInBoard(
+    listId: string,
+    userId: string,
+  ): Promise<void> {
     const list = await this.listRepository.findOne({
       where: { id: listId },
       relations: ['board'],
@@ -60,7 +63,10 @@ export class CardsService {
     }
   }
 
-  private async validateMemberInBoard(listId: string, userId: string): Promise<void> {
+  private async validateMemberInBoard(
+    listId: string,
+    userId: string,
+  ): Promise<void> {
     await this.validateAssigneeInBoard(listId, userId);
   }
 
@@ -175,7 +181,11 @@ export class CardsService {
     return card;
   }
 
-  async update(id: string, updateCardDto: UpdateCardDto, userId: string): Promise<Card> {
+  async update(
+    id: string,
+    updateCardDto: UpdateCardDto,
+    userId: string,
+  ): Promise<Card> {
     const card = await this.findOne(id);
     const previousAssigneeId = card.assigneeId;
 
@@ -206,9 +216,13 @@ export class CardsService {
 
     if (rest.assigneeId !== undefined) {
       if (rest.assigneeId === null) {
-        card.members = (card.members || []).filter((m) => m.id !== previousAssigneeId);
+        card.members = (card.members || []).filter(
+          (m) => m.id !== previousAssigneeId,
+        );
       } else {
-        const existed = (card.members || []).some((m) => m.id === rest.assigneeId);
+        const existed = (card.members || []).some(
+          (m) => m.id === rest.assigneeId,
+        );
         if (!existed) {
           const user = await this.cardRepository.manager.findOne(User, {
             where: { id: rest.assigneeId },
@@ -267,21 +281,23 @@ export class CardsService {
       rest.assigneeId !== previousAssigneeId
     ) {
       const boardId = card.list?.boardId;
-      this.notificationsService.create({
-        userId: rest.assigneeId,
-        cardId: updatedCard.id,
-        type: NotificationType.CARD_ASSIGNED,
-        title: 'Bạn được giao một thẻ mới',
-        message: `Bạn được giao thẻ "${updatedCard.title}"`,
-        link: boardId
-          ? `/b/${boardId}?cardId=${updatedCard.id}&focus=activity`
-          : undefined,
-        metadata: {
-          boardId,
+      this.notificationsService
+        .create({
+          userId: rest.assigneeId,
           cardId: updatedCard.id,
-          listId: updatedCard.listId,
-        },
-      }).catch(() => null);
+          type: NotificationType.CARD_ASSIGNED,
+          title: 'Bạn được giao một thẻ mới',
+          message: `Bạn được giao thẻ "${updatedCard.title}"`,
+          link: boardId
+            ? `/b/${boardId}?cardId=${updatedCard.id}&focus=activity`
+            : undefined,
+          metadata: {
+            boardId,
+            cardId: updatedCard.id,
+            listId: updatedCard.listId,
+          },
+        })
+        .catch(() => null);
     }
 
     const fullUpdatedCard = await this.findOne(updatedCard.id);
@@ -291,11 +307,17 @@ export class CardsService {
     return fullUpdatedCard;
   }
 
-  async addMember(cardId: string, userId: string, addedByUserId?: string): Promise<Card> {
+  async addMember(
+    cardId: string,
+    userId: string,
+    addedByUserId?: string,
+  ): Promise<Card> {
     const card = await this.findOne(cardId);
     await this.validateMemberInBoard(card.listId, userId);
 
-    const hasMember = (card.members || []).some((member) => member.id === userId);
+    const hasMember = (card.members || []).some(
+      (member) => member.id === userId,
+    );
     if (!hasMember) {
       await this.cardRepository
         .createQueryBuilder()
@@ -325,20 +347,22 @@ export class CardsService {
       await this.cardRepository.update(cardId, { assigneeId: userId });
     }
 
-    this.notificationsService.create({
-      userId,
-      cardId,
-      type: NotificationType.CARD_ASSIGNED,
-      title: 'Bạn được thêm vào thẻ',
-      message: `Bạn vừa được thêm vào thẻ "${card.title}"`,
-      link: card.list?.boardId
-        ? `/b/${card.list.boardId}?cardId=${cardId}&focus=activity`
-        : undefined,
-      metadata: {
-        boardId: card.list?.boardId,
+    this.notificationsService
+      .create({
+        userId,
         cardId,
-      },
-    }).catch(() => null);
+        type: NotificationType.CARD_ASSIGNED,
+        title: 'Bạn được thêm vào thẻ',
+        message: `Bạn vừa được thêm vào thẻ "${card.title}"`,
+        link: card.list?.boardId
+          ? `/b/${card.list.boardId}?cardId=${cardId}&focus=activity`
+          : undefined,
+        metadata: {
+          boardId: card.list?.boardId,
+          cardId,
+        },
+      })
+      .catch(() => null);
 
     const fullCard = await this.findOne(cardId);
     this.cardsGateway.emitCardUpdated(fullCard.list.boardId, fullCard);
@@ -348,7 +372,9 @@ export class CardsService {
   async removeMember(cardId: string, userId: string): Promise<Card> {
     const card = await this.findOne(cardId);
 
-    const hasMember = (card.members || []).some((member) => member.id === userId);
+    const hasMember = (card.members || []).some(
+      (member) => member.id === userId,
+    );
     if (hasMember) {
       await this.cardRepository
         .createQueryBuilder()

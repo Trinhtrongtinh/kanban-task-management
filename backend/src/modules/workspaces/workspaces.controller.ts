@@ -23,7 +23,11 @@ import {
 import { JwtAuthGuard } from '../auth/guards';
 import { WorkspaceMemberGuard } from '../../common/guards';
 import { WorkspaceRole } from '../../common/enums';
-import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
+import {
+  DangerousWriteRateLimit,
+  ReadRateLimit,
+  WriteRateLimit,
+} from '../../common/rate-limit';
 
 @Controller('workspaces')
 export class WorkspacesController {
@@ -161,6 +165,10 @@ export class WorkspacesController {
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentUser('userId') requesterId: string,
   ): Promise<void> {
-    return this.workspacesService.removeMember(workspaceId, memberId, requesterId);
+    return this.workspacesService.removeMember(
+      workspaceId,
+      memberId,
+      requesterId,
+    );
   }
 }

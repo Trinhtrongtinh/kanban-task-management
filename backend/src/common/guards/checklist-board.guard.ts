@@ -53,7 +53,10 @@ export class ChecklistBoardGuard implements CanActivate {
     if (checklistIdFromParams) {
       // Route: POST :checklistId/items
       checklistId = checklistIdFromParams;
-    } else if (request.route?.path?.includes('/items/') || request.route?.path?.includes('items/')) {
+    } else if (
+      request.route?.path?.includes('/items/') ||
+      request.route?.path?.includes('items/')
+    ) {
       // Routes: PATCH items/:id, DELETE items/:id — params.id is the item's UUID
       const itemId = request.params.id;
       if (!itemId) {

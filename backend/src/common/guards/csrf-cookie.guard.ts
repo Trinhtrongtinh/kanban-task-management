@@ -3,18 +3,23 @@ import {
   ExecutionContext,
   HttpStatus,
   Injectable,
+  Inject,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigType } from '@nestjs/config';
 import { Request } from 'express';
 import { BusinessException } from '../exceptions';
 import { ErrorCode } from '../enums';
+import { authConfig } from '../../config';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const CSRF_HEADER_NAME = 'x-csrf-token';
 
 @Injectable()
 export class CsrfCookieGuard implements CanActivate {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    @Inject(authConfig.KEY)
+    private readonly auth: ConfigType<typeof authConfig>,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
@@ -23,21 +28,13 @@ export class CsrfCookieGuard implements CanActivate {
       return true;
     }
 
-    const accessCookieName = this.configService.get<string>(
-      'AUTH_ACCESS_COOKIE_NAME',
-      'access_token',
-    );
-    const refreshCookieName = this.configService.get<string>(
-      'AUTH_REFRESH_COOKIE_NAME',
-      'refresh_token',
-    );
-    const csrfCookieName = this.configService.get<string>(
-      'AUTH_CSRF_COOKIE_NAME',
-      'csrf_token',
-    );
+    const accessCookieName = this.auth.cookies.accessTokenName;
+    const refreshCookieName = this.auth.cookies.refreshTokenName;
+    const csrfCookieName = this.auth.cookies.csrfTokenName;
 
     const hasSessionCookie = Boolean(
-      request.cookies?.[accessCookieName] || request.cookies?.[refreshCookieName],
+      request.cookies?.[accessCookieName] ||
+      request.cookies?.[refreshCookieName],
     );
 
     if (!hasSessionCookie) {

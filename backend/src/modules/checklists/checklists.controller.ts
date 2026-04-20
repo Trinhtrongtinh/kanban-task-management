@@ -23,7 +23,10 @@ import {
 import { JwtAuthGuard } from '../auth/guards';
 import { ChecklistBoardGuard } from '../../common/guards';
 import { BoardRole } from '../../common/enums';
-import { DangerousWriteRateLimit, WriteRateLimit } from '../../common/rate-limit';
+import {
+  DangerousWriteRateLimit,
+  WriteRateLimit,
+} from '../../common/rate-limit';
 
 @Controller('checklists')
 export class ChecklistsController {

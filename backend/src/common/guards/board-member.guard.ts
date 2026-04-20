@@ -22,7 +22,7 @@ export class BoardMemberGuard implements CanActivate {
     private boardRepository: Repository<Board>,
     @InjectRepository(Workspace)
     private workspaceRepository: Repository<Workspace>,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.getAllAndOverride<BoardRole[]>(

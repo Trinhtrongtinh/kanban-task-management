@@ -7,7 +7,11 @@ import { ActivitiesModule } from '../activities/activities.module';
 import { CommonModule } from '../../common/common.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Attachment, Card]), ActivitiesModule, CommonModule],
+  imports: [
+    TypeOrmModule.forFeature([Attachment, Card]),
+    ActivitiesModule,
+    CommonModule,
+  ],
   controllers: [AttachmentsController],
   providers: [AttachmentsService],
   exports: [AttachmentsService],

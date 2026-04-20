@@ -7,7 +7,6 @@ import { AuthProviderContract } from './auth-provider.interface';
 import { LocalAuthProvider } from './local-auth.provider';
 import { GoogleAuthProvider } from './google-auth.provider';
 
-
 @Injectable()
 export class AuthProviderRegistry {
   private readonly providers = new Map<AuthProvider, AuthProviderContract>();
@@ -15,11 +14,9 @@ export class AuthProviderRegistry {
   constructor(
     localAuthProvider: LocalAuthProvider,
     googleAuthProvider: GoogleAuthProvider,
-
   ) {
     this.providers.set(localAuthProvider.provider, localAuthProvider);
     this.providers.set(googleAuthProvider.provider, googleAuthProvider);
-
   }
 
   get(provider: AuthProvider): AuthProviderContract {

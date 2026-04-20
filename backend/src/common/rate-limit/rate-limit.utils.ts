@@ -42,7 +42,8 @@ export function getAuthTargetTracker(
 
 export function getShortQueryAwareLimit(context: ExecutionContext): number {
   const request = context.switchToHttp().getRequest<Record<string, any>>();
-  const query = typeof request.query?.q === 'string' ? request.query.q.trim() : '';
+  const query =
+    typeof request.query?.q === 'string' ? request.query.q.trim() : '';
 
   return query.length > 0 && query.length < 2 ? 10 : 30;
 }

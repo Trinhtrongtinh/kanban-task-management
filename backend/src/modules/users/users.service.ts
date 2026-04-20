@@ -77,8 +77,10 @@ export class UsersService {
   ): Promise<Partial<User>> {
     const user = await this.findUserOrThrow(userId);
 
-    user.notifyDueDateEmail = updateNotificationPreferencesDto.notifyDueDateEmail;
-    user.notifyMentionEmail = updateNotificationPreferencesDto.notifyMentionEmail;
+    user.notifyDueDateEmail =
+      updateNotificationPreferencesDto.notifyDueDateEmail;
+    user.notifyMentionEmail =
+      updateNotificationPreferencesDto.notifyMentionEmail;
 
     const savedUser = await this.userRepository.save(user);
     return this.sanitizeUser(savedUser);
@@ -119,12 +121,25 @@ export class UsersService {
 
     try {
       // Remove explicit user references from join tables and logs first.
-      await queryRunner.query('DELETE FROM card_members WHERE user_id = ?', [userId]);
-      await queryRunner.query('DELETE FROM board_members WHERE user_id = ?', [userId]);
-      await queryRunner.query('DELETE FROM workspace_members WHERE user_id = ?', [userId]);
-      await queryRunner.query('DELETE FROM comments WHERE user_id = ?', [userId]);
-      await queryRunner.query('DELETE FROM activity_logs WHERE user_id = ?', [userId]);
-      await queryRunner.query('DELETE FROM notifications WHERE user_id = ?', [userId]);
+      await queryRunner.query('DELETE FROM card_members WHERE user_id = ?', [
+        userId,
+      ]);
+      await queryRunner.query('DELETE FROM board_members WHERE user_id = ?', [
+        userId,
+      ]);
+      await queryRunner.query(
+        'DELETE FROM workspace_members WHERE user_id = ?',
+        [userId],
+      );
+      await queryRunner.query('DELETE FROM comments WHERE user_id = ?', [
+        userId,
+      ]);
+      await queryRunner.query('DELETE FROM activity_logs WHERE user_id = ?', [
+        userId,
+      ]);
+      await queryRunner.query('DELETE FROM notifications WHERE user_id = ?', [
+        userId,
+      ]);
 
       // Some DB constraint orders can delete labels before cards, so clear
       // card-label join rows for owner workspaces first to avoid FK violations.
@@ -139,12 +154,15 @@ export class UsersService {
       );
 
       // Keep cards alive when this user is assignee.
-      await queryRunner.query('UPDATE cards SET assignee_id = NULL WHERE assignee_id = ?', [
-        userId,
-      ]);
+      await queryRunner.query(
+        'UPDATE cards SET assignee_id = NULL WHERE assignee_id = ?',
+        [userId],
+      );
 
       // Remove owned workspaces (and dependent boards/lists/cards via FK cascades).
-      await queryRunner.query('DELETE FROM workspaces WHERE owner_id = ?', [userId]);
+      await queryRunner.query('DELETE FROM workspaces WHERE owner_id = ?', [
+        userId,
+      ]);
 
       // Finally remove user.
       await queryRunner.query('DELETE FROM users WHERE id = ?', [userId]);
@@ -170,7 +188,10 @@ export class UsersService {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
-      throw new BusinessException(ErrorCode.USER_NOT_FOUND, HttpStatus.NOT_FOUND);
+      throw new BusinessException(
+        ErrorCode.USER_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return user;
@@ -186,7 +207,12 @@ export class UsersService {
       return;
     }
 
-    const filePath = join(process.cwd(), 'uploads', 'avatars', basename(avatarUrl));
+    const filePath = join(
+      process.cwd(),
+      'uploads',
+      'avatars',
+      basename(avatarUrl),
+    );
 
     try {
       await unlink(filePath);

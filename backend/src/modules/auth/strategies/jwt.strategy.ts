@@ -1,11 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigType } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../../database/entities';
+import { authConfig, jwtConfig } from '../../../config';
 
 export interface JwtPayload {
   sub: string;
@@ -15,20 +16,21 @@ export interface JwtPayload {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    private configService: ConfigService,
+    @Inject(authConfig.KEY)
+    auth: ConfigType<typeof authConfig>,
+    @Inject(jwtConfig.KEY)
+    jwt: ConfigType<typeof jwtConfig>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {
-    const accessCookieName =
-      configService.get<string>('AUTH_ACCESS_COOKIE_NAME') || 'access_token';
-
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (request: Request) => request?.cookies?.[accessCookieName] || null,
+        (request: Request) =>
+          request?.cookies?.[auth.cookies.accessTokenName] || null,
         ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('jwt.secret') || 'default_secret',
+      secretOrKey: jwt.secret,
     });
   }
 

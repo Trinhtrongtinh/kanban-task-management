@@ -23,7 +23,11 @@ import { CreateChecklistDto } from '../checklists/dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { CardBoardGuard, ListBoardGuard } from '../../common/guards';
 import { BoardRole } from '../../common/enums';
-import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
+import {
+  DangerousWriteRateLimit,
+  ReadRateLimit,
+  WriteRateLimit,
+} from '../../common/rate-limit';
 
 @Controller('cards')
 export class CardsController {
@@ -31,7 +35,7 @@ export class CardsController {
     private readonly cardsService: CardsService,
     private readonly labelsService: LabelsService,
     private readonly checklistsService: ChecklistsService,
-  ) { }
+  ) {}
 
   @Post()
   @WriteRateLimit()
@@ -175,4 +179,3 @@ export class CardsController {
     return this.cardsService.removeMember(cardId, userId);
   }
 }
-

@@ -67,7 +67,9 @@ export class AppCacheService {
       this.track('hit', key);
       return value ?? null;
     } catch (error: any) {
-      this.logger.warn(`Cache GET failed for key=${key}: ${error?.message || error}`);
+      this.logger.warn(
+        `Cache GET failed for key=${key}: ${error?.message || error}`,
+      );
       return null;
     }
   }
@@ -77,7 +79,9 @@ export class AppCacheService {
       await this.cache.set(key, value, ttlSeconds * 1000);
       this.track('set', key, `ttl=${ttlSeconds}s`);
     } catch (error: any) {
-      this.logger.warn(`Cache SET failed for key=${key}: ${error?.message || error}`);
+      this.logger.warn(
+        `Cache SET failed for key=${key}: ${error?.message || error}`,
+      );
     }
   }
 
@@ -86,7 +90,9 @@ export class AppCacheService {
       await this.cache.del(key);
       this.track('invalidate', key);
     } catch (error: any) {
-      this.logger.warn(`Cache DEL failed for key=${key}: ${error?.message || error}`);
+      this.logger.warn(
+        `Cache DEL failed for key=${key}: ${error?.message || error}`,
+      );
     }
   }
 

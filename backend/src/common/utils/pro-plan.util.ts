@@ -17,7 +17,9 @@ export function getDefaultProExpiry(referenceDate: Date = new Date()): Date {
   return addMonthsUtc(referenceDate, PRO_PLAN_DURATION_MONTHS);
 }
 
-export function toValidDate(value: Date | string | number | null | undefined): Date | null {
+export function toValidDate(
+  value: Date | string | number | null | undefined,
+): Date | null {
   if (value === null || value === undefined) {
     return null;
   }

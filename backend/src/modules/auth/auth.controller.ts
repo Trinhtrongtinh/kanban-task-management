@@ -11,8 +11,9 @@ import {
   Res,
   Req,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigType } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -23,10 +24,7 @@ import {
   VerifyResetTokenDto,
   ResetPasswordDto,
 } from './dto';
-import {
-  GoogleAuthGuard,
-  JwtAuthGuard,
-} from './guards';
+import { GoogleAuthGuard, JwtAuthGuard } from './guards';
 import { AuthProvider, User } from '../../database/entities';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
 import {
@@ -37,13 +35,19 @@ import {
   VerifyResetTokenRateLimit,
 } from '../../common/rate-limit';
 import { SocialAuthProfile } from './providers';
+import { appConfig, authConfig, jwtConfig } from '../../config';
 
 @Controller('auth')
 @UseInterceptors(ClassSerializerInterceptor)
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly configService: ConfigService,
+    @Inject(appConfig.KEY)
+    private readonly app: ConfigType<typeof appConfig>,
+    @Inject(authConfig.KEY)
+    private readonly auth: ConfigType<typeof authConfig>,
+    @Inject(jwtConfig.KEY)
+    private readonly jwt: ConfigType<typeof jwtConfig>,
   ) {}
 
   @Post('register')
@@ -118,8 +122,6 @@ export class AuthController {
     );
   }
 
-
-
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Profile retrieved successfully')
@@ -164,13 +166,9 @@ export class AuthController {
     accessToken: string,
     refreshToken: string,
   ): void {
-    const secure = this.configService.get<string>('NODE_ENV') === 'production';
-    const sameSite =
-      (this.configService.get<string>('AUTH_COOKIE_SAME_SITE', 'lax').toLowerCase() as
-        | 'lax'
-        | 'strict'
-        | 'none');
-    const domain = this.configService.get<string>('AUTH_COOKIE_DOMAIN') || undefined;
+    const secure = this.app.nodeEnv === 'production';
+    const sameSite = this.auth.cookies.sameSite;
+    const domain = this.auth.cookies.domain;
 
     response.cookie(this.getAccessCookieName(), accessToken, {
       httpOnly: true,
@@ -178,9 +176,7 @@ export class AuthController {
       sameSite,
       domain,
       path: '/',
-      maxAge: this.getCookieMaxAgeMs(
-        this.configService.get<string>('jwt.expiresIn', '15m'),
-      ),
+      maxAge: this.getCookieMaxAgeMs(this.jwt.expiresIn),
     });
 
     response.cookie(this.getRefreshCookieName(), refreshToken, {
@@ -189,9 +185,7 @@ export class AuthController {
       sameSite,
       domain,
       path: '/auth/refresh',
-      maxAge: this.getCookieMaxAgeMs(
-        this.configService.get<string>('jwt.refreshExpiresIn', '7d'),
-      ),
+      maxAge: this.getCookieMaxAgeMs(this.jwt.refreshExpiresIn),
     });
 
     response.cookie(this.getCsrfCookieName(), this.generateCsrfToken(), {
@@ -200,20 +194,14 @@ export class AuthController {
       sameSite,
       domain,
       path: '/',
-      maxAge: this.getCookieMaxAgeMs(
-        this.configService.get<string>('jwt.refreshExpiresIn', '7d'),
-      ),
+      maxAge: this.getCookieMaxAgeMs(this.jwt.refreshExpiresIn),
     });
   }
 
   private clearAuthCookies(response: Response): void {
-    const secure = this.configService.get<string>('NODE_ENV') === 'production';
-    const sameSite =
-      (this.configService.get<string>('AUTH_COOKIE_SAME_SITE', 'lax').toLowerCase() as
-        | 'lax'
-        | 'strict'
-        | 'none');
-    const domain = this.configService.get<string>('AUTH_COOKIE_DOMAIN') || undefined;
+    const secure = this.app.nodeEnv === 'production';
+    const sameSite = this.auth.cookies.sameSite;
+    const domain = this.auth.cookies.domain;
 
     response.clearCookie(this.getAccessCookieName(), {
       httpOnly: true,
@@ -239,15 +227,15 @@ export class AuthController {
   }
 
   private getAccessCookieName(): string {
-    return this.configService.get<string>('AUTH_ACCESS_COOKIE_NAME', 'access_token');
+    return this.auth.cookies.accessTokenName;
   }
 
   private getRefreshCookieName(): string {
-    return this.configService.get<string>('AUTH_REFRESH_COOKIE_NAME', 'refresh_token');
+    return this.auth.cookies.refreshTokenName;
   }
 
   private getCsrfCookieName(): string {
-    return this.configService.get<string>('AUTH_CSRF_COOKIE_NAME', 'csrf_token');
+    return this.auth.cookies.csrfTokenName;
   }
 
   private generateCsrfToken(): string {
@@ -291,18 +279,10 @@ export class AuthController {
   }
 
   private getAuthSuccessRedirectUrl(): string {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    return this.configService.get<string>(
-      'AUTH_SUCCESS_REDIRECT_URL',
-      `${frontendUrl}/social-callback`,
-    );
+    return this.auth.redirects.successUrl;
   }
 
   private getAuthFailureRedirectUrl(): string {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    return this.configService.get<string>(
-      'AUTH_FAILURE_REDIRECT_URL',
-      `${frontendUrl}/login?error=social_auth_failed`,
-    );
+    return this.auth.redirects.failureUrl;
   }
 }

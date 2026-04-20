@@ -1,0 +1,7 @@
+export declare const CACHE_TTL: {
+    readonly WORKSPACES_BY_USER_SECONDS: 60;
+    readonly BOARDS_BY_WORKSPACE_SECONDS: 60;
+    readonly LABELS_BY_BOARD_SECONDS: 120;
+    readonly NOTIFICATIONS_BY_USER_SECONDS: 30;
+    readonly NOTIFICATION_UNREAD_COUNT_SECONDS: 30;
+};

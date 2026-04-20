@@ -79,7 +79,11 @@ export class User {
   @Exclude()
   resetPasswordTokenHash: string | null;
 
-  @Column({ type: 'timestamp', nullable: true, name: 'reset_password_expires_at' })
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    name: 'reset_password_expires_at',
+  })
   resetPasswordExpiresAt: Date | null;
 
   @Column({
@@ -91,7 +95,11 @@ export class User {
   @Exclude()
   refreshTokenHash: string | null;
 
-  @Column({ type: 'timestamp', nullable: true, name: 'refresh_token_expires_at' })
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    name: 'refresh_token_expires_at',
+  })
   refreshTokenExpiresAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })

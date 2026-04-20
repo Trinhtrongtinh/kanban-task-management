@@ -20,10 +20,7 @@ import {
   ListBoardGuard,
   WorkspaceMemberGuard,
 } from './guards';
-import {
-  AppThrottlerGuard,
-  RedisThrottlerStorage,
-} from './rate-limit';
+import { AppThrottlerGuard, RedisThrottlerStorage } from './rate-limit';
 
 @Module({
   imports: [
@@ -63,4 +60,4 @@ import {
     TypeOrmModule,
   ],
 })
-export class CommonModule { }
+export class CommonModule {}

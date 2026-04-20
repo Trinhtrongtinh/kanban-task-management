@@ -3,7 +3,11 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ActivityLog, Board, Card } from '../../database/entities';
-import { CreateActivityLogDto, GetActivitiesQueryDto, ActivityTimeFilter } from './dto';
+import {
+  CreateActivityLogDto,
+  GetActivitiesQueryDto,
+  ActivityTimeFilter,
+} from './dto';
 import { BusinessException } from '../../common/exceptions';
 import { ErrorCode } from '../../common/enums';
 
@@ -72,7 +76,9 @@ export class ActivitiesService {
     return this.activityLogRepository.save(activityLog);
   }
 
-  async createLog(createActivityLogDto: CreateActivityLogDto): Promise<ActivityLog> {
+  async createLog(
+    createActivityLogDto: CreateActivityLogDto,
+  ): Promise<ActivityLog> {
     return this.logActivity(createActivityLogDto);
   }
 

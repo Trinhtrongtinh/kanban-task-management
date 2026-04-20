@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Inject,
   HttpCode,
   HttpStatus,
   Patch,
@@ -11,7 +12,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigType } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { UsersService } from './users.service';
@@ -29,12 +30,16 @@ import {
   UploadRateLimit,
   WriteRateLimit,
 } from '../../common/rate-limit';
+import { appConfig, authConfig } from '../../config';
 
 @Controller('users')
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
-    private readonly configService: ConfigService,
+    @Inject(appConfig.KEY)
+    private readonly app: ConfigType<typeof appConfig>,
+    @Inject(authConfig.KEY)
+    private readonly auth: ConfigType<typeof authConfig>,
   ) {}
 
   @Patch('me')
@@ -100,25 +105,30 @@ export class UsersController {
   }
 
   private clearAuthCookies(response: Response): void {
-    const secure = this.configService.get<string>('NODE_ENV') === 'production';
-    const sameSite =
-      (this.configService.get<string>('AUTH_COOKIE_SAME_SITE', 'lax').toLowerCase() as
-        | 'lax'
-        | 'strict'
-        | 'none');
-    const domain = this.configService.get<string>('AUTH_COOKIE_DOMAIN') || undefined;
+    const secure = this.app.nodeEnv === 'production';
+    const sameSite = this.auth.cookies.sameSite;
+    const domain = this.auth.cookies.domain;
 
-    response.clearCookie(
-      this.configService.get<string>('AUTH_ACCESS_COOKIE_NAME', 'access_token'),
-      { httpOnly: true, secure, sameSite, domain, path: '/' },
-    );
-    response.clearCookie(
-      this.configService.get<string>('AUTH_REFRESH_COOKIE_NAME', 'refresh_token'),
-      { httpOnly: true, secure, sameSite, domain, path: '/auth/refresh' },
-    );
-    response.clearCookie(
-      this.configService.get<string>('AUTH_CSRF_COOKIE_NAME', 'csrf_token'),
-      { httpOnly: false, secure, sameSite, domain, path: '/' },
-    );
+    response.clearCookie(this.auth.cookies.accessTokenName, {
+      httpOnly: true,
+      secure,
+      sameSite,
+      domain,
+      path: '/',
+    });
+    response.clearCookie(this.auth.cookies.refreshTokenName, {
+      httpOnly: true,
+      secure,
+      sameSite,
+      domain,
+      path: '/auth/refresh',
+    });
+    response.clearCookie(this.auth.cookies.csrfTokenName, {
+      httpOnly: false,
+      secure,
+      sameSite,
+      domain,
+      path: '/',
+    });
   }
 }

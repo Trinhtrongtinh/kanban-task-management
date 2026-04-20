@@ -65,7 +65,10 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   /**
    * Emit member:added event to all clients in the board room
    */
-  emitMemberAdded(boardId: string, member: BoardMember & { user?: any; role: string }) {
+  emitMemberAdded(
+    boardId: string,
+    member: BoardMember & { user?: any; role: string },
+  ) {
     this.server.to(`board:${boardId}`).emit('member:added', {
       boardId,
       member: {
@@ -73,12 +76,14 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userId: member.userId,
         boardId: member.boardId,
         role: member.role,
-        user: member.user ? {
-          id: member.user.id,
-          username: member.user.username,
-          email: member.user.email,
-          avatarUrl: member.user.avatarUrl,
-        } : null,
+        user: member.user
+          ? {
+              id: member.user.id,
+              username: member.user.username,
+              email: member.user.email,
+              avatarUrl: member.user.avatarUrl,
+            }
+          : null,
       },
     });
     this.logger.log(`Member added event emitted for board ${boardId}`);

@@ -1,8 +1,8 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpStatus, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigType } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { AuthProvider, PlanType, User } from '../../database/entities';
@@ -18,6 +18,7 @@ import { ErrorCode } from '../../common/enums';
 import { getDefaultProExpiry, isPlanExpired } from '../../common/utils';
 import { MailerService } from '../notifications/mailer.service';
 import { AuthProviderRegistry, SocialAuthProfile } from './providers';
+import { appConfig, jwtConfig } from '../../config';
 
 const RESET_TOKEN_EXPIRES_MINUTES = 30;
 
@@ -36,14 +37,15 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
+    @Inject(jwtConfig.KEY)
+    private readonly jwt: ConfigType<typeof jwtConfig>,
+    @Inject(appConfig.KEY)
+    private readonly app: ConfigType<typeof appConfig>,
     private readonly mailerService: MailerService,
     private readonly authProviderRegistry: AuthProviderRegistry,
   ) {}
 
-  async register(
-    registerDto: RegisterDto,
-  ): Promise<AuthSessionResult> {
+  async register(registerDto: RegisterDto): Promise<AuthSessionResult> {
     const provider = this.authProviderRegistry.get(AuthProvider.LOCAL);
     const user = await provider.register(registerDto);
 
@@ -55,9 +57,7 @@ export class AuthService {
     };
   }
 
-  async login(
-    loginDto: LoginDto,
-  ): Promise<AuthSessionResult> {
+  async login(loginDto: LoginDto): Promise<AuthSessionResult> {
     const provider = this.authProviderRegistry.get(AuthProvider.LOCAL);
     const user = await provider.login(loginDto);
 
@@ -85,7 +85,9 @@ export class AuthService {
 
   async refreshSession(refreshToken: string): Promise<AuthSessionResult> {
     const payload = this.verifyRefreshToken(refreshToken);
-    const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+    const user = await this.userRepository.findOne({
+      where: { id: payload.sub },
+    });
 
     if (!user || !user.refreshTokenHash) {
       throw new BusinessException(
@@ -234,12 +236,8 @@ export class AuthService {
   private generateRefreshToken(user: User): string {
     const payload = { sub: user.id, email: user.email, type: 'refresh' };
     return this.jwtService.sign(payload, {
-      secret:
-        this.configService.get<string>('jwt.refreshSecret') ||
-        this.configService.get<string>('jwt.secret') ||
-        'default_secret',
-      expiresIn:
-        (this.configService.get<string>('jwt.refreshExpiresIn') || '7d') as any,
+      secret: this.jwt.refreshSecret,
+      expiresIn: this.jwt.refreshExpiresIn,
     });
   }
 
@@ -249,9 +247,7 @@ export class AuthService {
     const accessToken = this.generateAccessToken(user);
     const refreshToken = this.generateRefreshToken(user);
     const refreshExpiresAt = new Date(
-      Date.now() + this.parseDurationToMs(
-        this.configService.get<string>('jwt.refreshExpiresIn', '7d'),
-      ),
+      Date.now() + this.parseDurationToMs(this.jwt.refreshExpiresIn),
     );
 
     user.refreshTokenHash = this.hashToken(refreshToken);
@@ -281,17 +277,19 @@ export class AuthService {
     await this.userRepository.save(user);
   }
 
-  private verifyRefreshToken(refreshToken: string): { sub: string; email: string; type?: string } {
+  private verifyRefreshToken(refreshToken: string): {
+    sub: string;
+    email: string;
+    type?: string;
+  } {
     try {
-      const payload = this.jwtService.verify<{ sub: string; email: string; type?: string }>(
-        refreshToken,
-        {
-          secret:
-            this.configService.get<string>('jwt.refreshSecret') ||
-            this.configService.get<string>('jwt.secret') ||
-            'default_secret',
-        },
-      );
+      const payload = this.jwtService.verify<{
+        sub: string;
+        email: string;
+        type?: string;
+      }>(refreshToken, {
+        secret: this.jwt.refreshSecret,
+      });
 
       if (payload.type !== 'refresh') {
         throw new Error('Invalid token type');
@@ -345,7 +343,9 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private async getUserByValidResetTokenHash(tokenHash: string): Promise<User | null> {
+  private async getUserByValidResetTokenHash(
+    tokenHash: string,
+  ): Promise<User | null> {
     const user = await this.userRepository.findOne({
       where: { resetPasswordTokenHash: tokenHash },
     });
@@ -368,14 +368,13 @@ export class AuthService {
   }
 
   private buildResetPasswordLink(token: string): string {
-    const frontendUrl = this.configService.get<string>(
-      'FRONTEND_URL',
-      'http://localhost:3000',
-    );
-    return `${frontendUrl}/reset-password?token=${token}`;
+    return `${this.app.frontendUrl}/reset-password?token=${token}`;
   }
 
-  private buildResetPasswordEmailHtml(username: string, resetLink: string): string {
+  private buildResetPasswordEmailHtml(
+    username: string,
+    resetLink: string,
+  ): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -403,7 +402,10 @@ export class AuthService {
     `;
   }
 
-  private buildResetPasswordEmailText(username: string, resetLink: string): string {
+  private buildResetPasswordEmailText(
+    username: string,
+    resetLink: string,
+  ): string {
     return [
       `Hello ${username || 'there'},`,
       'We received a request to reset your password.',
@@ -412,5 +414,4 @@ export class AuthService {
       'If you did not request this, please ignore this email.',
     ].join('\n');
   }
-
 }

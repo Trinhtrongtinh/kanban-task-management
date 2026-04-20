@@ -9,7 +9,7 @@ import {
   HttpStatus,
   Req,
 } from '@nestjs/common';
-  import { PaymentsService } from './payments.service';
+import { PaymentsService } from './payments.service';
 import { CreateCheckoutDto, VerifySessionDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { CurrentUser, ResponseMessage } from '../../common/decorators';
@@ -17,7 +17,7 @@ import { PaymentRateLimit } from '../../common/rate-limit';
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) { }
+  constructor(private readonly paymentsService: PaymentsService) {}
 
   /**
    * Stripe webhook — receives payment events (no auth, raw body required)
@@ -26,10 +26,10 @@ export class PaymentsController {
   @HttpCode(HttpStatus.OK)
   async handleWebhook(
     @Headers('stripe-signature') signature: string,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      @Req() req: any,
+
+    @Req() req: any,
   ): Promise<void> {
-    await this.paymentsService.handleWebhook((req as any).rawBody, signature);
+    await this.paymentsService.handleWebhook(req.rawBody, signature);
   }
 
   /**

@@ -24,7 +24,7 @@ export class SearchService {
    * Global search across workspaces, boards, and cards
    * Only returns results the user has access to
    */
-async globalSearch(dto: GlobalSearchDto, userId: string) {
+  async globalSearch(dto: GlobalSearchDto, userId: string) {
     const keyword = `%${dto.q}%`;
 
     const accessParams = {

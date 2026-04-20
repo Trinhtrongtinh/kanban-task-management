@@ -23,11 +23,15 @@ import {
 import { JwtAuthGuard } from '../auth/guards';
 import { BoardMemberGuard, WorkspaceMemberGuard } from '../../common/guards';
 import { BoardRole, WorkspaceRole } from '../../common/enums';
-import { DangerousWriteRateLimit, ReadRateLimit, WriteRateLimit } from '../../common/rate-limit';
+import {
+  DangerousWriteRateLimit,
+  ReadRateLimit,
+  WriteRateLimit,
+} from '../../common/rate-limit';
 
 @Controller('boards')
 export class BoardsController {
-  constructor(private readonly boardsService: BoardsService) { }
+  constructor(private readonly boardsService: BoardsService) {}
 
   @Post()
   @WriteRateLimit()
@@ -142,4 +146,3 @@ export class BoardsController {
     return this.boardsService.removeMember(id, memberId, userId);
   }
 }
-

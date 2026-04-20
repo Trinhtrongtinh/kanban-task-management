@@ -1,7 +1,13 @@
-import { Injectable, HttpStatus, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  HttpStatus,
+  Logger,
+  OnModuleInit,
+  Inject,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigType } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import {
   Workspace,
@@ -20,6 +26,7 @@ import { UsersService } from '../users/users.service';
 import { MailerService } from '../notifications/mailer.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AppCacheService, CACHE_TTL, CacheKeys } from '../../common/cache';
+import { appConfig } from '../../config';
 
 @Injectable()
 export class WorkspacesService implements OnModuleInit {
@@ -35,10 +42,11 @@ export class WorkspacesService implements OnModuleInit {
     private readonly dataSource: DataSource,
     private readonly usersService: UsersService,
     private readonly mailerService: MailerService,
-    private readonly configService: ConfigService,
+    @Inject(appConfig.KEY)
+    private readonly app: ConfigType<typeof appConfig>,
     private readonly notificationsService: NotificationsService,
     private readonly cacheService: AppCacheService,
-  ) { }
+  ) {}
 
   private async invalidateWorkspaceLists(userIds: string[]): Promise<void> {
     const keys = Array.from(new Set(userIds)).map((userId) =>
@@ -66,7 +74,7 @@ export class WorkspacesService implements OnModuleInit {
 
       if ((result.affected ?? 0) > 0) {
         this.logger.log(
-          `Normalized ${(result.affected ?? 0)} workspace member role(s) to MEMBER`,
+          `Normalized ${result.affected ?? 0} workspace member role(s) to MEMBER`,
         );
       }
     } catch (error: any) {
@@ -260,7 +268,11 @@ export class WorkspacesService implements OnModuleInit {
 
     const workspaceIds = memberships.map((m) => m.workspaceId);
     if (workspaceIds.length === 0) {
-      await this.cacheService.set(cacheKey, [], CACHE_TTL.WORKSPACES_BY_USER_SECONDS);
+      await this.cacheService.set(
+        cacheKey,
+        [],
+        CACHE_TTL.WORKSPACES_BY_USER_SECONDS,
+      );
       return [];
     }
 
@@ -270,9 +282,12 @@ export class WorkspacesService implements OnModuleInit {
       order: { createdAt: 'ASC' },
     });
 
-    const workspaceOrder = new Map(workspaceIds.map((id, index) => [id, index]));
+    const workspaceOrder = new Map(
+      workspaceIds.map((id, index) => [id, index]),
+    );
     const sortedWorkspaces = workspaces.sort(
-      (a, b) => (workspaceOrder.get(a.id) ?? 0) - (workspaceOrder.get(b.id) ?? 0),
+      (a, b) =>
+        (workspaceOrder.get(a.id) ?? 0) - (workspaceOrder.get(b.id) ?? 0),
     );
 
     await this.cacheService.set(
@@ -380,9 +395,12 @@ export class WorkspacesService implements OnModuleInit {
         .createQueryBuilder()
         .softDelete()
         .from(List)
-        .where('board_id IN (SELECT id FROM boards WHERE workspace_id = :workspaceId AND deleted_at IS NULL)', {
-          workspaceId: id,
-        })
+        .where(
+          'board_id IN (SELECT id FROM boards WHERE workspace_id = :workspaceId AND deleted_at IS NULL)',
+          {
+            workspaceId: id,
+          },
+        )
         .execute();
 
       await manager.softDelete(Board, { workspaceId: id });
@@ -430,7 +448,10 @@ export class WorkspacesService implements OnModuleInit {
         .createQueryBuilder()
         .restore()
         .from(List)
-        .where('board_id IN (SELECT id FROM boards WHERE workspace_id = :workspaceId)', { workspaceId: id })
+        .where(
+          'board_id IN (SELECT id FROM boards WHERE workspace_id = :workspaceId)',
+          { workspaceId: id },
+        )
         .execute();
       await manager
         .createQueryBuilder()
@@ -458,11 +479,13 @@ export class WorkspacesService implements OnModuleInit {
   }
 
   async findDeletedOwnedByUser(userId: string): Promise<Workspace[]> {
-    return this.workspaceRepository.find({
-      where: { ownerId: userId },
-      withDeleted: true,
-      order: { updatedAt: 'DESC' },
-    }).then((items) => items.filter((workspace) => !!workspace.deletedAt));
+    return this.workspaceRepository
+      .find({
+        where: { ownerId: userId },
+        withDeleted: true,
+        order: { updatedAt: 'DESC' },
+      })
+      .then((items) => items.filter((workspace) => !!workspace.deletedAt));
   }
 
   /**
@@ -724,11 +747,7 @@ export class WorkspacesService implements OnModuleInit {
   }
 
   private generateInviteLink(workspaceId: string, token: string): string {
-    const frontendUrl = this.configService.get<string>(
-      'FRONTEND_URL',
-      'http://localhost:3000',
-    );
-    return `${frontendUrl}/workspaces/${workspaceId}/accept-invite?token=${token}`;
+    return `${this.app.frontendUrl}/workspaces/${workspaceId}/accept-invite?token=${token}`;
   }
 
   private async createInvitation(

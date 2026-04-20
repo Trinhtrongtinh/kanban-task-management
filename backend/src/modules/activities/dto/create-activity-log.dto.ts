@@ -1,4 +1,11 @@
-import { IsEnum, IsObject, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { ActivityAction } from '../../../common/enums';
 
 export class CreateActivityLogDto {

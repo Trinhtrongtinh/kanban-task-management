@@ -50,7 +50,11 @@ export class AttachmentsService {
   /**
    * Upload and create attachment
    */
-  async create(cardId: string, file: Express.Multer.File, userId?: string): Promise<Attachment> {
+  async create(
+    cardId: string,
+    file: Express.Multer.File,
+    userId?: string,
+  ): Promise<Attachment> {
     // Validate card exists
     const card = await this.cardRepository.findOne({
       where: { id: cardId },
@@ -71,7 +75,12 @@ export class AttachmentsService {
       );
     }
 
-    const storedPath = path.join(process.cwd(), 'uploads', 'attachments', file.filename);
+    const storedPath = path.join(
+      process.cwd(),
+      'uploads',
+      'attachments',
+      file.filename,
+    );
 
     let savedAttachment: Attachment;
     try {
@@ -106,7 +115,9 @@ export class AttachmentsService {
           },
           content: `Đã đính kèm file "${file.originalname}" vào thẻ "${card.title}"`,
         })
-        .catch((err) => this.logger.error('Failed to log attachment activity', err));
+        .catch((err) =>
+          this.logger.error('Failed to log attachment activity', err),
+        );
     }
 
     return savedAttachment;
@@ -141,6 +152,41 @@ export class AttachmentsService {
     }
 
     return attachment;
+  }
+
+  /**
+   * Resolve the attachment file path for authenticated download.
+   */
+  async getDownloadInfo(
+    id: string,
+  ): Promise<{ attachment: Attachment; absoluteFilePath: string }> {
+    const attachment = await this.findOne(id);
+
+    const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+    const relativeFilePath = attachment.fileUrl.replace(/^\/+/, '');
+    const absoluteFilePath = path.resolve(process.cwd(), relativeFilePath);
+
+    // Prevent path traversal and ensure files stay under uploads root.
+    if (
+      absoluteFilePath !== uploadsRoot &&
+      !absoluteFilePath.startsWith(`${uploadsRoot}${path.sep}`)
+    ) {
+      throw new BusinessException(
+        ErrorCode.ATTACHMENT_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    try {
+      await fs.promises.access(absoluteFilePath, fs.constants.R_OK);
+    } catch {
+      throw new BusinessException(
+        ErrorCode.ATTACHMENT_NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return { attachment, absoluteFilePath };
   }
 
   async restore(id: string): Promise<Attachment> {

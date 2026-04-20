@@ -1,27 +1,23 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import {
-  Profile,
-  Strategy,
-  VerifyCallback,
-} from 'passport-google-oauth20';
+import { Profile, Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { SocialAuthProfile } from '../providers';
+import { appConfig, googleConfig } from '../../../config';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
-  constructor(private readonly configService: ConfigService) {
-    const backendBaseUrl =
-      configService.get<string>('BACKEND_URL') ||
-      `http://localhost:${configService.get<string>('PORT', '3001')}`;
-
+  constructor(
+    @Inject(appConfig.KEY)
+    app: ConfigType<typeof appConfig>,
+    @Inject(googleConfig.KEY)
+    google: ConfigType<typeof googleConfig>,
+  ) {
     super({
-      clientID: configService.get<string>('GOOGLE_CLIENT_ID') || 'not-configured',
-      clientSecret:
-        configService.get<string>('GOOGLE_CLIENT_SECRET') || 'not-configured',
+      clientID: google.clientId,
+      clientSecret: google.clientSecret,
       callbackURL:
-        configService.get<string>('GOOGLE_CALLBACK_URL') ||
-        `${backendBaseUrl}/auth/google/callback`,
+        google.callbackUrl || `${app.backendUrl}/auth/google/callback`,
       scope: ['email', 'profile'],
     });
   }
@@ -35,7 +31,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const email = profile.emails?.[0]?.value?.trim().toLowerCase();
 
     if (!email) {
-      return done(new UnauthorizedException('Google account email is unavailable'), false);
+      return done(
+        new UnauthorizedException('Google account email is unavailable'),
+        false,
+      );
     }
 
     const user: SocialAuthProfile = {

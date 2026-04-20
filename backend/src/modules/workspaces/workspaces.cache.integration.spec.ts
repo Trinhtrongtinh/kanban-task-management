@@ -12,7 +12,9 @@ import { AppCacheService, CacheKeys } from '../../common/cache';
 describe('WorkspacesService Cache Integration', () => {
   let service: WorkspacesService;
   let workspaceRepository: jest.Mocked<Partial<Repository<Workspace>>>;
-  let workspaceMemberRepository: jest.Mocked<Partial<Repository<WorkspaceMember>>>;
+  let workspaceMemberRepository: jest.Mocked<
+    Partial<Repository<WorkspaceMember>>
+  >;
   let userRepository: jest.Mocked<Partial<Repository<User>>>;
   let cacheService: jest.Mocked<Partial<AppCacheService>>;
 
@@ -53,8 +55,14 @@ describe('WorkspacesService Cache Integration', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WorkspacesService,
-        { provide: getRepositoryToken(Workspace), useValue: workspaceRepository },
-        { provide: getRepositoryToken(WorkspaceMember), useValue: workspaceMemberRepository },
+        {
+          provide: getRepositoryToken(Workspace),
+          useValue: workspaceRepository,
+        },
+        {
+          provide: getRepositoryToken(WorkspaceMember),
+          useValue: workspaceMemberRepository,
+        },
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: DataSource, useValue: { createQueryRunner: jest.fn() } },
         { provide: UsersService, useValue: { findByEmail: jest.fn() } },

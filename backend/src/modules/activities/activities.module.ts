@@ -13,7 +13,13 @@ import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ActivityLog, Board, Card, BoardMember, Workspace]),
+    TypeOrmModule.forFeature([
+      ActivityLog,
+      Board,
+      Card,
+      BoardMember,
+      Workspace,
+    ]),
     CommonModule,
   ],
   controllers: [ActivitiesController],

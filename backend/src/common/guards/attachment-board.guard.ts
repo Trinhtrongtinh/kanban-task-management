@@ -8,12 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  Attachment,
-  Board,
-  BoardMember,
-  Card,
-} from '../../database/entities';
+import { Attachment, Board, BoardMember, Card } from '../../database/entities';
 import { BoardRole } from '../enums';
 import { BOARD_ROLES_KEY } from '../decorators';
 

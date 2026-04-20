@@ -1,7 +1,7 @@
-import { Injectable, Logger, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, HttpStatus, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigType } from '@nestjs/config';
 import Stripe from 'stripe';
 import { User, PlanType } from '../../database/entities';
 import { StripeService } from './stripe.service';
@@ -17,6 +17,7 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { MailerService } from '../notifications/mailer.service';
 import { NotificationType } from '../../database/entities/notification.entity';
+import { appConfig, stripeConfig } from '../../config';
 
 @Injectable()
 export class PaymentsService {
@@ -27,10 +28,13 @@ export class PaymentsService {
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
     private readonly stripeService: StripeService,
-    private readonly configService: ConfigService,
+    @Inject(appConfig.KEY)
+    private readonly app: ConfigType<typeof appConfig>,
+    @Inject(stripeConfig.KEY)
+    private readonly stripe: ConfigType<typeof stripeConfig>,
     private readonly notificationsService: NotificationsService,
     private readonly mailerService: MailerService,
-  ) { }
+  ) {}
 
   /**
    * Create Stripe checkout session
@@ -56,10 +60,7 @@ export class PaymentsService {
       );
     }
 
-    const frontendUrl = this.configService.get<string>(
-      'FRONTEND_URL',
-      'http://localhost:3000',
-    );
+    const frontendUrl = this.app.frontendUrl;
     const successUrl =
       createCheckoutDto.successUrl ||
       `${frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`;
@@ -67,9 +68,7 @@ export class PaymentsService {
       createCheckoutDto.cancelUrl || `${frontendUrl}/payment/cancel`;
 
     // Use priceId from request or fallback to env
-    const priceId =
-      createCheckoutDto.priceId ||
-      this.configService.get<string>('STRIPE_PRO_PRICE_ID');
+    const priceId = createCheckoutDto.priceId || this.stripe.proPriceId;
     if (!priceId) {
       throw new BusinessException(
         ErrorCode.VALIDATION_ERROR,
@@ -97,9 +96,7 @@ export class PaymentsService {
    * Handle Stripe webhook events
    */
   async handleWebhook(payload: Buffer, signature: string): Promise<void> {
-    const webhookSecret = this.configService.get<string>(
-      'STRIPE_WEBHOOK_SECRET',
-    );
+    const webhookSecret = this.stripe.webhookSecret;
 
     if (!webhookSecret || webhookSecret === 'whsec_xxx') {
       this.logger.error('Stripe webhook secret not configured');
@@ -451,10 +448,7 @@ export class PaymentsService {
       );
     }
 
-    const frontendUrl = this.configService.get<string>(
-      'FRONTEND_URL',
-      'http://localhost:3000',
-    );
+    const frontendUrl = this.app.frontendUrl;
     const session = await this.stripeService.createPortalSession(
       user.stripeCustomerId,
       `${frontendUrl}/settings/billing`,
@@ -467,9 +461,11 @@ export class PaymentsService {
     subscription: Stripe.Subscription | null,
     currentExpiry: Date | null,
   ): Date {
-    const subscriptionWithPeriod = subscription as (Stripe.Subscription & {
-      current_period_end?: number;
-    }) | null;
+    const subscriptionWithPeriod = subscription as
+      | (Stripe.Subscription & {
+          current_period_end?: number;
+        })
+      | null;
     const stripeExpiry = toValidDate(
       typeof subscriptionWithPeriod?.current_period_end === 'number'
         ? subscriptionWithPeriod.current_period_end * 1000
@@ -481,7 +477,9 @@ export class PaymentsService {
     }
 
     const baseDate =
-      currentExpiry && !isPlanExpired(currentExpiry) ? currentExpiry : new Date();
+      currentExpiry && !isPlanExpired(currentExpiry)
+        ? currentExpiry
+        : new Date();
     return getDefaultProExpiry(baseDate);
   }
 

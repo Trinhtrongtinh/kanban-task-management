@@ -50,7 +50,9 @@ describe('LabelsService Cache Integration', () => {
   });
 
   it('returns cached board labels when cache hit', async () => {
-    const cached = [{ id: 'l1', boardId: 'b1', name: 'bug' }] as unknown as Label[];
+    const cached = [
+      { id: 'l1', boardId: 'b1', name: 'bug' },
+    ] as unknown as Label[];
     (cacheService.get as jest.Mock).mockResolvedValue(cached);
 
     const result = await service.findAllByBoard('b1');
@@ -81,10 +83,15 @@ describe('LabelsService Cache Integration', () => {
       name: 'urgent',
       colorCode: '#f00',
     });
-    (labelRepository.save as jest.Mock).mockResolvedValue({ id: 'l2', boardId: 'b1' });
+    (labelRepository.save as jest.Mock).mockResolvedValue({
+      id: 'l2',
+      boardId: 'b1',
+    });
 
     await service.create({ boardId: 'b1', name: 'urgent', colorCode: '#f00' });
 
-    expect(cacheService.del).toHaveBeenCalledWith(CacheKeys.labelsByBoard('b1'));
+    expect(cacheService.del).toHaveBeenCalledWith(
+      CacheKeys.labelsByBoard('b1'),
+    );
   });
 });

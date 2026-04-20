@@ -67,7 +67,11 @@ export class AuthUserProvisioningService {
   }
 
   private buildUsername(socialProfile: SocialAuthProfile): string {
-    const candidate = (socialProfile.username || socialProfile.email.split('@')[0] || 'user')
+    const candidate = (
+      socialProfile.username ||
+      socialProfile.email.split('@')[0] ||
+      'user'
+    )
       .trim()
       .replace(/\s+/g, ' ')
       .slice(0, 50);

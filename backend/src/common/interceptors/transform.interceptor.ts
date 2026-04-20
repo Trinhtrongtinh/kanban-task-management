@@ -3,6 +3,7 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
+  StreamableFile,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
@@ -32,6 +33,11 @@ export class TransformInterceptor<T> implements NestInterceptor<
 
     return next.handle().pipe(
       map((data) => {
+        // Keep binary/stream responses untouched (e.g., attachment downloads).
+        if (data instanceof StreamableFile) {
+          return data as unknown as IApiResponse<T>;
+        }
+
         // Prevent double-wrapping if controller already returns ApiResponse
         if (ApiResponse.isApiResponse(data)) {
           return data as IApiResponse<T>;
