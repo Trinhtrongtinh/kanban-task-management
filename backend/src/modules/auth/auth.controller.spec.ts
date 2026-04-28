@@ -69,6 +69,7 @@ describe('AuthController', () => {
     expect(result).toEqual({
       user: { id: 'user-1', email: 'tinh@example.com' },
     });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(response.cookie).toHaveBeenCalledTimes(3);
   });
 
@@ -81,7 +82,9 @@ describe('AuthController', () => {
 
     const result = await controller.logout('user-1', response);
 
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(authService.logout).toHaveBeenCalledWith('user-1');
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(response.clearCookie).toHaveBeenCalledTimes(3);
     expect(result).toEqual({ success: true });
   });
