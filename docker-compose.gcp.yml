@@ -1,0 +1,92 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: trello_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      MYSQL_DATABASE: ${DB_DATABASE:-trello_clone}
+      MYSQL_USER: ${DB_USERNAME:-trello_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-trello_pass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: trello_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  backend:
+    build:
+      context: .
+      target: backend-run
+    container_name: trello_backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      FRONTEND_URL: ${FRONTEND_URL}
+      BACKEND_URL: ${BACKEND_URL}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USERNAME: ${DB_USERNAME:-trello_user}
+      DB_PASSWORD: ${DB_PASSWORD:-trello_pass}
+      DB_DATABASE: ${DB_DATABASE:-trello_clone}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID:-}
+      AUTH_SUCCESS_REDIRECT_URL: ${AUTH_SUCCESS_REDIRECT_URL:-}
+      AUTH_FAILURE_REDIRECT_URL: ${AUTH_FAILURE_REDIRECT_URL:-}
+    ports:
+      - "3001:3001"
+    volumes:
+      - backend_uploads:/app/backend/uploads
+
+  frontend:
+    build:
+      context: .
+      target: frontend-run
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+    container_name: trello_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+
+volumes:
+  mysql_data:
+  redis_data:
+  backend_uploads:

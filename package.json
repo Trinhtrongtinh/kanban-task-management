@@ -15,9 +15,13 @@
     "build:backend": "npm run build --workspace=backend",
     "build:frontend": "npm run build --workspace=frontend",
     "lint": "npm run lint --workspaces",
+    "lint:ci": "npm run lint:ci --workspaces",
+    "test:backend": "npm run test --workspace=backend",
     "test": "npm run test --workspaces"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/mocha": "^10.0.10",
     "concurrently": "^9.1.2"
   },
   "engines": {

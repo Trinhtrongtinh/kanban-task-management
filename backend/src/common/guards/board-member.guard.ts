@@ -3,7 +3,6 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
-  NotFoundException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';

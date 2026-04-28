@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { useEffect } from 'react';
 import { PasswordInput } from "@/components/ui/password-input"
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,15 +55,18 @@ export default function RegisterPage() {
   const router = useRouter();
   const { t } = useI18n();
   const login = useAuthStore((s) => s.login);
-  const [serverError, setServerError] = useState<string | null>(null);
-  const googleLoginUrl = authApi.getGoogleLoginUrl();
-
-  useEffect(() => {
-    const errorCode = new URLSearchParams(window.location.search).get('error');
-    if (errorCode === 'social_auth_failed') {
-      setServerError('Đăng ký bằng mạng xã hội thất bại. Vui lòng thử lại.');
+  const initialSocialError = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return null;
     }
+
+    const errorCode = new URLSearchParams(window.location.search).get('error');
+    return errorCode === 'social_auth_failed'
+      ? 'Đăng ký bằng mạng xã hội thất bại. Vui lòng thử lại.'
+      : null;
   }, []);
+  const [serverError, setServerError] = useState<string | null>(initialSocialError);
+  const googleLoginUrl = authApi.getGoogleLoginUrl();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),

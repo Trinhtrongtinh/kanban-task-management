@@ -62,4 +62,4 @@ CLAUDE.md
 backend/src/cleanup.ts
 backend/API_UNUSED_DECISIONS.md
 *.md
-!README.md
+# !README.md

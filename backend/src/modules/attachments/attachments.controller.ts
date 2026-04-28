@@ -110,7 +110,10 @@ export class AttachmentsController {
       'Content-Disposition',
       `attachment; filename*=UTF-8''${encodedFileName}`,
     );
-    res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
+    res.setHeader(
+      'Content-Type',
+      attachment.fileType || 'application/octet-stream',
+    );
 
     return new StreamableFile(fs.createReadStream(absoluteFilePath));
   }

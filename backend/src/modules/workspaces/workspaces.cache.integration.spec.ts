@@ -8,6 +8,7 @@ import { UsersService } from '../users/users.service';
 import { MailerService } from '../notifications/mailer.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AppCacheService, CacheKeys } from '../../common/cache';
+import { appConfig } from '../../config';
 
 describe('WorkspacesService Cache Integration', () => {
   let service: WorkspacesService;
@@ -68,6 +69,12 @@ describe('WorkspacesService Cache Integration', () => {
         { provide: UsersService, useValue: { findByEmail: jest.fn() } },
         { provide: MailerService, useValue: { sendInviteEmail: jest.fn() } },
         { provide: ConfigService, useValue: { get: jest.fn() } },
+        {
+          provide: appConfig.KEY,
+          useValue: {
+            frontendUrl: 'http://localhost:3000',
+          },
+        },
         { provide: NotificationsService, useValue: { create: jest.fn() } },
         { provide: AppCacheService, useValue: cacheService },
       ],
