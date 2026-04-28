@@ -32,7 +32,7 @@ export function LabelPicker() {
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  // Suggested Trello-like colors
+  // Suggested Kanban-like colors
   const presetColors = [
     '#22c55e', '#facc15', '#f97316', '#ef4444',
     '#a855f7', '#3b82f6', '#06b6d4', '#10b981',

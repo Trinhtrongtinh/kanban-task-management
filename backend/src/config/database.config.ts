@@ -6,7 +6,7 @@ export default registerAs('database', () => ({
   port: parseInt(process.env.DB_PORT || '3306', 10),
   username: process.env.DB_USERNAME || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_DATABASE || 'trello_clone',
+  database: process.env.DB_DATABASE || 'kanban_clone',
   synchronize: process.env.NODE_ENV !== 'production',
   logging: process.env.NODE_ENV === 'development',
   // Set DB_SSL=true when connecting to cloud databases (TiDB, PlanetScale, etc.)

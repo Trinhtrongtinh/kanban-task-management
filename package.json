@@ -1,8 +1,8 @@
 {
-  "name": "trello-clone",
+  "name": "kanban-clone",
   "version": "1.0.0",
   "private": true,
-  "description": "Trello Clone - Kanban Project Management System",
+  "description": "Kanban Clone - Kanban Project Management System",
   "workspaces": [
     "backend",
     "frontend"

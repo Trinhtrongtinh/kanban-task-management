@@ -1,5 +1,5 @@
--- Grant all privileges to trello_user
-GRANT ALL PRIVILEGES ON trello_clone.* TO 'trello_user'@'%';
+-- Grant all privileges to kanban_user
+GRANT ALL PRIVILEGES ON kanban_clone.* TO 'kanban_user'@'%';
 FLUSH PRIVILEGES;
 
 -- Set timezone

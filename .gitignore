@@ -16,6 +16,7 @@ out/
 
 # Environment files
 .env
+.env.gcp
 .env.local
 .env.production
 .env.staging

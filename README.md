@@ -49,7 +49,7 @@ Stripe     -> Thanh toán / plan
 ## Cấu Trúc Thư Mục
 
 ```text
-trello-clone/
+kanban-clone/
 ├── backend/          # NestJS API server
 ├── frontend/         # Next.js web app
 ├── docker-compose.yml
@@ -122,9 +122,9 @@ BACKEND_URL=http://localhost:3001
 
 DB_HOST=localhost
 DB_PORT=3306
-DB_USERNAME=trello_user
-DB_PASSWORD=trello_pass
-DB_DATABASE=trello_clone
+DB_USERNAME=kanban_user
+DB_PASSWORD=kanban_pass
+DB_DATABASE=kanban_clone
 
 JWT_SECRET=your_jwt_secret_key_here
 JWT_EXPIRES_IN=7d
