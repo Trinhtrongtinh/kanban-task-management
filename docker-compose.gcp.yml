@@ -83,7 +83,10 @@ services:
     depends_on:
       - backend
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-production}
+      JWT_SECRET: ${JWT_SECRET}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN}
       PORT: 3000
     ports:
       - "3000:3000"
