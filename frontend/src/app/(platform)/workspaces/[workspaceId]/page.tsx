@@ -213,17 +213,6 @@ export default function WorkspaceDashboardPage({
     return owner?.user?.username ?? owner?.user?.email ?? t('dashboard.unknownOwner');
   }, [members, t, user?.id, workspace]);
 
-  const normalizedCurrentUserId = user?.id ? String(user.id) : null;
-  const canManageWorkspace = Boolean(
-    workspace && normalizedCurrentUserId && (
-      String(workspace.ownerId) === normalizedCurrentUserId ||
-      members.some((member) =>
-        String(member.userId) === normalizedCurrentUserId &&
-        (member.role === 'OWNER' || member.role === 'ADMIN'),
-      )
-    ),
-  );
-
   const isLoading = isWorkspaceLoading || isBoardsLoading;
   const normalizedPage = Math.min(Math.max(currentPage, 1), totalPages);
   const pagedBoards = useMemo(() => {
@@ -276,7 +265,7 @@ export default function WorkspaceDashboardPage({
               </div>
             </div>
 
-            {canManageWorkspace && (
+            {workspace?.ownerId === user?.id && (
               <Link href={`/workspaces/${workspaceId}/settings`}>
                 <Button variant="outline" className="gap-2">
                   <Settings className="w-4 h-4" />

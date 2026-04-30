@@ -66,9 +66,8 @@ export function BoardNavbar({ boardId, title, workspaceId, backgroundUrl }: Boar
   const { data: workspaceMembers = [] } = useWorkspaceMembers(workspaceId);
 
   // Determine if the current user is a board admin
-  const normalizedCurrentUserId = currentUserId ? String(currentUserId) : null;
-  const isAdmin = Boolean(
-    normalizedCurrentUserId && boardMembers.some((m) => String(m.id) === normalizedCurrentUserId && m.role === 'ADMIN'),
+  const isAdmin = boardMembers.some(
+    (m) => m.id === currentUserId && m.role === 'ADMIN',
   );
 
   const addMemberMutation = useAddMemberToBoard(boardId);
