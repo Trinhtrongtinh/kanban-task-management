@@ -159,7 +159,9 @@ export class PaymentsService {
   ): Promise<void> {
     const userId = session.client_reference_id;
     const customerId = session.customer as string;
-    const subscriptionId = session.subscription as string;
+    const subscriptionId = typeof session.subscription === 'string'
+      ? session.subscription
+      : (session.subscription as Stripe.Subscription)?.id;
 
     if (!userId) {
       this.logger.error('No client_reference_id found in checkout session');
