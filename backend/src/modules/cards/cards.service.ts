@@ -18,6 +18,12 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 // Default position increment for new cards
 const POSITION_GAP = 65535;
+const DEADLINE_TIMEZONE = 'Asia/Ho_Chi_Minh';
+const DEADLINE_END_HOUR = 23;
+const DEADLINE_END_MINUTE = 58;
+const DEADLINE_END_SECOND = 59;
+const DEADLINE_END_MILLISECOND = 999;
+const DEADLINE_TIMEZONE_OFFSET_HOURS = 7;
 
 @Injectable()
 export class CardsService {
@@ -103,6 +109,36 @@ export class CardsService {
     return lastCard.position + POSITION_GAP;
   }
 
+  private normalizeDeadline(deadline: string): Date {
+    const sourceDate = new Date(deadline);
+    console.log('[normalizeDeadline] Input:', deadline);
+
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: DEADLINE_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(sourceDate);
+
+    const year = Number(parts.find((part) => part.type === 'year')?.value);
+    const month = Number(parts.find((part) => part.type === 'month')?.value);
+    const day = Number(parts.find((part) => part.type === 'day')?.value);
+
+    const normalized = new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day,
+        DEADLINE_END_HOUR - DEADLINE_TIMEZONE_OFFSET_HOURS,
+        DEADLINE_END_MINUTE,
+        DEADLINE_END_SECOND,
+        DEADLINE_END_MILLISECOND,
+      ),
+    );
+    console.log('[normalizeDeadline] Output:', normalized.toISOString());
+    return normalized;
+  }
+
   async create(createCardDto: CreateCardDto, userId: string): Promise<Card> {
     const { title, listId, deadline, assigneeId, ...rest } = createCardDto;
 
@@ -120,7 +156,7 @@ export class CardsService {
       title,
       listId,
       position,
-      deadline: deadline ? new Date(deadline) : null,
+      deadline: deadline ? this.normalizeDeadline(deadline) : null,
       assigneeId: assigneeId || null,
       ...rest,
     });
@@ -191,6 +227,9 @@ export class CardsService {
 
     const { listId, deadline, ...rest } = updateCardDto;
     const targetListId = listId || card.listId;
+    const normalizedDeadline = deadline
+      ? this.normalizeDeadline(deadline)
+      : null;
 
     // If moving to another list, validate target list exists
     if (listId && listId !== card.listId) {
@@ -205,7 +244,7 @@ export class CardsService {
 
     // Handle deadline
     if (deadline !== undefined) {
-      card.deadline = deadline ? new Date(deadline) : null;
+      card.deadline = normalizedDeadline;
     }
 
     if (rest.assigneeId !== undefined && rest.assigneeId !== null) {
@@ -246,10 +285,12 @@ export class CardsService {
           entityTitle: updatedCard.title,
           details: {
             field: 'deadline',
-            deadline: deadline || null,
+            deadline: normalizedDeadline?.toISOString() || null,
           },
           content: deadline
-            ? `Đặt hạn chót "${updatedCard.title}" → ${new Date(deadline).toLocaleDateString('vi-VN')}`
+            ? `Đặt hạn chót "${updatedCard.title}" → ${normalizedDeadline?.toLocaleDateString('vi-VN', {
+                timeZone: DEADLINE_TIMEZONE,
+              })}`
             : `Xóa hạn chót "${updatedCard.title}"`,
         })
         .catch((err) => console.error('Failed to log deadline change:', err));

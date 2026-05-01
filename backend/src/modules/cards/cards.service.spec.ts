@@ -86,12 +86,7 @@ describe('CardsService', () => {
       list: { boardId: 'board-1' },
       listId: 'list-1',
     } as Card);
-    cardRepository.create.mockReturnValue({
-      title: 'Task 1',
-      listId: 'list-1',
-      position: 65535,
-      assigneeId: null,
-    });
+    cardRepository.create.mockImplementation((payload) => payload);
     cardRepository.save.mockResolvedValue({
       id: 'card-1',
       title: 'Task 1',
@@ -101,6 +96,7 @@ describe('CardsService', () => {
       {
         title: 'Task 1',
         listId: 'list-1',
+        deadline: '2026-04-30T00:00:00.000Z',
       } as never,
       'user-1',
     );
@@ -111,6 +107,58 @@ describe('CardsService', () => {
       result,
     );
     expect(activitiesService.createLog).toHaveBeenCalled();
+    expect(cardRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deadline: new Date('2026-04-30T16:59:59.999Z'),
+      }),
+    );
+    expect(
+      (cardRepository.create.mock.calls[0][0].deadline as Date).toISOString(),
+    ).toBe('2026-04-30T16:59:59.999Z');
+  });
+
+  it('normalizes deadline to end of day when updating a card', async () => {
+    cardRepository.findOne
+      .mockResolvedValueOnce({
+        id: 'card-1',
+        title: 'Task 1',
+        listId: 'list-1',
+        list: { boardId: 'board-1' },
+        members: [],
+      } as unknown as Card)
+      .mockResolvedValueOnce({
+        id: 'card-1',
+        title: 'Task 1',
+        listId: 'list-1',
+        list: { boardId: 'board-1' },
+        members: [],
+      } as unknown as Card);
+
+    cardRepository.save.mockResolvedValue({
+      id: 'card-1',
+      title: 'Task 1',
+      listId: 'list-1',
+      list: { boardId: 'board-1' },
+    } as Card);
+
+    await service.update(
+      'card-1',
+      {
+        deadline: '2026-04-30T00:00:00.000Z',
+      } as never,
+      'user-1',
+    );
+
+    expect(
+      (cardRepository.save.mock.calls[0][0].deadline as Date).toISOString(),
+    ).toBe('2026-04-30T16:59:59.999Z');
+    expect(activitiesService.createLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          deadline: '2026-04-30T16:59:59.999Z',
+        }),
+      }),
+    );
   });
 
   it('removes a card and emits deletion event', async () => {
