@@ -218,11 +218,41 @@ export function CardModal() {
     }) => {
       if (!id) return;
 
+      const mergeUpdatedCard = (updatedCard: any) => {
+        if (!setLists) return;
+
+        setLists((prev) =>
+          prev.map((list) => ({
+            ...list,
+            cards: list.cards.map((card) =>
+              card.id === updatedCard.id
+                ? {
+                    ...card,
+                    ...updatedCard,
+                    members: updatedCard.members?.length
+                      ? updatedCard.members
+                      : updatedCard.assignee
+                        ? [updatedCard.assignee]
+                        : [],
+                  }
+                : card,
+            ),
+          })),
+        );
+      };
+
       // Update DB
       if ('deadline' in updates || 'isArchived' in updates || 'title' in updates || 'description' in updates || 'assigneeId' in updates) {
         // Strip out 'assignee' object when sending to backend
         const { assignee, ...payload } = updates;
-        updateCardApi.mutate({ id, payload: payload as any });
+        updateCardApi.mutate(
+          { id, payload: payload as any },
+          {
+            onSuccess: (updatedCard) => {
+              mergeUpdatedCard(updatedCard);
+            },
+          },
+        );
       }
 
       // Optimistic update (only when board context is available)
