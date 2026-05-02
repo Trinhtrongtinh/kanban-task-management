@@ -2,6 +2,9 @@
 
 Kanban là một ứng dụng quản lý công việc dạng Kanban được xây dựng theo mô hình monorepo, gồm backend NestJS và frontend Next.js. Dự án tập trung vào các luồng cốt lõi như xác thực, workspace/board/list/card, kéo thả thẻ, thông báo thời gian thực, tải tệp đính kèm và thanh toán Stripe.
 
+#Link website
+http://kanbanmanagement.duckdns.org/login
+
 ## Mục Tiêu Dự Án
 
 - Sản phẩm full-stack đủ rõ để mang đi phỏng vấn CV fresher/intern.
